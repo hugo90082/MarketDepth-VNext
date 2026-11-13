@@ -282,3 +282,34 @@ func dayCounts(ctx context.Context, db *sql.DB) (map[model.Kind]int, error) {
 
 // used by the local catalog and future archive manifest verification.
 func validSHA(s string) bool { return len(s) == 64 && strings.Trim(s, "0123456789abcdef") == "" }
+
+// RangeVersion is a bounded optimistic read barrier for multi-kind export.
+// No long-running database transaction or writer lock is held while streaming.
+// Compare the token before and after export; a changed selected range must not
+// receive a complete manifest. Future writes outside the range do not matter.
+func (j *Journal) RangeVersion(ctx context.Context, kinds []model.Kind, from, to int64) (string, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if len(kinds) == 0 || len(kinds) > 3 {
+		return "", errors.New("invalid export kinds")
+	}
+	if e := j.ready(ctx); e != nil {
+		return "", e
+	}
+	token := j.generation
+	seen := map[model.Kind]bool{}
+	for _, k := range kinds {
+		q := Query{Kind: k, From: from, To: to, Limit: 1}
+		if !validQuery(q) || seen[k] {
+			return "", errors.New("invalid export range")
+		}
+		seen[k] = true
+		where, args := rangeWhere(q)
+		var seq int64
+		if e := j.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(c.seq),0) FROM journal_change c WHERE `+where, args...).Scan(&seq); e != nil {
+			return "", e
+		}
+		token += fmt.Sprintf(":%s:%d", k, seq)
+	}
+	return token, nil
+}

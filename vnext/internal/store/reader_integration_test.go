@@ -116,3 +116,43 @@ func TestDurableHistoryRepairInvalidatesCursor(t *testing.T) {
 		t.Fatal(p, e)
 	}
 }
+
+func TestMultiKindRangeVersion(t *testing.T) {
+	ctx := context.Background()
+	r := liveRows()[0].(model.SpotRow)
+	now := time.UnixMilli(r.T + 180000)
+	m, e := newManager(filepath.Join(t.TempDir(), "live"), SQLiteOpener, func() time.Time { return now }, 5*time.Minute)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer m.Close()
+	j, e := m.OpenCatalog(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer j.Close()
+	ks := []model.Kind{model.Spot, model.F1}
+	get := func() string {
+		v, e := j.RangeVersion(ctx, ks, r.T, r.T+60000)
+		if e != nil {
+			t.Fatal(e)
+		}
+		return v
+	}
+	a := get()
+	outside := r
+	outside.T += 60000
+	outside.AvailableAt = model.Ptr(outside.T + 1000)
+	if e = j.Put(ctx, []model.Row{outside}); e != nil {
+		t.Fatal(e)
+	}
+	if get() != a {
+		t.Fatal("outside write changed export token")
+	}
+	if e = j.Put(ctx, []model.Row{r}); e != nil {
+		t.Fatal(e)
+	}
+	if get() == a {
+		t.Fatal("inside write failed to change export token")
+	}
+}

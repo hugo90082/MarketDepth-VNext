@@ -164,6 +164,19 @@ func (c *Collector) Finalize(t int64) ([]model.Row, error) {
 				}
 				r = missingMinute(a, mt, at, reason)
 			}
+			// Receipt is evidence, not the publication time of the scheduled row.
+			// Preserve the original receipt in quality; available_at is the actual
+			// finalization time, just like the other rows in this batch.
+			if ok && !c.conflicts[k] {
+				var quality map[string]any
+				if r.Quality == nil || json.Unmarshal([]byte(*r.Quality), &quality) != nil || quality == nil || r.AvailableAt == nil || *r.AvailableAt > at {
+					return nil, errors.New("invalid admitted kline or clock regression")
+				}
+				quality["received_at"] = *r.AvailableAt
+				b, _ := json.Marshal(quality)
+				r.Quality = model.Ptr(string(b))
+				r.AvailableAt = model.Ptr(at)
+			}
 			rows = append(rows, r)
 			delete(c.minutes, k)
 			delete(c.conflicts, k)

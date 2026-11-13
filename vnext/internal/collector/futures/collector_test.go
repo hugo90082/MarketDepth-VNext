@@ -1,6 +1,7 @@
 package futures
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -34,6 +35,15 @@ func TestCollectorSixRowsAndAdmission(t *testing.T) {
 	rows, e := c.Finalize(first)
 	if e != nil || len(rows) != 6 {
 		t.Fatal(rows, e)
+	}
+	if *rows[3].Base().AvailableAt != now.UnixMilli() {
+		t.Fatal("closed kline published before scheduled finalization")
+	}
+	var q struct {
+		ReceivedAt int64 `json:"received_at"`
+	}
+	if e = json.Unmarshal([]byte(*rows[3].Base().Quality), &q); e != nil || q.ReceivedAt != first+10001 {
+		t.Fatal(q, e)
 	}
 	if rows[0].Base().Status != "ok" || rows[1].Base().Status != "missing" || rows[3].Kind() != model.F1 || rows[3].Base().Status != "ok" || rows[4].Base().Status != "missing" {
 		t.Fatal(rows)

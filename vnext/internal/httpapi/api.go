@@ -85,7 +85,7 @@ func (a API) Handler() http.Handler {
 	if _, mock := a.Reader.(*store.Mock); a.Live == mock {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fail(w, 503, "UNAVAILABLE", "reader mode mismatch") })
 	}
-	historySlots := make(chan struct{}, 2)
+	readSlots := make(chan struct{}, 2)
 	exportSlots := make(chan struct{}, 1)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v2/meta", func(w http.ResponseWriter, r *http.Request) {
@@ -145,13 +145,6 @@ func (a API) Handler() http.Handler {
 		asset, venue := q.Get("asset"), q.Get("venue")
 		if !b || !k.Valid() || l < 1 || l > 2000 || (asset != "" && !model.AssetOK(asset)) || (venue != "" && (k != model.Spot || !model.VenueOK(venue))) {
 			fail(w, 400, "BAD_QUERY", "invalid range, kind, limit or filter")
-			return
-		}
-		select {
-		case historySlots <- struct{}{}:
-			defer func() { <-historySlots }()
-		default:
-			limited(w, "2")
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
@@ -221,7 +214,21 @@ func (a API) Handler() http.Handler {
 			fail(w, 501, "MOCK_NOT_IMPLEMENTED", "production authentication is Phase 3")
 		})
 	}
-	var next http.Handler = mux
+	// Bound all catalog-locking read routes together, not just history. A burst
+	// of authenticated sync/latest/days requests must not spawn unlimited waiters.
+	var next http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v2/history", "/api/v2/latest", "/api/v2/sync", "/api/v2/days":
+			select {
+			case readSlots <- struct{}{}:
+				defer func() { <-readSlots }()
+			default:
+				limited(w, "2")
+				return
+			}
+		}
+		mux.ServeHTTP(w, r)
+	})
 	if a.Live {
 		next = a.Auth.wrap(next)
 	}
@@ -244,6 +251,28 @@ func (a API) export(w http.ResponseWriter, r *http.Request) {
 	if !b || !kok || (format != "" && format != "jsonl.gz") {
 		fail(w, 400, "BAD_QUERY", "invalid range, kinds or format")
 		return
+	}
+	// Per-kind page cursors alone cannot detect a correction to a kind
+	// already streamed while the next kind is being read. Require a shared
+	// optimistic range barrier in live mode.
+	type versioned interface {
+		RangeVersion(context.Context, []model.Kind, int64, int64) (string, error)
+	}
+	var vr versioned
+	var version string
+	if a.Live {
+		var ok bool
+		vr, ok = a.Reader.(versioned)
+		if !ok {
+			fail(w, 503, "DATA_UNAVAILABLE", "export consistency unavailable")
+			return
+		}
+		var e error
+		version, e = vr.RangeVersion(r.Context(), ks, f, t)
+		if e != nil {
+			errReply(w, e)
+			return
+		}
 	}
 	w.Header().Set("Content-Type", "application/gzip")
 	name := "marketdepth-fixture.jsonl.gz"
@@ -276,6 +305,12 @@ func (a API) export(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			c = p.Next
+		}
+	}
+	if vr != nil {
+		end, e := vr.RangeVersion(r.Context(), ks, f, t)
+		if e != nil || end != version {
+			return
 		}
 	}
 	_ = enc.Encode(map[string]any{"type": "manifest", "complete": true, "mock": !a.Live, "contract_id": model.Contract, "row_counts": counts, "gaps": gaps})

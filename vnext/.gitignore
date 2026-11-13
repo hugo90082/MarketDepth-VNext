@@ -5,3 +5,11 @@
 .env
 *.pem
 *.key
+
+/marketdepth-staging
+/spotprobe
+/futuresprobe
+catalog.db*
+*.sqlite.gz
+.marketdepth-vnext-staging
+*.oauth.json
