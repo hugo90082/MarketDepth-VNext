@@ -25,6 +25,9 @@ CREATE TABLE candidate(
  PRIMARY KEY(source_sha,line_no,adapter,kind,t,venue,asset)
 ) WITHOUT ROWID;
 CREATE INDEX candidate_key ON candidate(kind,t,venue,asset,row_sha);
+CREATE TABLE fixture_run(source_sha TEXT PRIMARY KEY, expected INTEGER NOT NULL, state TEXT NOT NULL) WITHOUT ROWID;
+CREATE TABLE fixture_audit(source_sha TEXT NOT NULL, line_no INTEGER NOT NULL, raw_sha TEXT NOT NULL,
+ outcome TEXT NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(source_sha,line_no)) WITHOUT ROWID;
 `
 
 // Ledger is an offline candidate-only database. It never opens a live daily
