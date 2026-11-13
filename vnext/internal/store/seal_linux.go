@@ -33,11 +33,7 @@ func (j *Journal) SealDay(ctx context.Context, day, producer string) (SealInfo, 
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	var out SealInfo
-	if b, e := j.pending(ctx); e != nil {
-		return out, e
-	} else if b != nil {
-		return out, ErrPendingWrite
-	}
+	if e:=j.ready(ctx);e!=nil{return out,e}
 	target, ok := j.target.(journalSealer)
 	if !ok {
 		return out, errors.New("journal target cannot seal")

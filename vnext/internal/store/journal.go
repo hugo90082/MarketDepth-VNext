@@ -87,6 +87,7 @@ func OpenJournal(ctx context.Context, db *sql.DB, target JournalTarget) (*Journa
 		`CREATE TABLE IF NOT EXISTS journal_change(seq INTEGER PRIMARY KEY AUTOINCREMENT,kind TEXT NOT NULL,t INTEGER NOT NULL,venue TEXT NOT NULL,asset TEXT NOT NULL,revision INTEGER NOT NULL,hash TEXT NOT NULL,UNIQUE(kind,t,venue,asset,revision))`,
 		`CREATE INDEX IF NOT EXISTS journal_kind_seq ON journal_change(kind,seq)`,
 		`CREATE TABLE IF NOT EXISTS journal_archive_pending(id INTEGER PRIMARY KEY CHECK(id=1),payload BLOB NOT NULL)`,
+		`CREATE TABLE IF NOT EXISTS journal_loss(day TEXT PRIMARY KEY,from_t INTEGER NOT NULL,to_t INTEGER NOT NULL,record_json BLOB NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','removed')),completed_at INTEGER) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_active(day TEXT PRIMARY KEY,current_json BLOB NOT NULL,previous_json BLOB,verified_at INTEGER NOT NULL) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_archive(day TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>=1),record_json BLOB NOT NULL,verified_at INTEGER NOT NULL,PRIMARY KEY(day,revision)) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_repair(kind TEXT NOT NULL,t INTEGER NOT NULL,venue TEXT NOT NULL,asset TEXT NOT NULL,new_revision INTEGER NOT NULL,old_row BLOB NOT NULL,new_hash TEXT NOT NULL,PRIMARY KEY(kind,t,venue,asset,new_revision)) WITHOUT ROWID`,
@@ -217,11 +218,7 @@ func (j *Journal) Put(ctx context.Context, rows []model.Row) error {
 	if e != nil {
 		return e
 	}
-	if p, e := j.pending(ctx); e != nil {
-		return e
-	} else if p != nil {
-		return ErrPendingWrite
-	}
+	if e = j.ready(ctx); e != nil {return e}
 	// Decode a private copy to avoid pointer mutation by caller after intent.
 	owned, e := decodeJournalPayload(b)
 	if e != nil {
@@ -443,11 +440,7 @@ func (j *Journal) planSyncLocked(ctx context.Context, k model.Kind, s string) (P
 	if !k.Valid() {
 		return p, nil, "", errors.New("invalid kind")
 	}
-	if b, e := j.pending(ctx); e != nil {
-		return p, nil, "", e
-	} else if b != nil {
-		return p, nil, "", ErrPendingWrite
-	}
+	if e:=j.ready(ctx);e!=nil{return p,nil,"",e}
 	c := cursor{Generation: j.generation, Kind: k, Mode: "durable-sync"}
 	var seq int64
 	if s != "" {

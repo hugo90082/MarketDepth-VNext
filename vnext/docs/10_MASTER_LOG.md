@@ -236,3 +236,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - MeasureAllocated 對掃描中受控 scratch 消失的 ENOENT 不再誤判磁碟故障；root 消失/其他錯誤仍拒絕。加隔離整合測試驗證最新日保護、下一日收集後回收、遠端 History 還原。新提交需 CI 驗證。接下來做 tombstone 與索引縮減；仍非完整 1GB 強制回收。
 
 - 立即修正新回收 fixture 的 CapturedAt 為 nullable pointer，避免編譯錯誤。完整 CI 以修正後版本為準。
+
+## 2026-11-14｜Phase 4 無備份完整日之永久缺口 ledger 與 crash recovery
+- 新增 journal_loss（本機 catalog，不改日庫 MD-VNEXT-1 schema），先 FULL synchronous 持久化 prepared record：日、起訖、各表筆數、revision、logical SHA256、archive state、reason、recorded_at；僅無任何已登錄 sealed/active backup、無 pending、已封存且非 active/grace 的日可進入。另核對 local / catalog 最新指標筆數。未核對的 active snapshot 不可當作全日永久遺失，直接拒絕此路徑。
+- 新增明確未排程 EvictUnbackedDay；prepared 後刪安全 checkpointed sidecars/日檔、fsync root，再 transaction 標 removed、刪該日 journal_change、更新 generation。journal_repair 保留。prepared 時停讀寫；重啟 RecoverLoss 若 DB 仍在且 digest 一致則取消未完成嘗試（不自動刪），若 DB 已無且無 sidecar 則完成 ledger/游標失效；其他狀態停住。History gap 標 permanent_loss，Days state 同名，Sync 舊游標 409，未假造資料。尚未接自動強制刪除；有 active backup 的部分恢復及 ledger 遠端同步仍待做。新測試用隔離 fixture 模擬 unlink 前/後 crash。CI 待驗證；未刪任何真資料，未操作 AWS 或真 Drive。

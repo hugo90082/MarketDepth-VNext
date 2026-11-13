@@ -33,6 +33,9 @@ func (j *Journal) ready(ctx context.Context) error {
 	if b != nil {
 		return ErrPendingWrite
 	}
+	var n int
+	if e=j.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM journal_loss WHERE state='prepared'").Scan(&n);e!=nil{return e}
+	if n!=0{return ErrPendingLoss}
 	return nil
 }
 func validQuery(q Query) bool {
@@ -215,7 +218,9 @@ func (j *Journal) gridGaps(ctx context.Context, q Query) ([]Gap, error) {
 	if e = add(first, q.To); e != nil {
 		return nil, e
 	}
-	return out, nil
+	// Close the row cursor before reading the ledger on the single DB connection.
+	if e=rs.Close();e!=nil{return nil,e}
+	return j.annotateLossGaps(ctx,q.From,q.To,out)
 }
 func (j *Journal) Latest(ctx context.Context, k model.Kind) ([]model.Row, error) {
 	j.mu.Lock()
@@ -261,7 +266,17 @@ func (j *Journal) Days(ctx context.Context, from, to string) ([]Day, error) {
 	if !ok {
 		return nil, errors.New("local day catalog unavailable")
 	}
-	return target.localDays(ctx, from, to)
+	days,e:=target.localDays(ctx,from,to)
+	if e!=nil{return nil,e}
+	for i:=range days{
+		loss,e:=j.lossRecordLocked(ctx,days[i].Day)
+		if errors.Is(e,sql.ErrNoRows){continue}
+		if e!=nil{return nil,e}
+		if loss.State!="removed"||days[i].State!="missing"{return nil,ErrUnavailable}
+		days[i].State="permanent_loss"
+		days[i].Gaps=[]Gap{{loss.Record.From,loss.Record.To,"permanent_loss"}}
+	}
+	return days,nil
 }
 func dayRange(from, to string) (time.Time, time.Time, error) {
 	loc := time.FixedZone("UTC+8", 8*3600)

@@ -227,6 +227,7 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 		return e
 	}
 	defer j.Close()
+	if e = j.RecoverLoss(ctx); e != nil { return e }
 	if e = j.Recover(ctx); e != nil {
 		return e
 	}
