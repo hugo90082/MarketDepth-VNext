@@ -48,7 +48,13 @@ func(l *Ledger)MapVerifiedFixture(ctx context.Context,s *RawStage)(FixtureSummar
  var out FixtureSummary
  if s==nil{return out,errors.New("verified stage required")}
  out.Records=s.report.Records
- if _,e:=l.db.ExecContext(ctx,"INSERT INTO fixture_run VALUES(?,?,'building')",s.report.CompressedSHA,out.Records);e!=nil{return out,e}
+ start,e:=l.db.BeginTx(ctx,nil);if e!=nil{return out,e}
+ defer start.Rollback()
+ var existing int64
+ if e=start.QueryRowContext(ctx,"SELECT count(*) FROM candidate WHERE source_sha=?",s.report.CompressedSHA).Scan(&existing);e!=nil{return out,e}
+ if existing!=0{return out,errors.New("source already has candidate rows")}
+ if _,e=start.ExecContext(ctx,"INSERT INTO fixture_run VALUES(?,?,'building')",s.report.CompressedSHA,out.Records);e!=nil{return out,e}
+ if e=start.Commit();e!=nil{return out,e}
  for line:=int64(1);line<=out.Records;line++{
   if e:=ctx.Err();e!=nil{return out,e}
   ev,raw,e:=s.Line(ctx,line,FixtureAdapter);if e!=nil{return out,e}
@@ -70,6 +76,10 @@ func(l *Ledger)MapVerifiedFixture(ctx context.Context,s *RawStage)(FixtureSummar
  if e=tx.QueryRowContext(ctx,`SELECT count(*),coalesce(sum(outcome='accepted'),0),coalesce(sum(outcome='quarantined'),0)
  FROM fixture_audit WHERE source_sha=?`,s.report.CompressedSHA).Scan(&count,&accepted,&quarantined);e!=nil{return out,e}
  if count!=out.Records||accepted!=out.Accepted||quarantined!=out.Quarantined||accepted+quarantined!=count{return out,errors.New("fixture audit count mismatch")}
+ var candidateCount,matched int64
+ if e=tx.QueryRowContext(ctx,"SELECT count(*) FROM candidate WHERE source_sha=?",s.report.CompressedSHA).Scan(&candidateCount);e!=nil{return out,e}
+ if e=tx.QueryRowContext(ctx,`SELECT count(*) FROM candidate c JOIN fixture_audit a USING(source_sha,line_no) WHERE c.source_sha=? AND c.raw_sha=a.raw_sha AND c.adapter=? AND a.outcome='accepted'`,s.report.CompressedSHA,FixtureAdapter).Scan(&matched);e!=nil{return out,e}
+ if candidateCount!=accepted||matched!=accepted{return out,errors.New("candidate audit mismatch")}
  if _,e=tx.ExecContext(ctx,"UPDATE fixture_run SET state='complete' WHERE source_sha=? AND state='building'",s.report.CompressedSHA);e!=nil{return out,e}
  if e=tx.Commit();e!=nil{return out,e}
  return out,nil
