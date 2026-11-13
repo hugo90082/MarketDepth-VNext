@@ -1,9 +1,9 @@
 name: Backend CI (no deployment)
 on:
   push:
-    branches: [develop]
+    branches: [main]
   pull_request:
-    branches: [develop, main]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read

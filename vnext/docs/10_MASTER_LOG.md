@@ -103,3 +103,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 新增 bounded 單消費者寫入 queue（容量 1–64，probe 暫定 8；工程預設），滿時明確回錯、複製 row、防 typed nil、close drain，ack 僅於 commit 完成。新增現貨狀態轉換 events（missing/partial/recovered），跟新 row 同一 SQLite transaction，同值 retry 不重複，衝突/失敗 rollback。離線 go test/race/vet 通過；本輪真 driver/tagged CI 尚待新 commit 驗證。注意前一輪 probe 尚未含本輪 queue/events；跨日首筆事件狀態不延續前日，仍需持久 catalog 設計。
 - AWS Sydney 唯讀 SSM DescribeInstanceInformation 無 managed node；沒有取得 SSH、沒有更改 VM 或部署。容器直接外連不可用。最終 Phase 2 真實 Binance 驗收、長時間/512MB/舊版對照仍未通過，待隔離 Sydney 可用執行環境。不得改正式服務、不得為測試擅購資源。其他離線開發不受此限制。
 - 未完成：durable catalog/outbox、持久修正/游標、seal/1GB coordination、跨日狀態/恢復、正式 collector 排程/資源驗收、Phase 3 futures/正式 API；Phase 2 未 freeze，C 未交付。主控維持 develop 主線，main 舊初始 README 未改；無舊 GitHub/AWS 正式環境/Drive/歷史資料變更。Drive OAuth 與新版歷史依既定階段再處理。
+
+## 2026-11-13｜主線收斂（使用者決議）
+- 新私人 Repo 以 main 為唯一長期主線；develop 最新 65ba74857b641e9536fd0fbc6b423a3d22c7e1c7 的 CI run 43435403411 已完成 success。保留 QA commit d095413acdc4662cfb15dfdb293562334dded747 的祖先關係與手動 probe workflow，不再建立常駐 QA 分支。合併不改任何舊版 Repo、AWS 或正式部署。CI 改只在 main push / PR 及手動觸發；probe 改手動觸發。
+- Binance 繼續沿用 Railway REST5000 + 1000ms Diff、750bps 觀測覆蓋與可信覆蓋分開的原則，不因 runner 451 改交易所或降深度。實際 Sydney 覆蓋與 RAM 驗收仍未通過；使用者認同既有邏輯，非豁免實測。

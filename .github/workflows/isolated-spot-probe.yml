@@ -1,0 +1,48 @@
+name: Isolated spot probe (public feeds only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: vnext
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Build isolated probe
+        run: |
+          go mod download
+          go mod verify
+          go build -tags live_ws,sqlite_integration -o /tmp/md-spotprobe ./cmd/spotprobe
+      - name: Sample two minutes and audit SQLite
+        shell: bash
+        run: |
+          set -euo pipefail
+          d="$(mktemp -d)"
+          timeout 180s /tmp/md-spotprobe --data-dir "$d/data" --minutes 2 > "$d/rows.jsonl"
+          python3 - "$d" <<'PY'
+          import sys, pathlib, json, sqlite3, collections
+          d=pathlib.Path(sys.argv[1])
+          rows=[json.loads(x) for x in (d/'rows.jsonl').read_text().splitlines()]
+          assert len(rows)==24
+          expected={(v,a) for v in ['binance','coinbase','kraken','bitfinex'] for a in ['BTC','ETH','SOL']}
+          for t in {r['t'] for r in rows}:
+              assert {(r['venue'],r['asset']) for r in rows if r['t']==t}==expected
+          count=0
+          for f in sorted((d/'data').glob('*.sqlite')):
+              with sqlite3.connect(f) as c:
+                  assert c.execute('pragma quick_check').fetchone()==('ok',)
+                  count+=c.execute('select count(*) from spot_depth').fetchone()[0]
+          assert count==24,(count,24)
+          for r in rows:
+              q=json.loads(r['quality_json'] or '{}')
+              print(json.dumps({'t':r['t'],'venue':r['venue'],'asset':r['asset'],'status':r['status'],'observed_bid':r['observed_bid_bps'],'observed_ask':r['observed_ask_bps'],'trusted_bid':r['trusted_bid_bps'],'trusted_ask':r['trusted_ask_bps'],'outer_bid_valid':r['bid_500_750'] is not None,'outer_ask_valid':r['ask_500_750'] is not None,'capture_offset_ms':None if r['captured_at'] is None else r['captured_at']-r['t'],'available_offset_ms':r['available_at']-r['t'],'reason':q.get('reason'),'failures':q.get('source_failures')},ensure_ascii=False))
+          print('SQLITE_COUNT',count,'STATUS_COUNTS',dict(collections.Counter(r['status'] for r in rows)))
+          PY
