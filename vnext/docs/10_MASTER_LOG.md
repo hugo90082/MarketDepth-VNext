@@ -366,3 +366,11 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 新增 fixture adapter（7e2398e）：僅明示 normalized kind/row envelope，從已驗原始 bytes 轉換，不接受 caller 自行捏造的候選。Python-to-Go 整合測試（6290475）涵蓋原始 bytes、重複 occurrence、錯 hash/marker/竄改拒絕；raw stage 增 occurrence SHA index（a188c4a）。fixture 格式不代表真來源 mapping 已批准。
 - 新增 fixture_run/fixture_audit（231cf70）及整批逐行 mapping（4eef8f7）：每一行 accepted/quarantined、原始 hash、原因；存取/證據錯誤中止，保留 building 狀態；批次重跑拒絕。測試三行中兩筆合法、一筆不支援 F10（ade94de），另加完成前候選與 audit 精確筆數/證據核對（8b3b8a4）。不選 canonical winner、不寫日庫、不發布。CI 43484551711 已啟動，最後修正仍待新 CI；不能先宣稱測試通過。
 - 下一步：確認上述 CI，實作 fixture 唯讀 canonical plan（衝突/隔離列顯式阻擋）、獨立日庫生成與 schema/內容核對；真歷史來源欄位及可用時間尚待新檔確認，不能把 fixture 當真來源。單一 source mapping run 不自動續傳，未量測大檔磁碟或 per-row transaction 吞吐。無正式服務、AWS、Drive、OAuth 或歷史資料寫入。
+
+## 2026-11-14｜Phase 5 第五輪：候選計畫與隔離日庫生成
+- 前輪原始證據及逐行稽核最後修正 CI 43484595982 / job 132089574304 completed success；主控 commit 971b833 的 CI 43484629550 亦 success。前輪 candidate ledger、Python-to-Go、逐行 quarantine/audit、精確候選與 audit counts 取得回歸證據。
+- 新增 fixture_plan_sqlite.go（666f364）：單來源 completed fixture run、每一行 accepted、audit/candidate count 與 evidence 完全相符；以 readonly transaction 按 day/kind/key 排序，逐列重新讀已驗原始 stage、重跑 adapter、比對 provenance/typed key/canonical JSON/hash。相同 key 完全相同候選才去重；任一 conflict、quarantine、building、tamper 皆阻擋。無自動衝突 winner 或真來源 mapping 核准。
+- 新增 store/legacy_fixture_sqlite.go（e03926c）：只新建 fixture-YYYY-MM-DD.sqlite，原 MD-VNEXT-1 schema、既有 rowValues/readRow、逐列 SQL roundtrip、NULL/0/64-bit ID、UTC+8、quick_check、筆數；僅 legacy:fixture-v1 / legacy_unknown / available_at=NULL，無 F10、無 sealed_at、無 producer_commit，明確 fixture_only=true。未改既有 live writer 或資料契約。
+- 新增 GenerateFixtureDays（9275bf9）：先全來源 preflight，再第二次驗證串流按日寫入，單日 transaction，僅新目錄，失敗保留 .fixture-days-building；無自動重跑覆蓋。新增 fixture-manifest.json（75e044a），source SHA、總數/去重數、每個日檔名、bytes、SHA256；工程預設最多10000日，manifest/dir fsync 後才移除 marker。僅離線 fixture，不是真正式封存或 capacity gate。
+- 跨日測試（f1c2620、ed3e8fa）：4 occurrences、3 unique keys、2日、NULL/0、大整數、不造10s、不封存、manifest 對實際 bytes、conflict/quarantine/tamper/incomplete preflight 阻擋與不可覆寫。最新 CI 43485154023 queued，尚未取得新測試通過證據。
+- 下一步：核對 CI、獨立日庫/manifest 唯讀驗證器、真來源 adapter 檔案到手再確認，legacy/mixed archive provenance 與正式重疊治理；不得將 fixture 發布到 Drive 或當成正式歷史。未量測大型來源、未實作 resume、多來源選擇、正式 seal/catalog/Drive 整合；無真資料、AWS、OAuth 或正式環境操作。
