@@ -80,4 +80,15 @@ func TestPartialLossKeepsExactActiveRowsAndRejectsStaleRepair(t *testing.T){
  if state,e:=r.SyncLossCycle(ctx);e!=nil||state!="idle"{t.Fatal(state,e)}
  if len(remote.objects)!=3{t.Fatal("partial loss ledger not published once")}
  if e=j.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_loss_sync WHERE day=?",day).Scan(&n);e!=nil||n!=1{t.Fatal(n,e)}
+ // A lost host can rebuild partial history using only the remote ledger
+ // and original active snapshot; no prior catalog or per-row pointers.
+ rm,rj:=freshRecovery(t,ctx,filepath.Join(t.TempDir(),"rebuild"),now);defer rm.Close();defer rj.Close()
+ allow:=func(context.Context,int64)(func(),error){return func(){},nil}
+ result,e:=rj.RebuildVerifiedCatalog(ctx,remote,recoveryCandidates(remote),allow)
+ if e!=nil||result.PartialLossDays!=1{t.Fatal(result,e)}
+ rc,e:=NewArchiveReadCache(rm,remote,allow);if e!=nil{t.Fatal(e)}
+ rr,e:=NewArchiveReader(rj,rc);if e!=nil{t.Fatal(e)}
+ q=Query{Kind:model.Spot,From:spot.T,To:extra.T+60000,Asset:spot.Asset,Venue:spot.Venue,Limit:10}
+ page,e=rr.History(ctx,q);if e!=nil||len(page.Rows)!=1||len(page.Gaps)!=1||page.Gaps[0].Reason!="permanent_loss"{t.Fatal(page,e)}
+
 }

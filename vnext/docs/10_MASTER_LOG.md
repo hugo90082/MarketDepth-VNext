@@ -314,3 +314,6 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 
 ### Phase 4 實際重建新 catalog（尚未部署）
 - RebuildVerifiedCatalog 僅新空 catalog/無 daily files；先 Inspect metadata，持久化 recovery_state=building，逐 sealed revision/partial active/snapshot-only 完整遠端 gzip+raw hash/SQLite 驗證，再逐筆建立 exact bitmap；每日期 transaction 寫 compact/loss/recovered_active，loss ledger 已同步 identity 保留。全部 quick_check 後標 complete。中途中斷 building 狀態禁止讀寫/重啟，不覆寫既有日檔；尚不做自動 resume。CanCollectDay 阻擋恢復同日的未經核准混合寫入。僅 snapshot-only day 不宣告永久遺失；舊 sealed revision 也保留 download catalog。待 CI 及隔離重建 integration fixture。原資料未修改。
+
+### Phase 4 災難重建整合測試
+- 真 SQLite source 建立 sealed + active，mock Drive 保存後用新空 root 重建、關閉重啟，檢查跨日分頁、Days、舊 revision、禁止同日重疊、Latest 不將歷史當即時；改壞 active gzip 後重建必須失敗且 building catalog 不可讀/重啟。partial loss fixture 延伸以遠端 ledger+active 重建，精確 gap 仍可讀。待 CI。Drive discovery / metadata CI 43479383472 / 43479530552 success；高壓 startup 43479228387 success。無真實資料操作。
