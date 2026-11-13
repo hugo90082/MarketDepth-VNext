@@ -341,3 +341,8 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 重新讀取 Phase 0 review、schema、go.mod、staging CLI 與 recovery guide。發現 vnext/README.md 仍描述 Phase 1/2 mock-only、driver 未通過，與現有隔離程式/CI 不一致；已以 7e67f55a46086257309f7d2521d96352b75dd358 修正入口、build tags、憑證限制及真實驗收門。未改程式或契約。
 - 確認 VNext 為 Binance/Coinbase/Kraken/Bitfinex 60s 五個非重疊區，合約 10s/官方 1m；不得沿用舊研究線 ALL4 成員或 15s 決策配置。Phase 5 可先進行 fixture/import 工具；正式新歷史檔尚未取得，不使用舊研究資料冒充。C 由 Codex，Phase 8 正式切換另行批准。
 - 本次未取得本機 OAuth JSON 或 VM shell；真 Drive、Sydney、正式容量及歷史匯入仍未驗收。未更動正式服務或開啟強制遺失。
+
+## 2026-11-14｜Phase 5 歷史匯入第一輪：原檔唯讀盤點
+- 新增 tools/legacy_inventory.py（6dca1d0）：Python 標準庫，串流 gzip JSONL，原壓縮/解壓 SHA256、大小、筆數、頂層欄位及型別次數；原檔不改。拒絕重複 JSON key、非有限數、非法 UTF-8/JSON、非 object、空檔、gzip 損毀、讀取期間檔案變動。工程預設每行 4MiB、總解壓 20GiB（可明確調整）、512 頂層欄位、64 層深度。僅 inventory_only、mapping_approved=false；不假設舊格式，不寫任何日庫或 Drive。
+- 新增 tests/legacy_inventory_test.py（3e173a7）：合成 fixture，檢查雙 hash、NULL/0 型別、重跑一致、原檔不變、無效 JSON、截斷、限制與多 gzip member；已接 backend-ci（4997cf6），本輪尚未取得新 CI 結果，不宣稱測試已通過。
+- 執行方式：在 vnext 下 python3 tools/legacy_inventory.py <immutable-export.jsonl.gz>。正式新歷史檔仍未取得；下一步 source-specific nested mapping、逐列 audit、隔離 SQLite staging、去重/衝突及原始列保留。禁止將 1m 合成 10s、未知 available_at 保留 NULL；不修改 live schema。未操作正式服務、OAuth、AWS、Drive、歷史資料。
