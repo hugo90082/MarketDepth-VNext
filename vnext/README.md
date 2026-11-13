@@ -1,28 +1,40 @@
-# MarketDepth VNext — Phase 1 開發基礎
-本目錄是獨立 Go module，預定放置於舊 repo 的 `vnext/`，不得覆蓋根目錄程式。當前只提供明確標示的合成資料 mock，不可當正式服務使用。舊版基準 commit: 4d030e3c4dda2c85e5404e96e10b7fd6abed7c9c。
+# MarketDepth VNext｜後端開發與驗收入口
 
-## 執行
-需求 Go 1.23；本階段無第三方 Go 套件。Python 3 用於原始 SQLite 契約檢查。
+目前為 Phase 4 隔離開發候選，非正式部署。唯一權威進度：[10_MASTER_LOG.md](docs/10_MASTER_LOG.md)。固定契約 MD-VNEXT-1，原 SQL 不變。Phase 0 審查及 Phase 1–4 核心程式已建立，真實 Drive、Sydney 和前端仍待驗收；Phase 5 正式歷史檔待提供。
+
+## 可重現建置與測試
+
+需求 Linux、Go 1.23、CGO/C 編譯器（SQLite）、Python 3。從 vnext 目錄：
 
 ```sh
+go mod download
+go mod verify
 go test ./...
 go test -race ./...
 go vet ./...
+go test -tags 'live_ws sqlite_integration secure_auth' ./...
+go build -tags 'live_ws sqlite_integration secure_auth' -o marketdepth-staging ./cmd/marketdepth-staging
 python3 tests/schema_check.py
-go build -o marketdepth-vnext ./cmd/marketdepth
-./marketdepth-vnext --mock --listen 127.0.0.1:18081
+python3 tests/daily_sql_check.py
 ```
-瀏覽 `http://127.0.0.1:18081/api/v2/meta` 或 `/api/v2/latest`。缺少 `--mock` 或使用非 loopback 會直接拒絕啟動。fixture 固定為台灣時間 2026-11-13 00:00 起兩分鐘，不是真實行情。
 
-## 本版邊界
-- `internal/model`：三種型別、可空欄位、基本值域與 live availability 驗證。正式 writer 仍需驗證來源、捕獲窗口、status 品質與提交時間。
-- `internal/store`：讀寫接口、測試用記憶體實作。非 durable、全域版本使歷史游標失效、非安全簽章 cursor，僅限測試，不可用於實盤。未實作 revision 歷史封存、WAL 與 durable journal。
-- `internal/archive`：資料與 manifest 介面，未連接雲端。
-- `internal/httpapi`：模擬 meta/health/latest/days/history/sync/export，auth 及 sealed day 501；無正式認證／限流、無 live feed。`contract/openapi.json` 是開發草稿，回應部分資料型別仍須正式化。
-- `contract/schema.sql` 保持原始 SHA256 不變；fixtures 由測試服務產生。詳細狀態見 `docs/10_MASTER_LOG.md`（打包時同一主控紀錄的快照）及 `docs/HANDOFF_A_INTERFACE.md`。
+完整日容量測試使用額外 capacity_qa tag；以 GitHub Actions 已通過的工作為證據，不等同實際 VM 容量測試。
 
-下一步：完成 Phase 1 遠端隔離版本與介面細化；Phase 2 SQLite 日庫、單 writer、WAL／重啟測試及舊現貨收集模組移植。絕不直接部署至舊 VM。
+## 三種入口
 
-## Phase 2 開發中
+- cmd/marketdepth：僅合成 mock，明示 --mock、numeric loopback。
+- cmd/spotprobe：隔離短期實盤 spot probe，新資料目錄，不能替代正式四所覆蓋驗收。
+- cmd/marketdepth-staging：整合 spot 60s、futures 10s/1m、SQLite、持久 journal、登入 API、可選 Drive 封存及容量管理。僅允許 numeric loopback；需要精確 HTTPS origin、MD_SESSION_KEY_B64 和 MD_PASSWORD_BCRYPT 環境變數。不可把秘密提交 GitHub。--init-staging 僅建立從未存在的絕對路徑；重啟須已有有效 staging marker。
+- 同一 staging binary 的 --recover-catalog：僅 GET 遠端、重建全新隔離 catalog，不啟動收集。見 [RECOVERY_SETUP.md](docs/RECOVERY_SETUP.md)。
 
-離線 SQLite/spot primitive 已加入；不是正式服務。`go test ./...`、`go test -race ./...`、`go vet ./...`、`python tests/schema_check.py`、`python tests/daily_sql_check.py` 為離線測試。真 Go driver 需可下載依賴：`go mod download github.com/mattn/go-sqlite3 && go test -tags sqlite_integration ./internal/store`，目前未通過此驗收（網路阻塞）。詳 `docs/PHASE_2_FIRST_RESULTS.md`。不要部署本版；CLI 仍只提供 loopback mock。
+建置完成不代表可直接部署。正常 staging 需要獨立資料 root、外部 HTTPS reverse proxy、適當私密憑證及隔離驗收環境。Drive namespace 固定 MarketDepth-VNext-staging；憑證必須位於資料 root 外。--allow-capacity-loss 預設 false，正式驗收前不開啟。不得操作既有正式服務或歷史資料。
+
+## 驗收證據與限制
+
+- [後端回歸 43480678745](https://github.com/hugo90082/MarketDepth-VNext/actions/runs/43480678745)：Go checks / SQL contracts 通過。
+- [完整日容量 QA 43480478564](https://github.com/hugo90082/MarketDepth-VNext/actions/runs/43480478564)：每組 47,520 筆合成資料，真 SQLite、mock Drive。不是 512MB VM 或 OS 硬 quota 驗收。
+- 原始四所為 Binance、Coinbase、Kraken、Bitfinex；GitHub runner Binance 曾因連線限制失敗，Sydney 750bps 覆蓋仍待確認。
+- API 契約：[OpenAPI](contract/openapi.json)、[SQL](contract/schema.sql)。早期 fixture/交接草案不等於最終前端接口；C 由 Codex 負責。
+- Phase 5 歷史資料不得捏造 10s、不得將未知 available_at 改成已知，正式映射需取得新原始檔。
+
+Phase 8 正式切換必須在 Phase 7 完整驗收後另行批准。
