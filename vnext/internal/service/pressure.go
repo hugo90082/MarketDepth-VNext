@@ -3,6 +3,8 @@ package service
 import(
  "context"
  "errors"
+ "time"
+ "github.com/hugo90082/MarketDepth-VNext/vnext/internal/archive"
 )
 
 // PressureOperations are isolated reclamation actions, called serially by
@@ -34,4 +36,22 @@ func PressureStep(ctx context.Context,g *CapacityGate,ops PressureOperations,all
  state,e=check();if e!=nil||state!="pressure"{return state,e}
  if !allowLoss{return "loss_disabled",nil}
  return ops.Force(ctx)
+}
+
+// StartupPressure refuses to start feeds unless the measured writer budget
+// is safe. It performs only bounded, demonstrably space-releasing steps;
+// it cannot spin or repeatedly remove days when nothing is reclaimed.
+func StartupPressure(ctx context.Context,g *CapacityGate,ops PressureOperations,allowLoss bool)error{
+ if g==nil{return ErrCapacity}
+ for i:=0;i<16;i++{
+  s,e:=g.Status();if e!=nil{return e}
+  if s.Reserved!=0{return ErrCapacity}
+  if s.Used<archive.HighWater-WriteReserve&&s.Free>=MinRootFree+WriteReserve{return nil}
+  step,cancel:=context.WithTimeout(ctx,20*time.Second)
+  _,e=PressureStep(step,g,ops,allowLoss);cancel()
+  if e!=nil{return e}
+  next,e:=g.Status();if e!=nil{return e}
+  if next.Used>=s.Used&&next.Free<=s.Free{return ErrCapacity}
+ }
+ return ErrCapacity
 }

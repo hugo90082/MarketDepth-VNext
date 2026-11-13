@@ -195,13 +195,16 @@ func archiveLoop(ctx context.Context, w *store.ArchiveWorker, reader *store.Arch
 		}
 	}
 }
-func capacityLoop(ctx context.Context,w *store.ArchiveWorker,r *store.ArchiveReader,g *service.CapacityGate,h *health,allowLoss bool)error{
- ops:=service.PressureOperations{
+func capacityOperations(w *store.ArchiveWorker,r *store.ArchiveReader,g *service.CapacityGate)service.PressureOperations{
+ return service.PressureOperations{
   ClearCache:r.ClearHistoryCache,
   ClearScratch:w.ClearDisposableScratch,
   Verified:func(ctx context.Context)(string,error){return w.PressureVerified(ctx,r)},
   Force:func(ctx context.Context)(string,error){return w.ForceLossCycle(ctx,g.ReserveEmergency,service.LossReserve)},
  }
+}
+func capacityLoop(ctx context.Context,w *store.ArchiveWorker,r *store.ArchiveReader,g *service.CapacityGate,h *health,allowLoss bool)error{
+ ops:=capacityOperations(w,r,g)
  for{
   if e:=ctx.Err();e!=nil{return e}
   // A short bounded remote check; the archive worker's retry/backoff is
@@ -243,7 +246,8 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 	if e != nil {
 		return e
 	}
-	if used >= archive.HighWater-service.WriteReserve || free < service.MinRootFree+service.WriteReserve {
+	// Leave two bounded write reserves for catalog open and reconciliation.
+	if used >= archive.HardLimit-2*service.WriteReserve || free < service.MinRootFree+2*service.WriteReserve {
 		return service.ErrCapacity
 	}
 	j, e := m.OpenCatalog(ctx)
@@ -260,6 +264,33 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 	if e != nil {
 		return e
 	}
+ h := &health{archiveState: "not_connected"}
+	var backup *store.ArchiveWorker
+	var archiveReader *store.ArchiveReader
+	var reader store.Reader = j
+	if credentials != "" {
+		remote, e := stagingDrive(root, credentials, producer)
+		if e != nil {
+			return e
+		}
+		backup, e = store.NewArchiveWorker(m, j, remote, gate.Reserve, producer)
+		if e != nil {
+			return e
+		}
+		cache, e := store.NewArchiveReadCache(m, remote, gate.Reserve)
+		if e != nil { return e }
+		archiveReader, e = store.NewArchiveReader(j, cache)
+		if e != nil { return e }
+		reader = archiveReader
+		h.archiveState = "configured_unverified"
+	}
+ if backup!=nil{
+  if e=service.StartupPressure(ctx,gate,capacityOperations(backup,archiveReader,gate),allowLoss);e!=nil{return e}
+ }else{
+  s,e:=gate.Status();if e!=nil{return e}
+  if s.Used>=archive.HighWater-service.WriteReserve||s.Free<service.MinRootFree+service.WriteReserve{return service.ErrCapacity}
+ }
+
 	guard, e := service.NewWaitingGuardedWriter(j, gate, 60*time.Second)
 	if e != nil {
 		return e
@@ -290,26 +321,7 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 	if e != nil {
 		return e
 	}
-	h := &health{archiveState: "not_connected"}
-	var backup *store.ArchiveWorker
-	var archiveReader *store.ArchiveReader
-	var reader store.Reader = j
-	if credentials != "" {
-		remote, e := stagingDrive(root, credentials, producer)
-		if e != nil {
-			return e
-		}
-		backup, e = store.NewArchiveWorker(m, j, remote, gate.Reserve, producer)
-		if e != nil {
-			return e
-		}
-		cache, e := store.NewArchiveReadCache(m, remote, gate.Reserve)
-		if e != nil { return e }
-		archiveReader, e = store.NewArchiveReader(j, cache)
-		if e != nil { return e }
-		reader = archiveReader
-		h.archiveState = "configured_unverified"
-	}
+	
 	srv := &http.Server{Handler: httpapi.API{Reader: reader, Live: true, Auth: auth, Health: h.read}.Handler(), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 125 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
 	// Bind before starting any feeds, so a conflicting port cannot leave partial workers.
 	ln, e := net.Listen("tcp", addr)

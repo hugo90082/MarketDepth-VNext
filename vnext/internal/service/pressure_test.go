@@ -26,3 +26,13 @@ func TestPressureStepSafeFirstAndExplicitLoss(t *testing.T){
   })
  }
 }
+
+func TestStartupPressureBoundedProgress(t *testing.T){
+ ctx:=context.Background()
+ used:=archive.HighWater-WriteReserve
+ g,e:=NewCapacityGate(func()(int64,int64,error){return used,2e9,nil});if e!=nil{t.Fatal(e)}
+ ops:=PressureOperations{ClearCache:func(context.Context)error{return nil},ClearScratch:func(context.Context)(string,error){return "scratch_checked",nil},Verified:func(context.Context)(string,error){return "idle",nil},Force:func(context.Context)(string,error){t.Fatal("force unexpectedly called");return "",nil}}
+ if e=StartupPressure(ctx,g,ops,false);!errors.Is(e,ErrCapacity){t.Fatal(e)}
+ ops.ClearCache=func(context.Context)error{used-=40_000_000;return nil}
+ if e=StartupPressure(ctx,g,ops,false);e!=nil{t.Fatal(e)}
+}

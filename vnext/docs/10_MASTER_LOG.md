@@ -299,3 +299,5 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - staging 預設禁止未備份日強制刪除，必須明確 --allow-capacity-loss 且有隔離 Drive 配置；此為安全 QA gate，不是正式部署設定。writer pre-admission bounded wait 60s，emergency exclusive。health 新增容量狀態/實際 allocated bytes/free bytes。測試 safe-first、cache 足夠、verified 成功、loss 預設關、未知錯誤拒絕。未執行真實清理；startup 高壓恢復及 full-day 預算量測仍待。
 
 - CI 43478796889 捕捉緊急預留 release 未清 emergency flag，已修；正常 release 與預留配對不變，待新 CI。
+### Phase 4 高壓重啟準備
+- 完整 CI 43478642196 success（partial loss/bitmap/ledger/force fixture）。新 StartupPressure 在 feeds/queue 啟動前處理容量壓力，最多 16 次且每次 20s context，必須可量測釋放空間，無進展即停，無 Drive 時仍拒絕高壓啟動。catalog open/reconciliation 之前保留兩個 32MB headroom；並非 OS quota。正常資料第一個 target 改在 startup 完成後才選。未開啟未備份強制回收。測試 no-progress fail closed、cache 清理後進入寫入預算；新 CI 待驗證。
