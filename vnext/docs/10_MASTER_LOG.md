@@ -206,3 +206,8 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 新增 CapacityGate，行情 writer 與選用 archive 工作共用預留，單一選用工作、保守雙重計算預留與實際占用；保留 32MB writer headroom、根磁碟 1GB。此為應用程式預留/檢查，不是 OS quota，尚未啟用日檔回收或永久缺口 tombstone。
 - staging binary 選用 --drive-credentials (0600、絕對路徑、不可位於市場資料根目錄) 及 --producer-commit (40 hex)；只許 MarketDepth-VNext-staging namespace；不提供 production 選項。Drive 失敗不直接終止行情，30秒至15分鐘指數退避+jitter，遵守合法 Retry-After；health 顯示 archive state/last_archive_verified_at，log 不輸出秘密。未提供憑證時仍不連 Drive。未部署、未執行真 Drive。
 - 普通 Go test/race/vet、schema 及實際 SQL 測試全 pass；新增 tagged 真 SQLite 跨小時、重啟、午夜 grace、未知 scratch 檔案保護測試，等待 GitHub CI。待辦：遠端歷史讀取/cache、catalog 重建、1GB 強制回收和真隔離環境讀寫/資源驗收。無正式服務變更。
+
+## 2026-11-14｜Phase 4 遠端封存讀取 cache 基礎
+- 上輪 f873899ffee991f1f4801269a7141927dede09ec / CI 43460859096 已確認 completed success，包含排程與真 SQLite。
+- 新增單日 ArchiveReadCache（linux/sqlite_integration）：只接受已登錄的 sealed manifest exact revision；首次讀取重新驗證遠端 manifest/data、解壓 SQLite/統計/hash；100MB 含壓縮/解壓暫存及 4MiB headroom，呼叫共享容量 reserve。單一 cache slot，命中重新核對 raw hash，損壞重抓，換日/版本清除舊 cache；immutable read-only SQLite，不寫 WAL/SHM。只清 owned history-cache scratch，未知內容拒絕；重啟丟棄舊 cache。網路不能持 journal/manager lock。cache 不授權刪除本地日檔。
+- 新增真 SQLite 整合測試：封存 mock remote、精確 row hash、重複查詢、cache byte 篡改重抓、遠端損壞拒絕。此輪直接提交 GitHub，尚待 CI，未在本地執行 tagged 測試。尚未接 History/Sync/Days/RangeVersion，仍須以 journal pointer 比對、跨日分頁版本 barrier、cache lease 與容量清理 executor；不宣稱遠端 API 已完成。未連真 Drive 或更動 AWS/舊服務。
