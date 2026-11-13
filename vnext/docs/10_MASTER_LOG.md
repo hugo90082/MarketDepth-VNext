@@ -304,3 +304,6 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 
 ### Phase 4 災難復原：Drive 唯讀 discovery
 - 新 RecoveryReader 無需原本本機 reservation ID；Discover 完整分頁列舉同 namespace 的 sealed/active manifest、loss ledger（僅 metadata，非驗證通過），拒絕 duplicate/incomplete/repeated token。OpenObject 重新核對 exact ID、logical key、唯一物件、從 My Drive root 到專屬 namespace 的父層、size/hash/MIME；不建立任何 folder/ID reservation、不允許 upload。測試以全新空 stateDir 讀取 mock Drive、duplicate/moved object 拒絕及零副作用。尚未接重建 catalog、真 Drive 未測。
+
+### Phase 4 災難復原：遠端清單內容驗證與復原計畫
+- ReadRecoveryMetadata 驗 exact object ID/key/size/hash 及實際 bytes；ReadRecoveryManifest 驗 canonical JSON、contract、logical key、sealed/active identity。InspectRecovery 將日期分類為最高 sealed revision、完整/部分 loss、僅 active candidate；拒絕同日 sealed/loss 衝突或 active identity 不符。僅 metadata 檢查不宣稱 snapshot verified；孤立 active 不把未知尾端定為永久遺失。未寫入 catalog，未操作真 Drive。
