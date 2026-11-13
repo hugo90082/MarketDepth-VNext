@@ -42,6 +42,14 @@ func TestArchiveReadCacheVerifiedReuseAndCorruption(t *testing.T){
   if e1!=nil||e2!=nil||h1!=h2{t.Fatal("row mismatch")}
  }
  check();check()
+ // Simulate a missing daily file only in the isolated test, not production eviction.
+ original:=filepath.Join(m.root,day+".sqlite")
+ moved:=filepath.Join(t.TempDir(),"retained.sqlite")
+ if e=os.Rename(original,moved);e!=nil{t.Fatal(e)}
+ q:=Query{Kind:rows[0].Kind(),From:rec.Manifest.From,To:rec.Manifest.To,Limit:10}
+ p,e:=j.HistoryWithArchive(ctx,q,c);if e!=nil||len(p.Rows)!=1{t.Fatal(p,e)}
+ if _,e=os.Stat(original);!os.IsNotExist(e){t.Fatal("reader recreated daily database",e)}
+ if e=os.Rename(moved,original);e!=nil{t.Fatal(e)}
  if reservations!=1{t.Fatal("cache miss on repeat",reservations)}
  // Alter a cache byte and ensure it is not served; restore from remote again.
  f,e:=os.OpenFile(c.path,os.O_WRONLY,0600);if e!=nil{t.Fatal(e)}
@@ -54,5 +62,5 @@ func TestArchiveReadCacheVerifiedReuseAndCorruption(t *testing.T){
  if c.path!=""||c.dir!=""{t.Fatal("failed cache leaked")}
  if _,e=os.Stat(snap.Path);e!=nil{t.Fatal("source changed",e)}
  // Fresh process constructor cleans only owned disposable cache jobs.
- if _,e=NewArchiveReadCache(m,remote,reserve);e!=nil{t.Fatal(e)}
+ if _,e=NewArchiveReadCache(m,remote,reserve);e==nil{t.Fatal("second live cache accepted")}
 }

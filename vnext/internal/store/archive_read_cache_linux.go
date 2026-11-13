@@ -31,11 +31,15 @@ type ArchiveReadCache struct {
 
 func NewArchiveReadCache(m *Manager, remote archive.RemoteObjects, reserve ArchiveReserve) (*ArchiveReadCache,error) {
  if m == nil || remote == nil || reserve == nil { return nil, errors.New("history cache dependencies required") }
+ m.mu.Lock()
+ defer m.mu.Unlock()
+ if m.closed || m.historyCacheOpened {return nil,errors.New("history cache already opened or manager closed")}
  root,e:=privateScratch(m.root,"history-cache")
  if e!=nil{return nil,e}
  // A new process cannot trust a cached file from a prior process. Only
  // recognized files within the owned scratch directory may be removed.
  if e=cleanScratch(root,verifyFile,".history-");e!=nil{return nil,e}
+ m.historyCacheOpened=true
  return &ArchiveReadCache{root:root,remote:remote,reserve:reserve,slot:make(chan struct{},1)},nil
 }
 func (c *ArchiveReadCache) acquire(ctx context.Context) error {

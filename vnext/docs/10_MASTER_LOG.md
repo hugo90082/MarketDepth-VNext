@@ -211,3 +211,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 上輪 f873899ffee991f1f4801269a7141927dede09ec / CI 43460859096 已確認 completed success，包含排程與真 SQLite。
 - 新增單日 ArchiveReadCache（linux/sqlite_integration）：只接受已登錄的 sealed manifest exact revision；首次讀取重新驗證遠端 manifest/data、解壓 SQLite/統計/hash；100MB 含壓縮/解壓暫存及 4MiB headroom，呼叫共享容量 reserve。單一 cache slot，命中重新核對 raw hash，損壞重抓，換日/版本清除舊 cache；immutable read-only SQLite，不寫 WAL/SHM。只清 owned history-cache scratch，未知內容拒絕；重啟丟棄舊 cache。網路不能持 journal/manager lock。cache 不授權刪除本地日檔。
 - 新增真 SQLite 整合測試：封存 mock remote、精確 row hash、重複查詢、cache byte 篡改重抓、遠端損壞拒絕。此輪直接提交 GitHub，尚待 CI，未在本地執行 tagged 測試。尚未接 History/Sync/Days/RangeVersion，仍須以 journal pointer 比對、跨日分頁版本 barrier、cache lease 與容量清理 executor；不宣稱遠端 API 已完成。未連真 Drive 或更動 AWS/舊服務。
+
+## 2026-11-14｜Phase 4 封存歷史頁查詢路徑
+- 抽出原 History 的 locked pointer plan，原本機讀取路徑仍保留；新增 HistoryWithArchive 按日解析最多 2000 pointers，僅在本機日檔不存在時嘗試已登錄 sealed archive，已存在但損壞不掩蓋；逐列 key/revision/hash 核對，結尾重查相同篩選範圍 seq/generation，網路不持 journal/manager lock。尚未接正式 HTTP Reader、Sync/Days，禁止日檔 eviction。
+- 單一 cache constructor 綁 manager 生命週期，拒絕第二個活躍 instance。整合測試額外模擬隔離日檔移走後從 sealed remote 查回，再復原原檔，禁止 reader 重建本機日檔。兩輪新程式尚待 GitHub CI，不宣稱已驗收。未操作 AWS 或真 Drive。

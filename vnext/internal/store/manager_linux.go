@@ -33,6 +33,7 @@ type Manager struct {
 	closed          bool
 	catalogOpened   bool
 	catalogRequired bool
+	historyCacheOpened bool
 	now             func() time.Time
 	grace           time.Duration
 }

@@ -98,25 +98,35 @@ func (j *Journal) resolvePointers(ctx context.Context, k model.Kind, p []readPoi
 // A correction or a newly inserted old key within the query forces resync,
 // including mid-export, so a paginated result never silently mixes revisions.
 func (j *Journal) History(ctx context.Context, q Query) (Page, error) {
-	j.mu.Lock()
-	defer j.mu.Unlock()
+ j.mu.Lock()
+ defer j.mu.Unlock()
+ p,ptr,_,e:=j.planHistoryLocked(ctx,q)
+ if e!=nil{return p,e}
+ p.Rows,e=j.resolvePointers(ctx,q.Kind,ptr)
+ if e!=nil{return Page{},e}
+ return p,nil
+}
+
+// planHistoryLocked selects an immutable bounded page of catalog pointers.
+// The caller must hold j.mu; network work must happen after releasing it.
+func (j *Journal) planHistoryLocked(ctx context.Context, q Query) (Page, []readPointer, string, error) {
 	p := Page{Rows: []model.Row{}, Gaps: []Gap{}, Complete: true}
 	if !validQuery(q) {
-		return p, errors.New("bad history query")
+		return p, nil, "", errors.New("bad history query")
 	}
 	if e := j.ready(ctx); e != nil {
-		return p, e
+		return p, nil, "", e
 	}
 	where, args := rangeWhere(q)
 	var version int64
 	if e := j.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(c.seq),0) FROM journal_change c WHERE `+where, args...).Scan(&version); e != nil {
-		return p, e
+		return p, nil, "", e
 	}
 	c := cursor{Generation: j.generation, Version: version, Kind: q.Kind, From: q.From, To: q.To, Asset: q.Asset, Venue: q.Venue, Mode: historyMode}
 	if q.Cursor != "" {
 		old, e := decode(q.Cursor)
 		if e != nil || old.Generation != c.Generation || old.Version != version || old.Kind != q.Kind || old.From != q.From || old.To != q.To || old.Asset != q.Asset || old.Venue != q.Venue || old.Mode != historyMode || old.Key.T < q.From || old.Key.T >= q.To || old.Key.T%q.Kind.Interval() != 0 || !model.AssetOK(old.Key.Asset) || (q.Kind == model.Spot && !model.VenueOK(old.Key.Venue)) || (q.Kind != model.Spot && old.Key.Venue != "") || (q.Asset != "" && old.Key.Asset != q.Asset) || (q.Venue != "" && old.Key.Venue != q.Venue) {
-			return p, ErrResync
+			return p, nil, "", ErrResync
 		}
 		where += " AND (c.t,c.venue,c.asset)>(?,?,?)"
 		args = append(args, old.Key.T, old.Key.Venue, old.Key.Asset)
@@ -124,12 +134,12 @@ func (j *Journal) History(ctx context.Context, q Query) (Page, error) {
 		var e error
 		p.Gaps, e = j.gridGaps(ctx, q)
 		if e != nil {
-			return p, e
+			return p, nil, "", e
 		}
 	}
 	ptr, e := j.readPointers(ctx, q.Kind, where, args, q.Limit+1)
 	if e != nil {
-		return p, e
+		return p, nil, "", e
 	}
 	if len(ptr) > q.Limit {
 		ptr = ptr[:q.Limit]
@@ -137,11 +147,7 @@ func (j *Journal) History(ctx context.Context, q Query) (Page, error) {
 		c.Key = ptr[len(ptr)-1].key
 		p.Next = encode(c)
 	}
-	p.Rows, e = j.resolvePointers(ctx, q.Kind, ptr)
-	if e != nil {
-		return Page{}, e
-	}
-	return p, nil
+	return p, ptr, fmt.Sprintf("%s:%s:%d", j.generation, q.Kind, version), nil
 }
 
 // Group grid counts in SQLite; do not materialize 31 days of raw rows in RAM.
