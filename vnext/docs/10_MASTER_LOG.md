@@ -234,3 +234,5 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 已驗證日檔自動回收接入隔離版
 - 上輪 CI 43473668464（原始日檔下載）及 43473883969（完整邏輯核對後回收）均 success。新 ReclaimVerifiedCycle 在 archive worker idle 時每 cycle 至多回收一個最舊已封存日檔；必須完成 active generations 退役、無 pending、grace 結束，另保護各 kind 最新日，避免 Latest 依賴遠端。成功後即清自身 cache。仍只允許已驗證等價本機副本回收，無未上傳日檔刪除或正式 Drive 刪除。staging 無憑證時不啟用；尚未實際部署。
 - MeasureAllocated 對掃描中受控 scratch 消失的 ENOENT 不再誤判磁碟故障；root 消失/其他錯誤仍拒絕。加隔離整合測試驗證最新日保護、下一日收集後回收、遠端 History 還原。新提交需 CI 驗證。接下來做 tombstone 與索引縮減；仍非完整 1GB 強制回收。
+
+- 立即修正新回收 fixture 的 CapturedAt 為 nullable pointer，避免編譯錯誤。完整 CI 以修正後版本為準。

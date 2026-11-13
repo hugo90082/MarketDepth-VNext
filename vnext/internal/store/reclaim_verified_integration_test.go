@@ -40,7 +40,7 @@ func TestReclaimVerifiedCycleProtectsLatestAndRestoresOldDay(t *testing.T){
   switch v:=row.(type){
   case model.SpotRow:
    v.T+=86400000;v.AvailableAt=model.Ptr(*v.AvailableAt+86400000)
-   v.CapturedAt+=86400000
+   if v.CapturedAt!=nil{v.CapturedAt=model.Ptr(*v.CapturedAt+86400000)}
    next=append(next,v)
   case model.Futures10Row:
    v.T+=86400000;v.AvailableAt=model.Ptr(*v.AvailableAt+86400000)
