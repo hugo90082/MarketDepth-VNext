@@ -285,3 +285,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 
 ### Phase 4 — immutable partial-loss ledger publication
 - Extended verified immutable loss-ledger cycle to select oldest finalized full or partial loss. Partial ledger records active manifest identity and exact bitmaps at `catalog/loss/YYYY-MM-DD.partial.json`; re-read exact bytes before marking synced. Added idempotence fixture; tagged CI pending. No real cloud writes.
+
+### Phase 4 CI 修正：永久缺口同步與緊急回收
+- CI 43477066912：partial recovery 已通過，緊急回收 fixture 在第三日 00:03，第二日仍處 5 分鐘 grace，故正確無候選。將測試時間推至 00:09，不修改正式 grace。
+- CI 43477149628：SQL Go 字串多餘單引號跳脫造成 unknown escape；移除。待新 CI 全套驗證。

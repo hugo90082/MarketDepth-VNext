@@ -34,6 +34,8 @@ func TestForceLossCycleProtectsPendingAndLatest(t *testing.T){
   now=time.UnixMilli(r[0].Key().T+180000)
   if e=j.Put(ctx,r);e!=nil{t.Fatal(e)}
  }
+ // At 00:03 the previous day is still inside the 5-minute grace window.
+ now=now.Add(6*time.Minute)
  day1:=model.Day(rows[0].Key().T);day2:=model.Day(rows[0].Key().T+86400000);day3:=model.Day(rows[0].Key().T+2*86400000)
  remote:=&rotatingRemote{sealedRemote:&sealedRemote{objects:map[string]storedArchiveObject{},keys:map[string]string{}},trashed:map[string]bool{}}
  allow:=func(context.Context,int64)(func(),error){return func(){},nil}
@@ -42,7 +44,7 @@ func TestForceLossCycleProtectsPendingAndLatest(t *testing.T){
  if state,e:=w.Cycle(ctx);e!=nil||state!="staged"{t.Fatal(state,e)}
  p,e:=j.ArchivePending(ctx);if e!=nil||p==nil||p.Snapshot.Manifest.Day!=day1{t.Fatal(p,e)}
  deny:=func(context.Context,int64)(func(),error){return nil,errors.New("reserve refused")}
- if _,e=w.ForceLossCycle(ctx,deny,32_000_000);e==nil{t.Fatal("capacity refusal ignored")}
+ if state,e:=w.ForceLossCycle(ctx,deny,32_000_000);e==nil{t.Fatal("capacity refusal ignored",state)}
  if _,e=os.Stat(filepath.Join(root,day2+".sqlite"));e!=nil{t.Fatal(e)}
  state,e:=w.ForceLossCycle(ctx,allow,32_000_000)
  if e!=nil||state!="permanent_loss_reclaimed"{t.Fatal(state,e)}

@@ -68,7 +68,7 @@ func(r *ArchiveReader) SyncLossCycle(ctx context.Context)(string,error){
  e:=func()error{
   j.mu.Lock();defer j.mu.Unlock()
   if e:=j.ready(ctx);e!=nil{return e}
-  e:=j.db.QueryRowContext(ctx,"SELECT day,kind FROM (SELECT day,from_t,\'full\' AS kind FROM journal_loss WHERE state=\'removed\' UNION ALL SELECT day,from_t,\'partial\' AS kind FROM journal_partial_loss WHERE state=\'removed\') l WHERE NOT EXISTS (SELECT 1 FROM journal_loss_sync s WHERE s.day=l.day) ORDER BY from_t LIMIT 1").Scan(&day,&kind)
+  e:=j.db.QueryRowContext(ctx,"SELECT day,kind FROM (SELECT day,from_t,'full' AS kind FROM journal_loss WHERE state='removed' UNION ALL SELECT day,from_t,'partial' AS kind FROM journal_partial_loss WHERE state='removed') l WHERE NOT EXISTS (SELECT 1 FROM journal_loss_sync s WHERE s.day=l.day) ORDER BY from_t LIMIT 1").Scan(&day,&kind)
   if e!=nil{return e}
   key,b,hash,e=j.lossLedgerLocked(ctx,day,kind);return e
  }()
