@@ -47,6 +47,9 @@ func TestSnapshotIncludesWALAndNeverOverwrites(t *testing.T) {
 	if s.Manifest.SealedAt != nil || s.Manifest.FileID != "" || s.Manifest.RowCounts[string(model.Spot)] != 1 || s.Manifest.RowCounts[string(model.F10)] != 1 {
 		t.Fatal(s)
 	}
+	if s.Manifest.GridThrough[string(model.Spot)] != rows[0].Key().T+60000 || s.Manifest.ExpectedCounts[string(model.Spot)] >= 17280 || s.Manifest.NullCounts[string(model.Spot)]["bid_0_100"] != 0 || s.Manifest.NullCounts[string(model.Spot)]["ask_0_100"] != 1 {
+		t.Fatal("active grid or NULL stats", s.Manifest)
+	}
 	raw, e := os.ReadFile(s.Path)
 	if e != nil {
 		t.Fatal(e)

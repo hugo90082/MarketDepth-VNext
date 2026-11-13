@@ -190,7 +190,7 @@ func (m *Manager) CreateSnapshot(ctx context.Context, day, staging, generation, 
 	if details.sealed != nil {
 		producer = details.producer
 	}
-	out.Manifest = archive.Manifest{ContractID: model.Contract, Day: day, Timezone: model.Timezone, Revision: details.revision, Generation: generation, SHA256: hex.EncodeToString(h.Sum(nil)), Size: compressed.Size(), From: a.UnixMilli(), To: a.Add(24 * time.Hour).UnixMilli(), RowCounts: details.counts, ProducerCommit: producer, SealedAt: details.sealed, DataOrigin: details.origin, ExpectedCounts: details.expected, MissingGridCounts: details.missing, StatusCounts: details.status, RawSize: out.RawBytes, RawSHA256: hex.EncodeToString(rawHash.Sum(nil))}
+	out.Manifest = archive.Manifest{ContractID: model.Contract, Day: day, Timezone: model.Timezone, Revision: details.revision, Generation: generation, SHA256: hex.EncodeToString(h.Sum(nil)), Size: compressed.Size(), From: a.UnixMilli(), To: a.Add(24 * time.Hour).UnixMilli(), RowCounts: details.counts, ProducerCommit: producer, SealedAt: details.sealed, DataOrigin: details.origin, ExpectedCounts: details.expected, MissingGridCounts: details.missing, GridThrough: details.through, NullCounts: details.nulls, StatusCounts: details.status, RawSize: out.RawBytes, RawSHA256: hex.EncodeToString(rawHash.Sum(nil))}
 
 	return out, nil
 }
@@ -200,11 +200,11 @@ func execVacuum(ctx context.Context, c *sql.Conn, dest string) error {
 }
 
 type snapshotDetails struct {
-	counts, expected, missing map[string]int64
-	status                    map[string]map[string]int64
-	revision                  int64
-	origin, producer          string
-	sealed                    *int64
+	counts, expected, missing, through map[string]int64
+	status, nulls                      map[string]map[string]int64
+	revision                           int64
+	origin, producer                   string
+	sealed                             *int64
 }
 
 func checkSnapshot(ctx context.Context, path, day string) (snapshotDetails, error) {
@@ -260,17 +260,53 @@ func checkSnapshot(ctx context.Context, path, day string) (snapshotDetails, erro
 		return d, e
 	}
 	d.counts = map[string]int64{}
-	d.expected = map[string]int64{string(model.Spot): 17280, string(model.F10): 25920, string(model.F1): 4320}
+	d.expected = map[string]int64{}
+	d.through = map[string]int64{}
+	d.nulls = map[string]map[string]int64{}
 	d.missing = map[string]int64{}
 	d.status = map[string]map[string]int64{}
 	for _, k := range []model.Kind{model.Spot, model.F10, model.F1} {
 		name := string(k)
 		var n, bad int64
-		if e = db.QueryRowContext(ctx, "SELECT count(*),COALESCE(SUM(CASE WHEN t<? OR t>=? THEN 1 ELSE 0 END),0) FROM "+name, from, to).Scan(&n, &bad); e != nil || bad != 0 || n > d.expected[name] {
+		var last sql.NullInt64
+		if e = db.QueryRowContext(ctx, "SELECT count(*),COALESCE(SUM(CASE WHEN t<? OR t>=? THEN 1 ELSE 0 END),0),max(t) FROM "+name, from, to).Scan(&n, &bad, &last); e != nil || bad != 0 {
 			return d, fmt.Errorf("invalid snapshot grid %s: %v", name, e)
 		}
+		through := from
+		if d.sealed != nil {
+			through = to
+		} else if last.Valid {
+			through = last.Int64 + k.Interval()
+		}
+		keysPerGrid := int64(3)
+		if k == model.Spot {
+			keysPerGrid = 12
+		}
+		expected := (through - from) / k.Interval() * keysPerGrid
+		if through > to || through < from || n > expected {
+			return d, fmt.Errorf("snapshot grid count exceeds expected: %s", name)
+		}
+		d.through[name] = through
+		d.expected[name] = expected
 		d.counts[name] = n
-		d.missing[name] = d.expected[name] - n
+		d.missing[name] = expected - n
+		// Only fixed schema columns; NULL counts are measured independently from
+		// missing grid keys. In particular, zero notional is never counted as NULL.
+		cols := columns[k]
+		expr := make([]string, len(cols))
+		values := make([]int64, len(cols))
+		args := make([]any, len(cols))
+		for i, c := range cols {
+			expr[i] = "COALESCE(SUM(" + c + " IS NULL),0)"
+			args[i] = &values[i]
+		}
+		if e = db.QueryRowContext(ctx, "SELECT "+strings.Join(expr, ",")+" FROM "+name).Scan(args...); e != nil {
+			return d, e
+		}
+		d.nulls[name] = map[string]int64{}
+		for i, c := range cols {
+			d.nulls[name][c] = values[i]
+		}
 		rs, e := db.QueryContext(ctx, "SELECT status,count(*) FROM "+name+" GROUP BY status")
 		if e != nil {
 			return d, e

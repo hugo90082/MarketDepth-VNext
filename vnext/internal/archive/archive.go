@@ -20,6 +20,8 @@ type Manifest struct {
 	RowCounts         map[string]int64            `json:"row_counts"`
 	DataOrigin        string                      `json:"data_origin"`
 	ExpectedCounts    map[string]int64            `json:"expected_counts"`
+	GridThrough       map[string]int64            `json:"grid_through_exclusive"`
+	NullCounts        map[string]map[string]int64 `json:"null_counts"`
 	MissingGridCounts map[string]int64            `json:"missing_grid_counts"`
 	StatusCounts      map[string]map[string]int64 `json:"status_counts"`
 	RawSize           int64                       `json:"raw_size"`

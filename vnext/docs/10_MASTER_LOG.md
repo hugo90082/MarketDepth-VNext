@@ -128,3 +128,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 新增 Manager/Journal.SealDay（未自動排程）：只允許過台灣日界及 5min grace 的現有日檔；catalog mode 不能 bypass，待核對 intent 時禁止 seal。保留原 seal timestamp/producer，重複 seal 冪等；WAL TRUNCATE checkpoint、close，失敗保留 seal 並回錯，不刪檔。日檔 schema 不改。
 - 擴充 archive.Manifest（不是 MD-VNEXT-1 row schema）：data_origin、expected/missing-grid counts、status counts、raw size/hash；snapshot 從 SQLite 複本驗證日期範圍、筆數及 sealed availability，sealed_at/producer 只能源自已封存日；active snapshot 仍不宣稱封存。壓縮及原始 SHA256 分開。現行只支援 live origin；legacy/mixed 由 D 階段處理。未逐側 NULL 統計、manifest 遠端 fileId/verified state 尚待 Drive 模組。
 - spotprobe 現改走 Journal + bounded queue，啟動先 Recover；仍隔離新目錄，無正式部署。新增 seal/grace/pending/retry/封存快照 metadata/新日寫入的 tagged 測試；普通 Go test/race/vet 通過，真 driver CI 待驗證。仍需容量 executor、遠端 verified manifest/catalog/tombstone、修正 revision、完整 1GB/RAM/長時間驗收，Phase 2 未 freeze；Phase 3/C 未交付。沒有修改舊服務或雲端資料。
+
+### Phase 2 第七輪補充：驗證與 active 缺格語意
+- 容量/快照 commit `e296df4ced3c72ea5c0dbc60465e9834fd6e182f` 的 CI run 43438087950 / job 131928276703 已確認 success；真 SQLite TestSnapshotIncludesWALAndNeverOverwrites、TestDurableJournalRestartAndRecovery、TestJournalIntentBeforeDailyCommit、TestManagerRequiresExistingCatalogBeforeWrite 均通過，SQL contract hash/WAL crash recovery 通過。
+- 封存 commit `0ac288b96a46ff9cdb17d2ebf7577aacd0af10b7`，CI run 43438626031 尚未完成。新增 `grid_through_exclusive`：active snapshot 只統計至各表最後實際寫入時間格的 exclusive end，未來時間不列缺格；sealed 才按完整台灣日計算。各欄位 NULL counts 獨立於缺格與已確認零值，供缺值統計；active 未到的時段或最後一格後停止的時段不宣稱已驗證覆蓋。此為 archive manifest 工程補充，不改固定行情欄位。新增測試；普通 Go test/vet 通過，tagged CI 待確認。
