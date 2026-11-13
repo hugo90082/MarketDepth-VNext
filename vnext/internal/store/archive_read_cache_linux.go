@@ -11,7 +11,6 @@ import (
  "io"
  "net/url"
  "os"
- "path/filepath"
 
  "github.com/hugo90082/MarketDepth-VNext/vnext/internal/archive"
  "github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"

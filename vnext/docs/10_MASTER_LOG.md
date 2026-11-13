@@ -215,3 +215,6 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 封存歷史頁查詢路徑
 - 抽出原 History 的 locked pointer plan，原本機讀取路徑仍保留；新增 HistoryWithArchive 按日解析最多 2000 pointers，僅在本機日檔不存在時嘗試已登錄 sealed archive，已存在但損壞不掩蓋；逐列 key/revision/hash 核對，結尾重查相同篩選範圍 seq/generation，網路不持 journal/manager lock。尚未接正式 HTTP Reader、Sync/Days，禁止日檔 eviction。
 - 單一 cache constructor 綁 manager 生命週期，拒絕第二個活躍 instance。整合測試額外模擬隔離日檔移走後從 sealed remote 查回，再復原原檔，禁止 reader 重建本機日檔。兩輪新程式尚待 GitHub CI，不宣稱已驗收。未操作 AWS 或真 Drive。
+
+## 2026-11-14｜歷史快取 CI 編譯回歸修正
+- CI 43469857422、43470016058 均 failure，直接原因 archive_read_cache_linux.go 未使用 path/filepath import；兩次皆在 tagged build 停止，不能視為快取/歷史功能驗收。移除未使用 import，重新跑完整 CI。未改資料契約或正式環境。
