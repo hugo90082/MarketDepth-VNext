@@ -51,3 +51,39 @@ func TestGroupStopsSibling(t *testing.T) {
 		t.Fatal("sibling not joined")
 	}
 }
+
+func TestSharedCapacityGate(t *testing.T) {
+	ctx := context.Background()
+	used, free := int64(100_000_000), int64(2_000_000_000)
+	g, e := NewCapacityGate(func() (int64, int64, error) { return used, free, nil })
+	if e != nil {
+		t.Fatal(e)
+	}
+	w := &fakeWriter{}
+	writer, e := NewSharedGuardedWriter(w, g)
+	if e != nil {
+		t.Fatal(e)
+	}
+	rel, e := g.Reserve(ctx, 100_000_000)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = g.Reserve(ctx, 1); !errors.Is(e, ErrCapacity) {
+		t.Fatal("second optional job", e)
+	}
+	if e = writer.Put(ctx, nil); e != nil {
+		t.Fatal(e)
+	}
+	used = archive.HighWater - WriteReserve - 100_000_000
+	if e = writer.Put(ctx, nil); !errors.Is(e, ErrCapacity) {
+		t.Fatal("reserved capacity ignored", e)
+	}
+	rel()
+	rel()
+	if e = writer.Put(ctx, nil); e != nil {
+		t.Fatal("reservation not released", e)
+	}
+	if _, e = g.Reserve(ctx, 100_000_000); !errors.Is(e, ErrCapacity) {
+		t.Fatal("double accounting not enforced", e)
+	}
+}

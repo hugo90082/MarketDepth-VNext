@@ -5,6 +5,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -45,5 +46,16 @@ func TestPrepareIsolatedRoot(t *testing.T) {
 	}
 	if e := prepare(filepath.Join(link, "new"), true); e == nil {
 		t.Fatal("symlink parent accepted")
+	}
+}
+
+func TestDriveCredentialCannotBeInsideDataRoot(t *testing.T) {
+	root := t.TempDir()
+	p := filepath.Join(root, "marketdepth.oauth.json")
+	if e := os.WriteFile(p, []byte("{}"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := stagingDrive(root, p, strings.Repeat("a", 40)); e == nil || !strings.Contains(e.Error(), "outside market-data root") {
+		t.Fatal(e)
 	}
 }

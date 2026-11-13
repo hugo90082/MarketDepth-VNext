@@ -199,3 +199,10 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 實作 active/YYYY-MM-DD.h<UTC epoch ms hourly slot>.sqlite.gz + manifest，同一日獨立世代、雙讀回及實際 SQLite active restore，active 與 sealed 嚴格分離。catalog journal_active 保存目前與上一個待退役版本，拒絕日期/世代/筆數/coverage 倒退；上一代未退役前拒絕第三代。新增 journal_archive_pending 單筆持久 upload intent，遠端副作用前記錄完全相同本機 snapshot；失敗時禁止其他世代/日檔取代 pending；catalog commit 後才清除。真 SQLite 崩潰/重啟測試已新增，待 CI。
 - 退役前再次完整讀回最新 active 或 sealed，驗證 SQLite、hash 與筆數。只允許經原始 reservation / 父資料夾 / namespace / 精確 ID/hash 驗證的 active 物件進 Drive 垃圾桶，manifest 先於資料，失敗保持 ledger 以便重試；禁止 historical/legacy 或其他檔案。Drive trash 尚會占用空間、未永久刪除；需真 staging 確認保留策略及容量。未啟用排程/實際刪除，未碰正式服務。
 - 普通 Go test/race/vet、原 SQL/schema 測試全 pass；sandbox 缺 SQLite driver module、tagged integration 交 GitHub CI。真 OAuth/每小時排程/失敗退避、容量 gate、遠端讀取、catalog 重建及 1GB 強制回收仍未完成。下一步先完成共享容量預留、封存 worker 與真隔離環境驗收。
+
+## 2026-11-14｜Phase 4 備份排程及共享容量預留
+- 前一提交 36ae58458ab3f11f469de570bb260ee559b5bc16 的 CI 43460113551 已完成 success，包含小時快照、真 SQLite、輪替/中斷重試。
+- 新增單一 ArchiveWorker：每小時整點後 1 分鐘起可生成 active 世代；每日過日界+5分鐘才封存；優先續傳持久 pending，再處理過期日檔及 active 退役。每次 cycle 只處理一個有界工作；獨立 0700 scratch 及 owner marker，僅清理受控快照/驗證暫存，不刪原日檔。重啟先續傳完全相同壓縮檔，不重新產生已發送世代。
+- 新增 CapacityGate，行情 writer 與選用 archive 工作共用預留，單一選用工作、保守雙重計算預留與實際占用；保留 32MB writer headroom、根磁碟 1GB。此為應用程式預留/檢查，不是 OS quota，尚未啟用日檔回收或永久缺口 tombstone。
+- staging binary 選用 --drive-credentials (0600、絕對路徑、不可位於市場資料根目錄) 及 --producer-commit (40 hex)；只許 MarketDepth-VNext-staging namespace；不提供 production 選項。Drive 失敗不直接終止行情，30秒至15分鐘指數退避+jitter，遵守合法 Retry-After；health 顯示 archive state/last_archive_verified_at，log 不輸出秘密。未提供憑證時仍不連 Drive。未部署、未執行真 Drive。
+- 普通 Go test/race/vet、schema 及實際 SQL 測試全 pass；新增 tagged 真 SQLite 跨小時、重啟、午夜 grace、未知 scratch 檔案保護測試，等待 GitHub CI。待辦：遠端歷史讀取/cache、catalog 重建、1GB 強制回收和真隔離環境讀寫/資源驗收。無正式服務變更。

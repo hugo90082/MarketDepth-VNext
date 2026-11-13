@@ -23,44 +23,91 @@ const MinRootFree int64 = 1_000_000_000
 var ErrCapacity = errors.New("capacity admission refused; no data deleted")
 
 type Meter func() (used, free int64, err error)
+
+// CapacityGate serializes allocation admission with live writes. Only one
+// optional job may reserve space. The full reservation is counted even after
+// some of its bytes are allocated (conservative double accounting). It is
+// not a kernel disk quota and never authorizes removal of daily data.
+type CapacityGate struct {
+	mu       sync.Mutex
+	meter    Meter
+	reserved int64
+}
+
+func NewCapacityGate(m Meter) (*CapacityGate, error) {
+	if m == nil {
+		return nil, errors.New("capacity meter required")
+	}
+	return &CapacityGate{meter: m}, nil
+}
+func (g *CapacityGate) Reserve(ctx context.Context, n int64) (func(), error) {
+	if n <= 0 || n > (archive.HighWater-WriteReserve)/2 {
+		return nil, ErrCapacity
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if e := ctx.Err(); e != nil {
+		return nil, e
+	}
+	if g.reserved != 0 {
+		return nil, ErrCapacity
+	}
+	used, free, e := g.meter()
+	if e != nil {
+		return nil, fmt.Errorf("capacity measurement: %w", e)
+	}
+	if used < 0 || free < 0 || used >= archive.HighWater-WriteReserve-2*n || free < MinRootFree+WriteReserve+2*n {
+		return nil, ErrCapacity
+	}
+	g.reserved = n
+	var once sync.Once
+	return func() { once.Do(func() { g.mu.Lock(); defer g.mu.Unlock(); g.reserved = 0 }) }, nil
+}
+
 type GuardedWriter struct {
-	mu     sync.Mutex
 	writer store.Writer
-	meter  Meter
+	gate   *CapacityGate
 }
 
 func NewGuardedWriter(w store.Writer, m Meter) (*GuardedWriter, error) {
-	if w == nil || m == nil {
-		return nil, errors.New("writer and capacity meter required")
+	g, e := NewCapacityGate(m)
+	if e != nil {
+		return nil, e
 	}
-	return &GuardedWriter{writer: w, meter: m}, nil
+	return NewSharedGuardedWriter(w, g)
+}
+func NewSharedGuardedWriter(w store.Writer, g *CapacityGate) (*GuardedWriter, error) {
+	if w == nil || g == nil {
+		return nil, errors.New("writer and capacity gate required")
+	}
+	return &GuardedWriter{writer: w, gate: g}, nil
 }
 func (w *GuardedWriter) Put(ctx context.Context, rows []model.Row) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	g := w.gate
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	if e := ctx.Err(); e != nil {
 		return e
 	}
 	if len(rows) > 12 {
 		return errors.New("live service batch exceeds 12 rows")
 	}
-	used, free, e := w.meter()
+	used, free, e := g.meter()
 	if e != nil {
 		return fmt.Errorf("capacity measurement: %w", e)
 	}
-	if used < 0 || free < 0 || used >= archive.HighWater-WriteReserve || free < MinRootFree+WriteReserve {
+	if used < 0 || free < 0 || used >= archive.HighWater-WriteReserve-g.reserved || free < MinRootFree+WriteReserve+g.reserved {
 		return ErrCapacity
 	}
 	if e = w.writer.Put(ctx, rows); e != nil {
 		return e
 	}
-	// Detect unexpected growth immediately. A returned error here means commit
-	// MAY have succeeded; the supervisor stops, never regenerates the row.
-	used, free, e = w.meter()
+	// A returned error here means commit MAY have succeeded; stop, never regenerate.
+	used, free, e = g.meter()
 	if e != nil {
 		return fmt.Errorf("post-commit capacity measurement: %w", e)
 	}
-	if used < 0 || free < 0 || used >= archive.HardLimit || free < MinRootFree {
+	if used < 0 || free < 0 || used >= archive.HardLimit-g.reserved || free < MinRootFree+g.reserved {
 		return ErrCapacity
 	}
 	return nil

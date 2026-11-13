@@ -132,14 +132,39 @@ func (c *Client) request(ctx context.Context, method, u string, body io.Reader, 
 	return res, nil
 }
 
-type statusError int
+type statusError struct {
+	code       int
+	retryAfter time.Duration
+}
 
-func (s statusError) Error() string { return fmt.Sprintf("Drive HTTP %d", int(s)) }
-func status(e error, s int) bool    { var x statusError; return errors.As(e, &x) && int(x) == s }
+func (s statusError) Error() string { return fmt.Sprintf("Drive HTTP %d", s.code) }
+func status(e error, s int) bool    { var x statusError; return errors.As(e, &x) && x.code == s }
+func responseStatus(res *http.Response) statusError {
+	s := statusError{code: res.StatusCode}
+	v := strings.TrimSpace(res.Header.Get("Retry-After"))
+	if v == "" {
+		return s
+	}
+	if n, e := strconv.ParseInt(v, 10, 64); e == nil && n >= 0 && n <= 86400 {
+		s.retryAfter = time.Duration(n) * time.Second
+	} else if t, e := http.ParseTime(v); e == nil && t.After(time.Now()) {
+		s.retryAfter = time.Until(t)
+	}
+	return s
+}
+
+// RetryDelay returns a server-provided lower bound, without logging response bodies.
+func RetryDelay(e error) time.Duration {
+	var x statusError
+	if errors.As(e, &x) {
+		return x.retryAfter
+	}
+	return 0
+}
 func decode(res *http.Response, v any) error {
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return statusError(res.StatusCode)
+		return responseStatus(res)
 	}
 	b, e := io.ReadAll(io.LimitReader(res.Body, 2<<20+1))
 	if e != nil || len(b) > 2<<20 || json.Unmarshal(b, v) != nil {
@@ -469,7 +494,7 @@ func (c *Client) PutImmutable(ctx context.Context, key string, size int64, sha s
 		return c.object(f, r), nil
 	}
 	if code != 200 && code != 201 {
-		return z, statusError(code)
+		return z, responseStatus(res)
 	}
 	// Never forward the bearer token or archive to a server-selected foreign URL.
 	loc, e := url.Parse(location)
@@ -530,7 +555,7 @@ func (c *Client) OpenObject(ctx context.Context, id string) (archive.Object, io.
 	}
 	if res.StatusCode != 200 {
 		res.Body.Close()
-		return z, nil, statusError(res.StatusCode)
+		return z, nil, responseStatus(res)
 	}
 	if res.ContentLength >= 0 && res.ContentLength != r.Size {
 		res.Body.Close()

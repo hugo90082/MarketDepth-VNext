@@ -10,16 +10,19 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/archive"
+	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/archive/drive"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/collector/futures"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/collector/spot"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/httpapi"
@@ -90,6 +93,8 @@ func meter(root string) service.Meter {
 type health struct {
 	mu                    sync.Mutex
 	lastSpot, lastFutures int64
+	lastArchive           int64
+	archiveState          string
 }
 
 func (h *health) update(spot bool, t int64) {
@@ -101,12 +106,91 @@ func (h *health) update(spot bool, t int64) {
 		h.lastFutures = t
 	}
 }
+func (h *health) archiveUpdate(state string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.archiveState = state
+	if state == "hourly_verified" || state == "daily_verified" {
+		h.lastArchive = time.Now().UnixMilli()
+	}
+}
 func (h *health) read() map[string]any {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return map[string]any{"mode": "isolated_staging", "last_spot_committed_t": h.lastSpot, "last_futures_committed_t": h.lastFutures, "archive": "not_connected", "production_ready": false}
+	return map[string]any{"mode": "isolated_staging", "last_spot_committed_t": h.lastSpot, "last_futures_committed_t": h.lastFutures, "archive": h.archiveState, "last_archive_verified_at": h.lastArchive, "production_ready": false}
 }
-func run(ctx context.Context, root, addr, origin string, init bool) error {
+
+// Credentials must remain outside the market-data tree and never be copied
+// into the archive. The isolated binary cannot select a production namespace.
+func stagingDrive(root, credentials, producer string) (*drive.Client, error) {
+	if !filepath.IsAbs(credentials) || filepath.Clean(credentials) != credentials || len(producer) != 40 || strings.Trim(producer, "0123456789abcdef") != "" {
+		return nil, errors.New("absolute private credential file and exact producer commit required")
+	}
+	real, e := filepath.EvalSymlinks(credentials)
+	if e != nil || real != credentials {
+		return nil, errors.New("unsafe credential path")
+	}
+	rel, e := filepath.Rel(root, real)
+	if e != nil || rel == "." || (!strings.HasPrefix(rel, ".."+string(os.PathSeparator)) && rel != "..") {
+		return nil, errors.New("credential must be outside market-data root")
+	}
+	cred, e := drive.LoadCredentials(real)
+	if e != nil {
+		return nil, e
+	}
+	tokens, e := drive.NewTokenSource(cred)
+	if e != nil {
+		return nil, e
+	}
+	state := filepath.Join(root, "drive-state")
+	if e = os.Mkdir(state, 0700); e != nil && !errors.Is(e, os.ErrExist) {
+		return nil, e
+	}
+	return drive.NewClient(tokens, "MarketDepth-VNext-staging", state)
+}
+func archiveLoop(ctx context.Context, w *store.ArchiveWorker, h *health) error {
+	delay := 30 * time.Second
+	for {
+		if e := ctx.Err(); e != nil {
+			return e
+		}
+		state, e := w.Cycle(ctx)
+		wait := 15 * time.Second
+		if e != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			code := "retry_pending"
+			if errors.Is(e, drive.ErrReauthorize) {
+				code = "reauthorize_required"
+			} else if errors.Is(e, service.ErrCapacity) {
+				code = "capacity_wait"
+			}
+			h.archiveUpdate(code)
+			log.Printf("archive: %s", code)
+			wait = delay + time.Duration(rand.Int64N(int64(delay/4)+1))
+			if d := drive.RetryDelay(e); d > wait {
+				wait = d
+			}
+			if delay < 15*time.Minute {
+				delay *= 2
+				if delay > 15*time.Minute {
+					delay = 15 * time.Minute
+				}
+			}
+		} else {
+			delay = 30 * time.Second
+			h.archiveUpdate(state)
+			if state != "idle" {
+				log.Printf("archive: %s", state)
+			}
+		}
+		if e := service.WaitUntil(ctx, time.Now().Add(wait)); e != nil {
+			return e
+		}
+	}
+}
+func run(ctx context.Context, root, addr, origin string, init bool, credentials, producer string) error {
 	host, _, e := net.SplitHostPort(addr)
 	if e != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
 		return errors.New("staging requires numeric loopback listen address")
@@ -143,7 +227,11 @@ func run(ctx context.Context, root, addr, origin string, init bool) error {
 	if e = j.Recover(ctx); e != nil {
 		return e
 	}
-	guard, e := service.NewGuardedWriter(j, measure)
+	gate, e := service.NewCapacityGate(measure)
+	if e != nil {
+		return e
+	}
+	guard, e := service.NewSharedGuardedWriter(j, gate)
 	if e != nil {
 		return e
 	}
@@ -173,7 +261,19 @@ func run(ctx context.Context, root, addr, origin string, init bool) error {
 	if e != nil {
 		return e
 	}
-	h := &health{}
+	h := &health{archiveState: "not_connected"}
+	var backup *store.ArchiveWorker
+	if credentials != "" {
+		remote, e := stagingDrive(root, credentials, producer)
+		if e != nil {
+			return e
+		}
+		backup, e = store.NewArchiveWorker(m, j, remote, gate.Reserve, producer)
+		if e != nil {
+			return e
+		}
+		h.archiveState = "configured_unverified"
+	}
 	srv := &http.Server{Handler: httpapi.API{Reader: j, Live: true, Auth: auth, Health: h.read}.Handler(), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 125 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
 	// Bind before starting any feeds, so a conflicting port cannot leave partial workers.
 	ln, e := net.Listen("tcp", addr)
@@ -264,7 +364,10 @@ func run(ctx context.Context, root, addr, origin string, init bool) error {
 			return ctx.Err()
 		})
 	}
-	log.Printf("isolated staging only; first target %d; no Drive or automatic deletion", first)
+	if backup != nil {
+		workers = append(workers, func(ctx context.Context) error { return archiveLoop(ctx, backup, h) })
+	}
+	log.Printf("isolated staging only; first target %d; Drive enabled=%t; no daily eviction", first, backup != nil)
 	return service.RunGroup(ctx, workers...)
 }
 func main() {
@@ -272,10 +375,12 @@ func main() {
 	addr := flag.String("listen", "127.0.0.1:18082", "loopback only")
 	origin := flag.String("origin", "", "exact HTTPS origin")
 	init := flag.Bool("init-staging", false, "create new staging directory; never existing data")
+	credentials := flag.String("drive-credentials", "", "optional absolute private OAuth JSON outside data root; staging namespace only")
+	producer := flag.String("producer-commit", "", "exact Git commit for archive provenance")
 	flag.Parse()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	if e := run(ctx, *root, *addr, *origin, *init); e != nil {
+	if e := run(ctx, *root, *addr, *origin, *init, *credentials, *producer); e != nil {
 		log.Fatal(e)
 	}
 }

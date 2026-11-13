@@ -296,3 +296,11 @@ func TestTrashOnlyExactActiveGeneration(t *testing.T) {
 		t.Fatal("wrong object trashed")
 	}
 }
+
+func TestRetryAfterStatus(t *testing.T) {
+	res := &http.Response{StatusCode: 429, Header: http.Header{"Retry-After": []string{"120"}}}
+	e := responseStatus(res)
+	if !status(e, 429) || RetryDelay(e) != 120*time.Second {
+		t.Fatal(e, RetryDelay(e))
+	}
+}
