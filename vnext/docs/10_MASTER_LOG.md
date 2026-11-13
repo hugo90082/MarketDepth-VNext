@@ -323,3 +323,5 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 
 ### Phase 4 完整日容量 QA fixture
 - 新 capacity_qa tag / 獨立只讀 GitHub CI：每一組合成 47,520 keys，完整數值欄位、固定 seed 高熵、真 SQLite/journal。verified 組量測 gzip/raw/snapshot/compact/vacuum；partial_loss 組 12h active snapshot、後 12h 新資料、跨日強制回收後精確 23,760 recovered + 23,760 lost，5ms 取樣 allocated peak，驗證 emergency 32MB 額外預留與 1GB 上限（取樣值不是硬 quota）。不碰真 Drive/AWS；資料是 fixture，不代表真實市場壓縮率/512MB RAM。待 workflow 結果。
+
+- CI 43480128448：完整 sealed/active 重建及回讀通過至 corruption failure 分支；building catalog 的 local History 先命中 compact 判斷回 503 archive unavailable，而非明確 ErrRecoveryIncomplete。調整所有 History readiness check 在 compact 判斷前；ArchiveRecord 同樣拒絕 building。非放寬測試，阻擋未完成 catalog 更早。重跑 CI。

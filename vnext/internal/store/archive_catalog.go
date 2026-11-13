@@ -57,6 +57,7 @@ func (j *Journal) ArchiveRecord(ctx context.Context, day string, revision int64)
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
+ if j.rebuilding{return r,ErrRecoveryIncomplete}
 	var b []byte
 	var rev int64
 	q := `SELECT revision,record_json FROM journal_archive WHERE day=? ORDER BY revision DESC LIMIT 1`

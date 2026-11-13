@@ -56,7 +56,7 @@ func verifyRecoveryGrid(ctx context.Context,remote archive.RemoteObjects,r archi
  release,e:=reserve(ctx,budget);if e!=nil{return nil,e}
  defer release()
  dir,e:=os.MkdirTemp(scratch,".verify-");if e!=nil{return nil,e}
- defer cleanJob(scratch,dir,verifyFile)
+ defer func(){if dir!=""{_ = cleanJob(scratch,dir,verifyFile)}}()
  var grid *GridIndex
  verify:=func(ctx context.Context,m archive.Manifest,body io.Reader)error{
   var path string;var e error
@@ -68,6 +68,7 @@ func verifyRecoveryGrid(ctx context.Context,remote archive.RemoteObjects,r archi
  if e=archive.VerifyPublished(ctx,remote,r,active,verify);e!=nil{return nil,e}
  if grid==nil{return nil,ErrUnavailable}
  if e=cleanJob(scratch,dir,verifyFile);e!=nil{return nil,e}
+ dir=""
  return grid,nil
 }
 type RecoveryResult struct{
