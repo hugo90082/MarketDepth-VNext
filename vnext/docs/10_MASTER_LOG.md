@@ -279,3 +279,6 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - CapacityGate.Status/NeedsForce/ReserveEmergency：以 projected 950MB 含 writer 32MB + loss 32MB headroom 觸發（實際約 886MB）；emergency 仍需實際 1GB hard cap、root 1GB、雙重預留與單任務，絕非 OS quota。32MB mutation 預算需 full-day 量測。正常 Reserve 不放寬。
 - ArchiveWorker.ForceLossCycle 一次最多處理最舊 eligible closed day，TryLock 保護正在備份的 worker，排除 pending target、active/grace、各 kind 最新日、已驗證 sealed local、缺 exact active evidence；可在另一日 pending 保持完全不變時回收其他舊日。先取得 emergency reserve，local seal/checkpoint，依有無 active 證據執行 partial 或全日 durable loss。無網路操作。完整 loss/recovery 允許不相干 pending，禁止同日 pending。
 - 新測試三日 fixture：最舊 pending 保護、下一最舊未備份 loss、最新日保護、reserve refusal 無刪除、pending bytes 不變。尚未啟用自動 force cycle；需將 capacity loop、cache/scratch 優先、writer preflight wait 與 startup high-pressure recovery 整合，及真 full-day allocation 測量。CI 待驗證，無真資料刪除或部署。
+
+### Phase 4 CI correction — active recovery helper
+- Tagged SQLite CI 43476499577 / 43476633334 failed compilation: `activeRecoveryForLocked` used `e=` after refactoring to a separate function. Corrected to scoped `e:=`; rerun required. No real storage touched.
