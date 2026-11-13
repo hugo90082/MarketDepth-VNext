@@ -53,7 +53,7 @@ def identity(st):
     return st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns
 
 
-def inventory(path, max_uncompressed=20 * 1024**3):
+def inventory(path, max_uncompressed=20 * 1024**3, *, on_record=None):
     if max_uncompressed <= 0:
         raise ValueError("positive uncompressed limit required")
     # Open once, no following symlinks on platforms supporting O_NOFOLLOW.
@@ -99,6 +99,8 @@ def inventory(path, max_uncompressed=20 * 1024**3):
                         raise ValueError("top-level key too long")
                     keys[key] += 1
                     types[(key, type(item).__name__)] += 1
+                if on_record is not None:
+                    on_record(lines, line, value)
         if not objects:
             raise ValueError("empty export")
         if identity(before) != identity(os.fstat(raw.fileno())):
