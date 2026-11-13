@@ -251,3 +251,6 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 已封存日逐筆核對與原子索引縮減（未排程）
 - CompactVerifiedDay 僅適用已安全回收本機副本、非最新 kind、無 pending/active/loss 的已封存日；fresh remote readback 後每 256 pointers 分批比對 SQLite key/revision/hash，bitmap 筆數須完全等於 manifest；網路與遠端讀取不持 journal lock。最後重核 day count/max seq、最新 manifest、狀態，於同一 transaction 插入 bitmap、移除該日逐列指標、旋轉 generation；保留 journal_repair audit。共用容量 reserve，無法預留拒絕，不做未經驗證 prune。
 - 新 catalog 初始化 incremental auto-vacuum，VacuumCatalogCycle 單次 256 pages 並 checkpoint/TRUNCATE；舊 mode=none 只重用 freelist，不做未預留 full-copy VACUUM。測試延伸已驗證日回收 fixture：混合 compact/active history、limit=1 跨日、精確 gap、sync resync 與 bootstrap hint、local-only 明確錯誤、vacuum 後回讀。此輪尚未接 compaction scheduler，等待 CI；真實 Drive/AWS 無操作。
+
+## 2026-11-14｜Phase 4 永久缺口小型 ledger 遠端同步
+- 新增 journal_loss_sync 與 SyncLossCycle：只選已 removed 的最舊未同步 tombstone；以 catalog/loss/YYYY-MM-DD.json 固定 immutable key、canonical bytes、SHA256 上傳，完整遠端 readback 核對，再持久記錄 object identity；失敗重試同 key/bytes，不會重複新增、覆寫或同步 prepared。共享容量預留，網路不持 journal lock。測試以 mock remote 注入 upload failure、重試、exact bytes/hash、去重。尚未接自動排程；部分 active backup 的 recovery record 仍需另行擴充；尚未完成 disaster recovery discovery。CI 待驗證，沒有任何真 Drive 寫入。

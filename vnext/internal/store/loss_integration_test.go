@@ -58,4 +58,18 @@ func TestUnbackedLossIntentRecoveryAndGap(t *testing.T){
  if e!=nil||len(days)!=1||days[0].State!="permanent_loss"{t.Fatal(days,e)}
  if _,e=j.Sync(ctx,q.Kind,before.Next);!errors.Is(e,ErrResync){t.Fatal("old cursor accepted",e)}
  if e=j.RecoverLoss(ctx);e!=nil{t.Fatal(e)}
+ remote:=&sealedRemote{objects:map[string]storedArchiveObject{},keys:map[string]string{},failManifest:true}
+ c,e:=NewArchiveReadCache(m,remote,func(context.Context,int64)(func(),error){return func(){},nil})
+ if e!=nil{t.Fatal(e)}
+ r,e:=NewArchiveReader(j,c);if e!=nil{t.Fatal(e)}
+ if _,e=r.SyncLossCycle(ctx);e==nil{t.Fatal("upload failure ignored")}
+ var synced int
+ if e=j.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_loss_sync").Scan(&synced);e!=nil||synced!=0{t.Fatal(synced,e)}
+ remote.failManifest=false
+ if state,e:=r.SyncLossCycle(ctx);e!=nil||state!="loss_ledger_verified"{t.Fatal(state,e)}
+ if state,e:=r.SyncLossCycle(ctx);e!=nil||state!="idle"{t.Fatal(state,e)}
+ if len(remote.objects)!=1{t.Fatal("duplicate loss record",len(remote.objects))}
+ key,b,hash,e:=lossLedgerBytes(loss);if e!=nil{t.Fatal(e)}
+ o:=remote.objects[remote.keys[key]]
+ if string(o.data)!=string(b)||o.meta.SHA256!=hash{t.Fatal("ledger readback mismatch")}
 }

@@ -97,6 +97,7 @@ func OpenJournal(ctx context.Context, db *sql.DB, target JournalTarget) (*Journa
 		`CREATE TABLE IF NOT EXISTS journal_archive_pending(id INTEGER PRIMARY KEY CHECK(id=1),payload BLOB NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS journal_loss(day TEXT PRIMARY KEY,from_t INTEGER NOT NULL,to_t INTEGER NOT NULL,record_json BLOB NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','removed')),completed_at INTEGER) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_compact(day TEXT PRIMARY KEY,from_t INTEGER NOT NULL,to_t INTEGER NOT NULL,grid_json BLOB NOT NULL) WITHOUT ROWID`,
+		`CREATE TABLE IF NOT EXISTS journal_loss_sync(day TEXT PRIMARY KEY,object_json BLOB NOT NULL,verified_at INTEGER NOT NULL) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_active(day TEXT PRIMARY KEY,current_json BLOB NOT NULL,previous_json BLOB,verified_at INTEGER NOT NULL) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_archive(day TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>=1),record_json BLOB NOT NULL,verified_at INTEGER NOT NULL,PRIMARY KEY(day,revision)) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_repair(kind TEXT NOT NULL,t INTEGER NOT NULL,venue TEXT NOT NULL,asset TEXT NOT NULL,new_revision INTEGER NOT NULL,old_row BLOB NOT NULL,new_hash TEXT NOT NULL,PRIMARY KEY(kind,t,venue,asset,new_revision)) WITHOUT ROWID`,
