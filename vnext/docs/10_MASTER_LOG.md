@@ -151,3 +151,8 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - Reader/Auth/probe commit `58b3d4773e465308ac4dd3933a940b812d5f80bf` / CI 43442280751 已啟動，依賴下載通過，完整結果尚待確認。
 - 新增 RestoreVerifiedDay：僅接受可信 catalog 中 sealed live manifest（固定 contract/day/timezone/revision/producer/fileID/generation），呼叫者先預留壓縮+raw 空間，私有獨立 cache。壓縮下載長度/sha256 必須相同、拒絕額外 bytes；單 gzip member、有解壓長度硬限制，raw size/hash 必須相同；SQLite quick_check、日期、schema、seal、revision、所有筆數/NULL/status/grid 統計重新計算比對。不覆寫原日檔、不覆寫既存 cache，完整驗證後 fsync + atomic no-replace link；失敗清理本次 temp。只接受 live origin，不涵蓋 legacy。可信 manifest 的取得/遠端 fileId驗證、catalog 註冊、cache lease、實際全局容量 reservation 仍待實作，不能僅靠此 primitive 宣稱遠端備份已驗證或允許刪除。
 - 新增真 SQLite 來回 restore/篡改壓縮/超量/錯誤 manifest/重複還原/64-bit ID 測試；本地普通 Go test/vet 通過，tagged CI 待確認。沒有對 Drive 讀寫或刪除任何歷史。
+
+## 2026-11-13｜Phase 3 第三輪：自動補漏工作器初版
+- Reader/Auth/probe commit `58b3d4773e465308ac4dd3933a940b812d5f80bf` / CI 43442280751 / job 131942665463 已確認 completed success（Go checks、secure_auth、live_ws、真 SQLite Reader/API、SQL contracts）。restore commit `69b77d95e440614612014c5e1f3b4b418fd8ffac` / CI 43442532269 尚在執行。
+- 新增 futures.RepairWorker.Cycle：由 durable Reader 重新辨識最近10分鐘內的已存在 missing/partial futures rows，重啟不依賴記憶體工作佇列；等待 close 後30秒、前日僅在跨日4分鐘內、一次最多3個官方1m及1個10s、每個REST任務30s timeout、單工、每 key/revision 最多3次記憶體 retry（1/2/3分鐘退避，重啟重置）。全部是待實盤負荷確認的工程預設，未涵蓋10分鐘以上歷史或缺格本身，未持久化 retry 計數。只提交 exact key/revision+1/recovered，journal 再做完整修正證據與 CAS 驗證；REST failure 不改原列，writer failure 明確停止本輪。未接正式排程或真 REST；未允許修正 sealed/spot。
+- 本地普通 Go test/race/vet 通過；新增 fake Reader/Writer/REST 測試 covered complete skip、尚未成熟 skip、恢復版本、限量及退避，整合排程與實盤仍待驗證。維持 main、原服務與所有舊資料不變；C 延後。
