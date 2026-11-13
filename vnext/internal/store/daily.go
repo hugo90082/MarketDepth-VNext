@@ -107,7 +107,7 @@ func OpenDaily(ctx context.Context, db *sql.DB, day string) (*Daily, error) {
 		if version != 1 {
 			return nil, errors.New("unsupported SQLite schema version")
 		}
-		for k, want := range map[string]string{"contract_id": model.Contract, "day": day, "timezone": model.Timezone} {
+		for k, want := range map[string]string{"contract_id": model.Contract, "day": day, "timezone": model.Timezone, "data_origin": "live"} {
 			var got string
 			if e := db.QueryRowContext(ctx, "SELECT value FROM meta WHERE key=?", k).Scan(&got); e != nil || got != want {
 				return nil, fmt.Errorf("database metadata mismatch: %s", k)
