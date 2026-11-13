@@ -166,7 +166,10 @@ func (j *Journal) RetireSealedActive(ctx context.Context, remote archive.ActiveR
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	r, e := j.db.ExecContext(ctx, `DELETE FROM journal_active WHERE day=? AND current_json=?`, day, a)
+	tx,e:=j.db.BeginTx(ctx,nil)
+	if e!=nil{return e}
+	defer tx.Rollback()
+	r, e := tx.ExecContext(ctx, `DELETE FROM journal_active WHERE day=? AND current_json=?`, day, a)
 	if e != nil {
 		return e
 	}
@@ -174,5 +177,6 @@ func (j *Journal) RetireSealedActive(ctx context.Context, remote archive.ActiveR
 	if e != nil || n != 1 {
 		return errors.New("active retirement catalog conflict")
 	}
-	return nil
+	if _,e=tx.ExecContext(ctx,"DELETE FROM journal_active_recovery WHERE day=?",day);e!=nil{return e}
+	return tx.Commit()
 }

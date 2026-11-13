@@ -84,6 +84,12 @@ func TestActiveRotationRestartAndSealedRetirement(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	index,e:=j.ActiveRecovery(ctx,day)
+	if e!=nil||index.Grid.ManifestSHA256!=first.ManifestSHA256{t.Fatal(e)}
+	for _,row:=range rows{
+		h,e:=index.HashAt(row.Kind(),row.Key());want,_:=journalHash(row)
+		if e!=nil||h!=want{t.Fatal("active recovery hash mismatch",e)}
+	}
 	s2 := snapshot(1)
 	r.failManifest = true
 	if _, e = j.PublishActiveSnapshot(ctx, r, s2, cache, 20_000_000); e == nil {
@@ -165,6 +171,8 @@ func TestActiveRotationRestartAndSealedRetirement(t *testing.T) {
 	if _, e = j.ActiveState(ctx, day); e == nil {
 		t.Fatal("active ledger remains")
 	}
+	var recoveryRows int
+	if e=j.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_active_recovery WHERE day=?",day).Scan(&recoveryRows);e!=nil||recoveryRows!=0{t.Fatal("active recovery index remains",e)}
 	if r.trashed[rec.Manifest.FileID] || r.trashed[rec.ManifestID] {
 		t.Fatal("sealed archive trashed")
 	}

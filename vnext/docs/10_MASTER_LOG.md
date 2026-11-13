@@ -254,3 +254,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 
 ## 2026-11-14｜Phase 4 永久缺口小型 ledger 遠端同步
 - 新增 journal_loss_sync 與 SyncLossCycle：只選已 removed 的最舊未同步 tombstone；以 catalog/loss/YYYY-MM-DD.json 固定 immutable key、canonical bytes、SHA256 上傳，完整遠端 readback 核對，再持久記錄 object identity；失敗重試同 key/bytes，不會重複新增、覆寫或同步 prepared。共享容量預留，網路不持 journal lock。測試以 mock remote 注入 upload failure、重試、exact bytes/hash、去重。尚未接自動排程；部分 active backup 的 recovery record 仍需另行擴充；尚未完成 disaster recovery discovery。CI 待驗證，沒有任何真 Drive 寫入。
+
+## 2026-11-14｜Phase 4 部分 active 備份可恢復精確證據
+- ActiveRecoveryIndex 在 active snapshot 的遠端 readback/SQLite restore 內每 256 key 分頁計算原始 journalHash；固定 presence bitmap + 每 key 32 bytes hash（最多 1,520,640 bytes hashes/active 日，JSON 約 2.04MB），綁 manifest SHA、coverage、筆數及 revision。未來容量強制 loss 可比較本機最新 hash，區分已備份與未備份/修正版本，不以最後時間戳推定完整。
+- journal_active_recovery 在 active catalog commit 後、durable pending clear 前寫入；中斷需重播同一 verified generation 才能補 index，manifest mismatch/缺 index 時不得 partial loss；sealed retirement transaction 同時移除 recovery index。新增 active 測試核對 exact row hashes 及封存後清除。部分 active 日強制 loss executor/reader 仍未完成，待 CI。無真資料或部署變更。

@@ -103,6 +103,7 @@ func (j *Journal) publishSnapshot(ctx context.Context, remote archive.RemoteObje
 	if _, e = f.Seek(0, io.SeekStart); e != nil {
 		return zero, e
 	}
+	var recovery *ActiveRecoveryIndex
 	verify := func(ctx context.Context, man archive.Manifest, body io.Reader) error {
 		dir, e := os.MkdirTemp(cache, ".verify-")
 		if e != nil {
@@ -111,7 +112,9 @@ func (j *Journal) publishSnapshot(ctx context.Context, remote archive.RemoteObje
 		// Only our newly-created private directory, never caller-owned data.
 		defer os.RemoveAll(dir)
 		if active {
-			_, e = RestoreVerifiedActive(ctx, man, body, dir, reserve)
+			var restored string
+			restored, e = RestoreVerifiedActive(ctx, man, body, dir, reserve)
+			if e == nil { recovery, e = buildActiveRecovery(ctx, restored, man) }
 		} else {
 			_, e = RestoreVerifiedDay(ctx, man, body, dir, reserve)
 		}
@@ -131,6 +134,11 @@ func (j *Journal) publishSnapshot(ctx context.Context, remote archive.RemoteObje
 	}
 	if active {
 		e = j.registerActive(ctx, p)
+		if e == nil {
+			var record archive.PublishedRecord
+			record,e=p.Record()
+			if e==nil {e=j.registerActiveRecovery(ctx,record,recovery)}
+		}
 	} else {
 		e = j.RegisterArchive(ctx, p)
 	}
