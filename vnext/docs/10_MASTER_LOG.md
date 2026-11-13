@@ -320,3 +320,6 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 
 ### Phase 4 復原 CLI 與受控恢復讀取
 - 新 --recover-catalog --init-staging，僅全新隔離 root；durable .recovery-build 直到重建、close、fsync 成功才移除。只 GET Drive staging，無 HTTP/collector/archive publishing；失敗阻擋正常啟動。--resume-recovered 必須 explicit、已完成 catalog、Drive credentials；同日已有 recovered/archived 禁止收集。新 Drive missing-reservation fallback 僅明確 recovered root 啟用，仍驗完整 namespace ancestry/key/size/hash，不建立 ID，不掩蓋壞 reservation。新增 RECOVERY_SETUP.md。未執行真實恢復或部署，CI 待驗證。
+
+### Phase 4 完整日容量 QA fixture
+- 新 capacity_qa tag / 獨立只讀 GitHub CI：每一組合成 47,520 keys，完整數值欄位、固定 seed 高熵、真 SQLite/journal。verified 組量測 gzip/raw/snapshot/compact/vacuum；partial_loss 組 12h active snapshot、後 12h 新資料、跨日強制回收後精確 23,760 recovered + 23,760 lost，5ms 取樣 allocated peak，驗證 emergency 32MB 額外預留與 1GB 上限（取樣值不是硬 quota）。不碰真 Drive/AWS；資料是 fixture，不代表真實市場壓縮率/512MB RAM。待 workflow 結果。
