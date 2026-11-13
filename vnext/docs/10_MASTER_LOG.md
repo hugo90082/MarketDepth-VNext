@@ -352,3 +352,10 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 新增 tools/legacy_raw_stage.py（6bc1edf）：要求明示 compressed SHA256、新建從未存在的目錄，SQLite DELETE journal/FULL synchronous、8MiB cache；raw_payload 以 SHA256 去重且比較原始 bytes，occurrence 保留每次出現行號。原始 JSONL 可按行號逐 byte 重建（包含換行與 NULL/0/大整數）。整個來源單交易；gzip/JSON/hash/計數/SQLite 驗證失敗 rollback，保留 building marker；完整 commit/close/fsync 後移除 marker。不得將 raw_stage 當成正式日庫或 mapping 已批准。現階段單來源、同目錄重跑拒絕，非多來源語意去重或可續傳；長交易/磁碟需求尚未量測，只能在隔離離線環境，不放 Sydney 1GB 行情 root。
 - 新增 tests/legacy_raw_stage_test.py（357d0ae），驗證原始 bytes 重建、duplicate occurrence、原檔不變、錯誤 hash/JSON rollback、截斷 gzip、重跑不覆寫；backend CI 接入（254bb9a），run 43483856433 in_progress，未宣稱通過。
 - 下一步：明確來源 adapter + normalized candidate ledger，時間格/來源/可用時間/NULL 檢查與衝突分類；正式來源新檔仍未取得，不猜 mapping、不造 10s、不改 live schema。無正式資料、AWS、Drive 或憑證操作。
+
+## 2026-11-14｜Phase 5 第三輪：候選列契約與衝突 ledger
+- 前輪 inventory CI 43483503634 / job 132085787834 和 raw staging CI 43483856433 / job 132087014630 已核對 completed success；Go checks / SQL contracts（含 Python fixtures）全數通過。原始行 byte 重建、重複 occurrence、錯誤 SHA/JSON rollback 及不可覆寫取得測試證據。
+- 新增 internal/legacy/candidate.go（5be3711）：使用共享 model.Decode/Validate；要求完整明示欄位（NULL 不等於省略），拒絕重複、未知、大小寫別名、尾端 JSON、非法 grid/venue/asset/值域；來源 SHA、raw SHA、原行號、adapter ID 為必要 evidence。第一版僅 spot/1m，legacy_unknown、available_at=NULL、revision=1、source=legacy:<adapter>；不接受 F10、不冒充官方 closed 或 live。產生 canonical JSON、SHA256、UTC+8 日、key；同 key 完全相同 candidate 或 conflict，不選 winner。這是保守候選層工程決策，非正式 mapping。
+- 新增 candidate tests（3aa7c6e），檢查 null/zero、64-bit ID、時間格、非法 source/asset/venue、未知/重複欄位、10s 拒絕等。
+- 新增 tagged SQLite ledger（f56cdf9）、測試（33070fc）、SQLite URI 路徑安全修正（f8ae95e）：只能建立新隔離 root；逐 evidence/key 保存完整候選與 hash，完全相同 replay 不重複，矛盾 replay 拒絕，不同證據同 key 可保留多個版本並計數；無自動 winner、無 live/Drive writes。相異 adapter provenance 也可能分類為 conflict，保守留待審核。此層未直接驗證 raw stage 的原始 SHA/line 內容、未接 source adapter 或正式發布、未做長批壓力/重開續傳。最新 CI 43484245426 queued，尚未宣稱通過。
+- 下一步：綁定已完整核對的 raw stage 與 evidence、實作可重建的 source adapter fixture、逐行 quarantine/audit、明確 canonical 選擇及隔離日庫生成。真新歷史檔尚未取得；不猜欄位，不改 MD-VNEXT-1，無正式服務、AWS、Drive、OAuth 或真歷史資料操作。
