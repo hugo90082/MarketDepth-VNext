@@ -18,14 +18,20 @@ import (
 
 func rawFixture(t *testing.T)(string,string,string,[]byte){
  t.Helper()
- root:=t.TempDir()
- source:=filepath.Join(root,"fixture.gz")
- stage:=filepath.Join(root,"raw")
  row:=spot()
  b:=encoded(t,map[string]any{"kind":model.Spot,"row":row})
  raw:=append(append([]byte{},b...),'\n')
  raw=append(raw,b...)
  raw=append(raw,'\n')
+ stage,source,sha:=makeRawStage(t,raw)
+ return stage,source,sha,b
+}
+
+func makeRawStage(t *testing.T,raw []byte)(string,string,string){
+ t.Helper()
+ root:=t.TempDir()
+ source:=filepath.Join(root,"fixture.gz")
+ stage:=filepath.Join(root,"raw")
  var buf bytes.Buffer
  z:=gzip.NewWriter(&buf)
  if _,e:=z.Write(raw);e!=nil{t.Fatal(e)}
@@ -34,7 +40,7 @@ func rawFixture(t *testing.T)(string,string,string,[]byte){
  if e:=os.WriteFile(source,buf.Bytes(),0600);e!=nil{t.Fatal(e)}
  cmd:=exec.Command("python3","../../tools/legacy_raw_stage.py",source,"--output-new-dir",stage,"--expected-sha256",sha)
  if out,e:=cmd.CombinedOutput();e!=nil{t.Fatal(e,string(out))}
- return stage,source,sha,b
+ return stage,source,sha
 }
 
 func TestRawStageVerifiedFixture(t *testing.T){
@@ -74,4 +80,25 @@ func TestFixtureEnvelopeStrict(t *testing.T){
   `{"kind":"spot_depth","row":{},"extra":1}`,
   `{"kind":"spot_depth"}`,
  }{if _,_,e:=MapFixture([]byte(b));e==nil{t.Fatal("bad envelope",b)}}
+}
+
+func TestFixtureBatchAudit(t *testing.T){
+ ctx:=context.Background()
+ row:=spot()
+ b:=encoded(t,map[string]any{"kind":model.Spot,"row":row})
+ raw:=append(append([]byte{},b...),'\n')
+ raw=append(raw,[]byte("{\"kind\":\"futures_10s\",\"row\":{}}\n")...)
+ raw=append(raw,b...)
+ raw=append(raw,'\n')
+ root,source,sha:=makeRawStage(t,raw)
+ s,e:=VerifyRawStage(ctx,root,source,sha,1<<20);if e!=nil{t.Fatal(e)}
+ defer s.Close()
+ l,e:=CreateLedger(filepath.Join(t.TempDir(),"ledger"));if e!=nil{t.Fatal(e)}
+ defer l.Close()
+ result,e:=l.MapVerifiedFixture(ctx,s)
+ if e!=nil||result.Records!=3||result.Accepted!=2||result.Quarantined!=1{t.Fatal(result,e)}
+ var state,outcome,reason string
+ if e=l.db.QueryRow("SELECT state FROM fixture_run WHERE source_sha=?",sha).Scan(&state);e!=nil||state!="complete"{t.Fatal(state,e)}
+ if e=l.db.QueryRow("SELECT outcome,reason FROM fixture_audit WHERE source_sha=? AND line_no=2",sha).Scan(&outcome,&reason);e!=nil||outcome!="quarantined"||reason==""{t.Fatal(outcome,reason,e)}
+ if _,e=l.MapVerifiedFixture(ctx,s);e==nil{t.Fatal("batch replay overwrote prior audit")}
 }
