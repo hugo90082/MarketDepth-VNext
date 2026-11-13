@@ -247,3 +247,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 
 ## 2026-11-14｜Phase 4 compacted day 查詢相容層（尚未 prune）
 - journal_compact 新表存固定日 bitmap，loader 與最新 sealed archive record 核對完整 manifest 身份及各表筆數。ArchiveReader.History mixed plan 將現有 per-row pointers 與 compacted exact keys 合併保序、維持原 query/seq/generation cursor；第一頁 gap 以 bitmap 替換已縮減日的 grid_missing，無需為整段缺格掃 31 個 Drive 日檔。遠端讀取僅選中日、整檔 hash/SQLite 驗證；不再依賴被 prune 的每列 pointer。原 Journal 未連遠端而命中 compact day 明確 503，舊 HistoryWithArchive 防止競態漏資料。Sync 初始 cursor 會提示 sealed_history_query_history 範圍，由 /days+/history 補歷史；增量游標仍原 seq，未變 row schema。此輪未產生任何 compact 記錄、未刪 journal row，下一步做完整逐列核對後原子 prune 及測試。新提交 CI 待驗證。
+
+## 2026-11-14｜Phase 4 已封存日逐筆核對與原子索引縮減（未排程）
+- CompactVerifiedDay 僅適用已安全回收本機副本、非最新 kind、無 pending/active/loss 的已封存日；fresh remote readback 後每 256 pointers 分批比對 SQLite key/revision/hash，bitmap 筆數須完全等於 manifest；網路與遠端讀取不持 journal lock。最後重核 day count/max seq、最新 manifest、狀態，於同一 transaction 插入 bitmap、移除該日逐列指標、旋轉 generation；保留 journal_repair audit。共用容量 reserve，無法預留拒絕，不做未經驗證 prune。
+- 新 catalog 初始化 incremental auto-vacuum，VacuumCatalogCycle 單次 256 pages 並 checkpoint/TRUNCATE；舊 mode=none 只重用 freelist，不做未預留 full-copy VACUUM。測試延伸已驗證日回收 fixture：混合 compact/active history、limit=1 跨日、精確 gap、sync resync 與 bootstrap hint、local-only 明確錯誤、vacuum 後回讀。此輪尚未接 compaction scheduler，等待 CI；真實 Drive/AWS 無操作。

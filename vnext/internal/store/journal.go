@@ -69,6 +69,14 @@ func OpenJournal(ctx context.Context, db *sql.DB, target JournalTarget) (*Journa
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
+	// New catalogs use incremental auto-vacuum so freed sealed pointers
+	// can release allocated disk pages without a full-copy VACUUM. Existing
+	// catalogs keep their mode; a full migration requires explicit budget.
+	var tables int
+	if e:=db.QueryRowContext(ctx,"SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'").Scan(&tables);e!=nil{return nil,e}
+	if tables==0{
+		if _,e:=db.ExecContext(ctx,"PRAGMA auto_vacuum=INCREMENTAL");e!=nil{return nil,e}
+	}
 	var mode string
 	if e := db.QueryRowContext(ctx, "PRAGMA journal_mode=WAL").Scan(&mode); e != nil || mode != "wal" {
 		return nil, fmt.Errorf("catalog WAL: %s %v", mode, e)
