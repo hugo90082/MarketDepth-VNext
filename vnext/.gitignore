@@ -1,0 +1,7 @@
+/marketdepth-vnext
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.env
+*.pem
+*.key

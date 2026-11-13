@@ -1,0 +1,25 @@
+{
+  "data": [
+    {
+      "day": "2026-11-13",
+      "state": "fixture",
+      "revision": 1,
+      "from": 1794499200000,
+      "to": 1794585600000,
+      "row_counts": {
+        "futures_10s": 36,
+        "futures_1m": 6,
+        "spot_depth": 24
+      },
+      "sha256": null,
+      "etag": null,
+      "gaps": []
+    }
+  ],
+  "meta": {
+    "contract_id": "MD-VNEXT-1",
+    "mock": true,
+    "timezone": "Asia/Taipei"
+  },
+  "ok": true
+}

@@ -1,0 +1,53 @@
+{
+  "data": {
+    "all4_min_venues": 2,
+    "assets": [
+      "BTC",
+      "ETH",
+      "SOL"
+    ],
+    "cadence_ms": {
+      "futures_10s": 10000,
+      "futures_1m": 60000,
+      "spot_depth": 60000
+    },
+    "contract_id": "MD-VNEXT-1",
+    "null_semantics": "unknown=null; confirmed empty=0",
+    "synthetic": true,
+    "timezone": "Asia/Taipei",
+    "venues": [
+      "binance",
+      "coinbase",
+      "kraken",
+      "bitfinex"
+    ],
+    "zones_bps": [
+      [
+        0,
+        100
+      ],
+      [
+        100,
+        200
+      ],
+      [
+        200,
+        300
+      ],
+      [
+        300,
+        500
+      ],
+      [
+        500,
+        750
+      ]
+    ]
+  },
+  "meta": {
+    "contract_id": "MD-VNEXT-1",
+    "mock": true,
+    "timezone": "Asia/Taipei"
+  },
+  "ok": true
+}

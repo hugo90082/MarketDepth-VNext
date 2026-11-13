@@ -1,0 +1,14 @@
+{
+  "data": {
+    "archive": "not_connected",
+    "collector": "not_running",
+    "mode": "mock",
+    "production_ready": false
+  },
+  "meta": {
+    "contract_id": "MD-VNEXT-1",
+    "mock": true,
+    "timezone": "Asia/Taipei"
+  },
+  "ok": true
+}

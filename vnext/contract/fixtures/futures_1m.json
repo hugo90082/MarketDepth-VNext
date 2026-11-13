@@ -1,0 +1,65 @@
+{
+  "data": [
+    {
+      "t": 1794499260000,
+      "available_at": 1794499320000,
+      "asset": "BTC",
+      "status": "missing",
+      "source": "synthetic_fixture",
+      "quality_json": null,
+      "revision": 1,
+      "open": null,
+      "high": null,
+      "low": null,
+      "close": null,
+      "volume": null,
+      "quote_volume": null,
+      "taker_buy_qty": null,
+      "taker_buy_usdt": null,
+      "trade_count": null
+    },
+    {
+      "t": 1794499260000,
+      "available_at": 1794499320000,
+      "asset": "ETH",
+      "status": "missing",
+      "source": "synthetic_fixture",
+      "quality_json": null,
+      "revision": 1,
+      "open": null,
+      "high": null,
+      "low": null,
+      "close": null,
+      "volume": null,
+      "quote_volume": null,
+      "taker_buy_qty": null,
+      "taker_buy_usdt": null,
+      "trade_count": null
+    },
+    {
+      "t": 1794499260000,
+      "available_at": 1794499320000,
+      "asset": "SOL",
+      "status": "missing",
+      "source": "synthetic_fixture",
+      "quality_json": null,
+      "revision": 1,
+      "open": null,
+      "high": null,
+      "low": null,
+      "close": null,
+      "volume": null,
+      "quote_volume": null,
+      "taker_buy_qty": null,
+      "taker_buy_usdt": null,
+      "trade_count": null
+    }
+  ],
+  "meta": {
+    "contract_id": "MD-VNEXT-1",
+    "kind": "futures_1m",
+    "mock": true,
+    "timezone": "Asia/Taipei"
+  },
+  "ok": true
+}

@@ -1,0 +1,30 @@
+Phase 1 local test evidence; 2026-11-13 UTC+8
+go version go1.23.2 linux/amd64
+PASS: schema SHA256, quick_check, version, NULL/0, PK, grid, venue, all fixture columns
+?   	github.com/hugo90082/MarketDepth/vnext/cmd/marketdepth	[no test files]
+?   	github.com/hugo90082/MarketDepth/vnext/internal/archive	[no test files]
+=== RUN   TestEndpoints
+--- PASS: TestEndpoints (0.00s)
+PASS
+ok  	github.com/hugo90082/MarketDepth/vnext/internal/httpapi	0.006s
+=== RUN   TestValidate
+--- PASS: TestValidate (0.00s)
+=== RUN   TestDay
+--- PASS: TestDay (0.00s)
+=== RUN   TestNullZero
+--- PASS: TestNullZero (0.00s)
+PASS
+ok  	github.com/hugo90082/MarketDepth/vnext/internal/model	0.002s
+=== RUN   TestHistorySync
+--- PASS: TestHistorySync (0.00s)
+=== RUN   TestBatchAtomic
+--- PASS: TestBatchAtomic (0.00s)
+PASS
+ok  	github.com/hugo90082/MarketDepth/vnext/internal/store	0.003s
+?   	github.com/hugo90082/MarketDepth/vnext/cmd/marketdepth	[no test files]
+?   	github.com/hugo90082/MarketDepth/vnext/internal/archive	[no test files]
+ok  	github.com/hugo90082/MarketDepth/vnext/internal/httpapi	1.035s
+ok  	github.com/hugo90082/MarketDepth/vnext/internal/model	1.042s
+ok  	github.com/hugo90082/MarketDepth/vnext/internal/store	1.028s
+616e306b2ce5f10aedc8e9c7d4dbe5584c1965b9b244ff03836e19ca3b1f8640  contract/schema.sql
+2026/11/13 10:30:22 mock server must bind a numeric loopback address
