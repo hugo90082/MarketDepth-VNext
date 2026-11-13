@@ -331,3 +331,8 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - verified：日檔 logical 10,297,344 B，封存 raw 9,465,856 B、gzip 4,503,132 B。備份 sampled peak allocated 41,271,296 B；compact sampled peak 26,435,584 B；catalog vacuum 前 26,951,680 B、後 17,313,792 B（含當日/cache 等）。
 - partial_loss：日檔 logical 10,297,344 B，刪除前 allocated 24,530,944 B，sampled peak 24,563,712 B，after 21,540,864 B，額外 sampled peak 32,768 B；32MB emergency reserve 通過此 fixture，精確 recoverable 23,760 / lost 23,760。vacuum 前 26,292,224 B、後 14,639,104 B。
 - 仍不可宣稱 1GB 為 OS 硬 quota 或 512MB VM 已過實測；合成欄位、5ms sampled peak、mock Drive，不含真網路、實際品質 JSON 分布、多日壓力/OS reserve/長匯出併發。真 Drive 與 Sydney 驗收前不開正式強制遺失。災難重建最新 CI 43480678745 待查。
+
+### Phase 4 接續核對（2026-11-14 UTC+8）
+- GitHub Actions 43480678745 已 success，backend job 132076037800；Go checks / SQL contracts 均通過。未完成 recovery catalog 的 History/ArchiveRecord 阻擋修正已取得回歸證據。
+- 保留隔離 gate：mock Drive 與合成 full-day QA 不代表真實 OAuth/Drive 或 Sydney 512MB/1GB 驗收。正式 force-loss 維持關閉；不得操作舊正式服務或歷史資料。
+- 下一個驗收依序：隔離真 Drive OAuth 上傳/下載/復原（不提交本機憑證）、Sydney 四所即時覆蓋及資源長測、歷史匯入與前端整合。任何未取得真實證據的項目不標完成。
