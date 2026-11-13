@@ -76,4 +76,8 @@ func TestPartialLossKeepsExactActiveRowsAndRejectsStaleRepair(t *testing.T){
  if e=j.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_active_recovery WHERE day=?",day).Scan(&n);e!=nil||n!=0{t.Fatal("dense recovery evidence retained",n,e)}
  syncPage,e:=r.Sync(ctx,model.Spot,"");if e!=nil||len(syncPage.Rows)!=1||len(syncPage.Gaps)!=1||syncPage.Gaps[0].Reason!="partial_history_query_history"{t.Fatal(syncPage,e)}
  if len(remote.objects)!=2{t.Fatal("active remote changed")}
+ if state,e:=r.SyncLossCycle(ctx);e!=nil||state!="loss_ledger_verified"{t.Fatal(state,e)}
+ if state,e:=r.SyncLossCycle(ctx);e!=nil||state!="idle"{t.Fatal(state,e)}
+ if len(remote.objects)!=3{t.Fatal("partial loss ledger not published once")}
+ if e=j.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_loss_sync WHERE day=?",day).Scan(&n);e!=nil||n!=1{t.Fatal(n,e)}
 }

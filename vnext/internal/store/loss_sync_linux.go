@@ -30,6 +30,28 @@ func lossLedgerBytes(v LossState)(string,[]byte,string,error){
  digest:=sha256.Sum256(b)
  return key,b,hex.EncodeToString(digest[:]),nil
 }
+type partialLossEnvelope struct {
+ ContractID string `json:"contract_id"`
+ Type string `json:"type"`
+ Loss PartialLossState `json:"loss"`
+}
+func partialLossLedgerBytes(v PartialLossState)(string,[]byte,string,error){
+ if v.State!="removed"||v.CompletedAt==nil||*v.CompletedAt<v.Record.RecordedAt||validatePartialLoss(v.Record)!=nil{return "",nil,"",ErrUnavailable}
+ key:="catalog/loss/"+v.Record.Day+".partial.json"
+ b,e:=json.Marshal(partialLossEnvelope{ContractID:"MD-VNEXT-1",Type:"partial_loss",Loss:v})
+ if e!=nil||len(b)>2<<20{return "",nil,"",ErrUnavailable}
+ digest:=sha256.Sum256(b)
+ return key,b,hex.EncodeToString(digest[:]),nil
+}
+func(j *Journal) lossLedgerLocked(ctx context.Context,day,kind string)(string,[]byte,string,error){
+ switch kind {
+ case "full":
+  v,e:=j.lossRecordLocked(ctx,day);if e!=nil{return "",nil,"",e};return lossLedgerBytes(v)
+ case "partial":
+  v,e:=j.partialLossLocked(ctx,day);if e!=nil{return "",nil,"",e};return partialLossLedgerBytes(v)
+ }
+ return "",nil,"",ErrUnavailable
+}
 func validLossObject(o archive.Object,key string,size int64,hash string)bool{
  return o.ID!=""&&len(o.ID)<=256&&strings.Trim(o.ID,"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")==""&&o.Key==key&&o.Size==size&&o.SHA256==hash
 }
@@ -41,18 +63,17 @@ func validLossObject(o archive.Object,key string,size int64,hash string)bool{
 func(r *ArchiveReader) SyncLossCycle(ctx context.Context)(string,error){
  j,c:=r.j,r.c
  j.archiveMu.Lock();defer j.archiveMu.Unlock()
- var v LossState
+ var day,kind,key,hash string
+ var b []byte
  e:=func()error{
   j.mu.Lock();defer j.mu.Unlock()
   if e:=j.ready(ctx);e!=nil{return e}
-  var day string
-  e:=j.db.QueryRowContext(ctx,"SELECT day FROM journal_loss l WHERE state='removed' AND NOT EXISTS (SELECT 1 FROM journal_loss_sync s WHERE s.day=l.day) ORDER BY from_t LIMIT 1").Scan(&day)
+  e:=j.db.QueryRowContext(ctx,"SELECT day,kind FROM (SELECT day,from_t,\'full\' AS kind FROM journal_loss WHERE state=\'removed\' UNION ALL SELECT day,from_t,\'partial\' AS kind FROM journal_partial_loss WHERE state=\'removed\') l WHERE NOT EXISTS (SELECT 1 FROM journal_loss_sync s WHERE s.day=l.day) ORDER BY from_t LIMIT 1").Scan(&day,&kind)
   if e!=nil{return e}
-  v,e=j.lossRecordLocked(ctx,day);return e
+  key,b,hash,e=j.lossLedgerLocked(ctx,day,kind);return e
  }()
  if errors.Is(e,sql.ErrNoRows){return "idle",nil}
  if e!=nil{return "",e}
- key,b,hash,e:=lossLedgerBytes(v);if e!=nil{return "",e}
  release,e:=c.reserve(ctx,archiveSlack);if e!=nil{return "",e}
  defer release()
  o,e:=c.remote.PutImmutable(ctx,key,int64(len(b)),hash,bytes.NewReader(b))
@@ -67,10 +88,9 @@ func(r *ArchiveReader) SyncLossCycle(ctx context.Context)(string,error){
  if e!=nil||!bytes.Equal(exact,b){return "",ErrUnavailable}
  j.mu.Lock();defer j.mu.Unlock()
  if e=j.ready(ctx);e!=nil{return "",e}
- latest,e:=j.lossRecordLocked(ctx,v.Record.Day);if e!=nil{return "",e}
- _,same,h,e:=lossLedgerBytes(latest)
+ _,same,h,e:=j.lossLedgerLocked(ctx,day,kind)
  if e!=nil||h!=hash||!bytes.Equal(same,b){return "",ErrResync}
  object,e:=json.Marshal(o);if e!=nil{return "",e}
- if _,e=j.db.ExecContext(ctx,"INSERT INTO journal_loss_sync(day,object_json,verified_at) VALUES(?,?,?)",v.Record.Day,object,time.Now().UnixMilli());e!=nil{return "",e}
+ if _,e=j.db.ExecContext(ctx,"INSERT INTO journal_loss_sync(day,object_json,verified_at) VALUES(?,?,?)",day,object,time.Now().UnixMilli());e!=nil{return "",e}
  return "loss_ledger_verified",nil
 }

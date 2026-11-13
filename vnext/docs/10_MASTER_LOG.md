@@ -282,3 +282,6 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 
 ### Phase 4 CI correction — active recovery helper
 - Tagged SQLite CI 43476499577 / 43476633334 failed compilation: `activeRecoveryForLocked` used `e=` after refactoring to a separate function. Corrected to scoped `e:=`; rerun required. No real storage touched.
+
+### Phase 4 — immutable partial-loss ledger publication
+- Extended verified immutable loss-ledger cycle to select oldest finalized full or partial loss. Partial ledger records active manifest identity and exact bitmaps at `catalog/loss/YYYY-MM-DD.partial.json`; re-read exact bytes before marking synced. Added idempotence fixture; tagged CI pending. No real cloud writes.
