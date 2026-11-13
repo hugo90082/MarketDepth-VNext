@@ -226,3 +226,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 指定封存 revision 的原始 gzip 下載
 - 新增 SealedDownloader / ArchiveReader.OpenSealed，接 /api/v2/day/{day}?revision=，驗證日期與版本，使用與 gzip JSONL export 共用的單一重型 route slot。只讀已登錄 sealed archive（指定 revision 或最新），先核對遠端 manifest、壓縮 hash/size、還原 SQLite 全部驗證，再返回原始 gzip bytes。HTTP Content-Length、ETag、X-Archive-SHA256 供瀏覽器判定完整；不讓未驗證串流先發出。mock 501、不含 Drive 憑證或 fileId。
 - 下載與歷史 cache 共用 single slot，下載 lease 持有容量預留直到 Body.Close；100MB 內保守預留兩份 compressed + raw + 4MiB，超出明確 503。關閉後清理 owned scratch，重複 Close 安全。新增真 SQLite mock remote 下載 hash 及 lease 保護測試。此輪直接提交，CI 待驗證。未啟用日檔回收、未連使用者真 Drive、未動 AWS。
+
+## 2026-11-14｜Phase 4 已驗證日檔安全回收原語（未接排程）
+- 修正快取 import 的 CI 43473251933 已 success；包含真 SQLite 模擬封存回讀、損壞拒絕。新增 API wrapper 與原始 gzip 下載 CI 仍在驗證。
+- 新增 ArchiveReader.EvictVerifiedLocalDay，僅在 caller 明確呼叫時執行；目前任何正式/隔離主程序皆未呼叫。拒絕 active/grace、未登錄、pending intent、開啟 writer、非空 WAL。先用單一 cache slot 強制重新讀回 sealed archive（不信舊 cache），核對 manifest/hash/SQLite，再串流計算全部三種資料表、meta、events 的邏輯 digest；持有 journal/manager lock 比對 local digest、最新 catalog record、無 pending，再刪 checkpointed sidecar + 本地日檔並 fsync 目錄。遠端檔與 journal pointers 保留。真 SQLite 隔離測試涵蓋 active、無 archive、遠端損壞、local events 不同拒刪、成功回收後 History 可讀。尚待 CI，未執行任何真實刪除。容量緊迫時新讀回可能因 reserve 拒絕，需提前清理/保留 headroom；此原語不是 1GB 強制 executor 或未上傳 loss tombstone。
