@@ -21,7 +21,7 @@ func (j *Journal) prepareUnbackedLossLocked(ctx context.Context,m *Manager,day s
  a,_,e:=dayRange(day,day)
  if e!=nil{return record,e}
  if m.closed||!m.catalogOpened||m.now().Before(a.Add(24*time.Hour+m.grace))||(m.daily!=nil&&m.daily.day==day){return record,errors.New("active or grace day protected")}
- if p,e:=j.archivePending(ctx);e!=nil{return record,e}else if p!=nil{return record,ErrArchivePending}
+ if p,e:=j.archivePending(ctx);e!=nil{return record,e}else if p!=nil&&p.Snapshot.Manifest.Day==day{return record,ErrArchivePending}
  for _,table:=range []string{"journal_archive","journal_active","journal_loss","journal_partial_loss","journal_compact"}{
   var n int
   if e=j.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM "+table+" WHERE day=?",day).Scan(&n);e!=nil{return record,e}
@@ -117,7 +117,7 @@ func(j *Journal) RecoverLoss(ctx context.Context)error{
  var n int
  if e=j.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_loss WHERE state='prepared'").Scan(&n);e!=nil||n!=1{return ErrPendingLoss}
  if b,e:=j.pending(ctx);e!=nil{return e}else if b!=nil{return ErrPendingWrite}
- if p,e:=j.archivePending(ctx);e!=nil{return e}else if p!=nil{return ErrArchivePending}
+ if p,e:=j.archivePending(ctx);e!=nil{return e}else if p!=nil&&p.Snapshot.Manifest.Day==day{return ErrArchivePending}
  state,e:=j.lossRecordLocked(ctx,day);if e!=nil{return e}
  p,e:=m.path(day);if e!=nil{return e}
  if _,e=os.Lstat(p);e==nil{

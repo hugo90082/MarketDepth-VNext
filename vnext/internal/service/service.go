@@ -167,3 +167,34 @@ func WaitUntil(ctx context.Context, t time.Time) error {
 		return nil
 	}
 }
+
+// LossReserve covers the small durable ledger and one day's journal
+// mutation/checkpoint. Actual full-day WAL allocation must be measured in
+// isolated QA. Emergency work is admitted only with hard-cap and root
+// headroom, not by bypassing the 1GB limit.
+const LossReserve int64 = 32_000_000
+type CapacityStatus struct{ Used,Free,Reserved int64 }
+func(g *CapacityGate) Status()(CapacityStatus,error){
+ g.mu.Lock();defer g.mu.Unlock()
+ u,f,e:=g.meter()
+ if e!=nil{return CapacityStatus{},e}
+ if u<0||f<0{return CapacityStatus{},ErrCapacity}
+ return CapacityStatus{u,f,g.reserved},nil
+}
+func(s CapacityStatus) NeedsForce()bool{
+ // Include both collector and emergency mutation headroom. This is
+ // projected pressure, not a new lower hard limit.
+ return s.Reserved==0&&(s.Used>=archive.HighWater-WriteReserve-LossReserve||s.Free<MinRootFree+WriteReserve+2*LossReserve)
+}
+func(g *CapacityGate) ReserveEmergency(ctx context.Context,n int64)(func(),error){
+ if n<=0||n>LossReserve{return nil,ErrCapacity}
+ g.mu.Lock();defer g.mu.Unlock()
+ if e:=ctx.Err();e!=nil{return nil,e}
+ if g.reserved!=0{return nil,ErrCapacity}
+ used,free,e:=g.meter()
+ if e!=nil{return nil,e}
+ if used<0||free<0||used>=archive.HardLimit-2*n||free<MinRootFree+2*n{return nil,ErrCapacity}
+ g.reserved=n
+ var once sync.Once
+ return func(){once.Do(func(){g.mu.Lock();defer g.mu.Unlock();g.reserved=0})},nil
+}

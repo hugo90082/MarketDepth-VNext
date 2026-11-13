@@ -87,3 +87,18 @@ func TestSharedCapacityGate(t *testing.T) {
 		t.Fatal("double accounting not enforced", e)
 	}
 }
+
+func TestEmergencyCapacityReservation(t *testing.T){
+ ctx:=context.Background()
+ used,free:=archive.HighWater-WriteReserve-LossReserve,int64(2_000_000_000)
+ g,e:=NewCapacityGate(func()(int64,int64,error){return used,free,nil});if e!=nil{t.Fatal(e)}
+ s,e:=g.Status();if e!=nil||!s.NeedsForce(){t.Fatal(s,e)}
+ if _,e=g.Reserve(ctx,LossReserve);!errors.Is(e,ErrCapacity){t.Fatal("normal optional reserve at pressure",e)}
+ release,e:=g.ReserveEmergency(ctx,LossReserve);if e!=nil{t.Fatal(e)}
+ if _,e=g.ReserveEmergency(ctx,1);!errors.Is(e,ErrCapacity){t.Fatal("two emergency jobs",e)}
+ release();release()
+ used=archive.HardLimit-2*LossReserve
+ if _,e=g.ReserveEmergency(ctx,LossReserve);!errors.Is(e,ErrCapacity){t.Fatal("hard limit ignored",e)}
+ used=0;free=MinRootFree+2*LossReserve-1
+ if _,e=g.ReserveEmergency(ctx,LossReserve);!errors.Is(e,ErrCapacity){t.Fatal("root reserve ignored",e)}
+}

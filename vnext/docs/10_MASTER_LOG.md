@@ -274,3 +274,8 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 部分遺失日以精確 bitmap 原子縮減索引
 - Partial loss finalize 改為同 transaction 保留 verified active manifest + recoverable/lost bitmaps、核對各 kind 最新指標筆數、刪全日 per-row pointers 及已完成用途的 dense active evidence、旋轉 generation；journal_repair 留存。混合歷史 planner 同時載入 compacted sealed 與 removed partial，後者只讀 active snapshot exact recoverable keys、hash/SQLite 整檔驗證；gaps 重新以 Lost bitmap 標 permanent_loss，preexisting missing 不混淆。Sync 初始提示 partial_history_query_history，local-only 遇 partial 明確 503。此決策避免長期 Drive outage 造成每個部分遺失日仍累積 8MB 索引。
 - 延伸真 SQLite fixture 檢查舊 pointers/dense index 清除、active history/修復遺失、sync bootstrap。新程式 CI 待驗證，尚未接自動強制刪除。未實際刪除使用者資料或操作真 Drive/AWS。
+
+## 2026-11-14｜Phase 4 壓力預留與最舊安全未上傳日選擇器（未自動排程）
+- CapacityGate.Status/NeedsForce/ReserveEmergency：以 projected 950MB 含 writer 32MB + loss 32MB headroom 觸發（實際約 886MB）；emergency 仍需實際 1GB hard cap、root 1GB、雙重預留與單任務，絕非 OS quota。32MB mutation 預算需 full-day 量測。正常 Reserve 不放寬。
+- ArchiveWorker.ForceLossCycle 一次最多處理最舊 eligible closed day，TryLock 保護正在備份的 worker，排除 pending target、active/grace、各 kind 最新日、已驗證 sealed local、缺 exact active evidence；可在另一日 pending 保持完全不變時回收其他舊日。先取得 emergency reserve，local seal/checkpoint，依有無 active 證據執行 partial 或全日 durable loss。無網路操作。完整 loss/recovery 允許不相干 pending，禁止同日 pending。
+- 新測試三日 fixture：最舊 pending 保護、下一最舊未備份 loss、最新日保護、reserve refusal 無刪除、pending bytes 不變。尚未啟用自動 force cycle；需將 capacity loop、cache/scratch 優先、writer preflight wait 與 startup high-pressure recovery 整合，及真 full-day allocation 測量。CI 待驗證，無真資料刪除或部署。
