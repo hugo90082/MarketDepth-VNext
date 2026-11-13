@@ -8,6 +8,7 @@ import (
  "database/sql"
  "errors"
  "os"
+ "net/url"
  "path/filepath"
 
  _ "github.com/mattn/go-sqlite3"
@@ -32,10 +33,11 @@ type Ledger struct{ db *sql.DB }
 
 func CreateLedger(root string)(*Ledger,error){
  if err:=os.Mkdir(root,0700);err!=nil{return nil,err}
- path:=filepath.Join(root,LedgerName)
+ path,e:=filepath.Abs(filepath.Join(root,LedgerName));if e!=nil{return nil,e}
  f,e:=os.OpenFile(path,os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);if e!=nil{return nil,e}
  if e=f.Close();e!=nil{return nil,e}
- db,e:=sql.Open("sqlite3",path);if e!=nil{return nil,e}
+ uri:=url.URL{Scheme:"file",Path:path}
+ db,e:=sql.Open("sqlite3",uri.String());if e!=nil{return nil,e}
  db.SetMaxOpenConns(1)
  for _,q:=range []string{"PRAGMA journal_mode=DELETE","PRAGMA synchronous=FULL","PRAGMA cache_size=-8192",ledgerSchema}{
   if _,e=db.Exec(q);e!=nil{db.Close();return nil,e}
