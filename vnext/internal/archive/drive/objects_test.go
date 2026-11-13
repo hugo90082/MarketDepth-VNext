@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/archive"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -48,7 +49,7 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 		out := []file{}
 		query := q.Get("q")
 		for _, x := range f.files {
-			if strings.Contains(query, "'"+x.Parents[0]+"' in parents") && strings.Contains(query, "key='md_key' and value='"+x.Props["md_key"]+"'") && strings.Contains(query, "key='md_ns' and value='"+x.Props["md_ns"]+"'") {
+			if !x.Trashed && strings.Contains(query, "'"+x.Parents[0]+"' in parents") && strings.Contains(query, "key='md_key' and value='"+x.Props["md_key"]+"'") && strings.Contains(query, "key='md_ns' and value='"+x.Props["md_ns"]+"'") {
 				out = append(out, x)
 				if f.duplicate && x.MIME != folderType {
 					out = append(out, x)
@@ -114,6 +115,17 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 		x, ok := f.files[id]
 		if !ok {
 			w.WriteHeader(404)
+			return
+		}
+		if r.Method == "PATCH" {
+			var b map[string]bool
+			if json.NewDecoder(r.Body).Decode(&b) != nil || !b["trashed"] {
+				w.WriteHeader(400)
+				return
+			}
+			x.Trashed = true
+			f.files[id] = x
+			respond(x)
 			return
 		}
 		if q.Get("alt") == "media" {
@@ -247,5 +259,40 @@ func TestMovedFolderFailsClosed(t *testing.T) {
 	}
 	if _, e := c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b)); e == nil {
 		t.Fatal("write accepted moved folder")
+	}
+}
+
+func TestTrashOnlyExactActiveGeneration(t *testing.T) {
+	c, f, _ := setup(t)
+	ctx := context.Background()
+	b := []byte("snapshot")
+	k := "active/2026-11-13." + archive.HourGeneration(time.Date(2026, 11, 13, 1, 0, 0, 0, time.FixedZone("UTC+8", 8*3600))) + ".sqlite.gz"
+	o, e := c.PutImmutable(ctx, k, int64(len(b)), hash(b), bytes.NewReader(b))
+	if e != nil {
+		t.Fatal(e)
+	}
+	h, e := c.PutImmutable(ctx, "historical/2026/11/test.sqlite.gz", int64(len(b)), hash(b), bytes.NewReader(b))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = c.TrashActiveObject(ctx, h); e == nil {
+		t.Fatal("historical trash allowed")
+	}
+	bad := o
+	bad.SHA256 = hash([]byte("wrong"))
+	if e = c.TrashActiveObject(ctx, bad); e == nil {
+		t.Fatal("wrong hash allowed")
+	}
+	if f.files[o.ID].Trashed {
+		t.Fatal("unverified trash")
+	}
+	if e = c.TrashActiveObject(ctx, o); e != nil {
+		t.Fatal(e)
+	}
+	if e = c.TrashActiveObject(ctx, o); e != nil {
+		t.Fatal("retry", e)
+	}
+	if !f.files[o.ID].Trashed || f.files[h.ID].Trashed {
+		t.Fatal("wrong object trashed")
 	}
 }

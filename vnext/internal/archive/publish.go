@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -66,14 +67,41 @@ func validDigest(s string) bool {
 func safeID(s string) bool {
 	return len(s) > 0 && len(s) <= 256 && strings.Trim(s, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_") == ""
 }
-func sealedKeys(m Manifest) (string, string, error) {
+
+// HourGeneration identifies a scheduled UTC+8 hour. It is a generation ID,
+// not a claim that rows captured after this hour boundary are absent.
+func HourGeneration(t time.Time) string {
+	return fmt.Sprintf("h%013d", t.Truncate(time.Hour).UnixMilli())
+}
+
+func manifestKeys(m Manifest, active bool) (string, string, error) {
 	a, e := time.ParseInLocation("2006-01-02", m.Day, time.FixedZone("UTC+8", 8*3600))
-	if e != nil || m.Day != a.Format("2006-01-02") || m.ContractID != model.Contract || m.Timezone != model.Timezone || m.From != a.UnixMilli() || m.To != a.Add(24*time.Hour).UnixMilli() || m.SealedAt == nil || *m.SealedAt < m.To || m.Revision < 1 || m.DataOrigin != "live" || m.ProducerCommit == "" || len(m.ProducerCommit) > 128 || !safeID(m.Generation) || len(m.Generation) > 80 || !validDigest(m.SHA256) || !validDigest(m.RawSHA256) || m.Size <= 0 || m.RawSize <= 0 || m.Size > HardLimit || m.RawSize > HardLimit-m.Size {
-		return "", "", errors.New("invalid sealed publication manifest")
+	if e != nil || m.Day != a.Format("2006-01-02") || m.ContractID != model.Contract || m.Timezone != model.Timezone || m.From != a.UnixMilli() || m.To != a.Add(24*time.Hour).UnixMilli() || m.Revision < 1 || m.DataOrigin != "live" || m.ProducerCommit == "" || len(m.ProducerCommit) > 128 || !safeID(m.Generation) || len(m.Generation) > 80 || !validDigest(m.SHA256) || !validDigest(m.RawSHA256) || m.Size <= 0 || m.RawSize <= 0 || m.Size > HardLimit || m.RawSize > HardLimit-m.Size {
+		return "", "", errors.New("invalid publication manifest")
 	}
-	base := fmt.Sprintf("historical/%s/%s/%s.r%d", m.Day[:4], m.Day[5:7], m.Day, m.Revision)
+	var base string
+	if active {
+		if m.SealedAt != nil || len(m.Generation) != 14 || m.Generation[0] != 'h' {
+			return "", "", errors.New("invalid active generation")
+		}
+		stamp, e := strconv.ParseInt(m.Generation[1:], 10, 64)
+		if e != nil || stamp < m.From || stamp >= m.To || stamp%3600000 != 0 || HourGeneration(time.UnixMilli(stamp)) != m.Generation {
+			return "", "", errors.New("active generation outside day/hour")
+		}
+		base = fmt.Sprintf("active/%s.%s", m.Day, m.Generation)
+	} else {
+		if m.SealedAt == nil || *m.SealedAt < m.To {
+			return "", "", errors.New("invalid sealed publication manifest")
+		}
+		base = fmt.Sprintf("historical/%s/%s/%s.r%d", m.Day[:4], m.Day[5:7], m.Day, m.Revision)
+	}
 	return base + ".sqlite.gz", base + ".manifest.json", nil
 }
+func sealedKeys(m Manifest) (string, string, error) { return manifestKeys(m, false) }
+
+// ActiveKeys exposes only the generation-specific active objects. Sealed
+// history cannot be passed to an active retirement operation.
+func ActiveKeys(m Manifest) (string, string, error) { return manifestKeys(m, true) }
 func validateObject(o Object, key string, size int64, digest string) error {
 	if !safeID(o.ID) || o.Key != key || o.Size != size || (o.SHA256 != "" && o.SHA256 != digest) {
 		return errors.New("remote object identity or metadata mismatch")
@@ -103,6 +131,15 @@ func (r *countedReader) Read(p []byte) (int, error) {
 // local or remote files are removed. Retry with the identical manifest/body.
 // Network/SQLite verification must run outside the collector writer lock.
 func PublishSealed(ctx context.Context, remote RemoteObjects, manifest Manifest, body io.Reader, verify SnapshotVerifier) (Publication, error) {
+	return publishSnapshot(ctx, remote, manifest, body, verify, false)
+}
+
+// PublishActive verifies a new immutable hourly generation; it never overwrites
+// the previous generation and does not itself authorize retirement.
+func PublishActive(ctx context.Context, remote RemoteObjects, manifest Manifest, body io.Reader, verify SnapshotVerifier) (Publication, error) {
+	return publishSnapshot(ctx, remote, manifest, body, verify, true)
+}
+func publishSnapshot(ctx context.Context, remote RemoteObjects, manifest Manifest, body io.Reader, verify SnapshotVerifier, active bool) (Publication, error) {
 	var zero Publication
 	if remote == nil || body == nil || verify == nil || manifest.FileID != "" {
 		return zero, errors.New("remote, new manifest, body and verifier required")
@@ -116,7 +153,7 @@ func PublishSealed(ctx context.Context, remote RemoteObjects, manifest Manifest,
 	if e = json.Unmarshal(raw, &m); e != nil {
 		return zero, e
 	}
-	dataKey, manifestKey, e := sealedKeys(m)
+	dataKey, manifestKey, e := manifestKeys(m, active)
 	if e != nil {
 		return zero, e
 	}
@@ -210,8 +247,10 @@ func PublishSealed(ctx context.Context, remote RemoteObjects, manifest Manifest,
 
 // ValidateRecord checks a durable catalog record's structural identity and
 // manifest hash. It is NOT remote verification; a rebuild must re-read bytes.
-func ValidateRecord(r PublishedRecord) error {
-	if _, _, e := sealedKeys(r.Manifest); e != nil {
+func ValidateRecord(r PublishedRecord) error       { return validateRecord(r, false) }
+func ValidateActiveRecord(r PublishedRecord) error { return validateRecord(r, true) }
+func validateRecord(r PublishedRecord, active bool) error {
+	if _, _, e := manifestKeys(r.Manifest, active); e != nil {
 		return e
 	}
 	if !safeID(r.Manifest.FileID) || !safeID(r.ManifestID) || r.Manifest.FileID == r.ManifestID || !validDigest(r.ManifestSHA256) {

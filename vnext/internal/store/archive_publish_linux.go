@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -20,10 +21,49 @@ import (
 // appropriate local snapshot lease and reserve disk for the verification
 // copy. No deletion of the source, daily DB or remote objects is performed.
 func (j *Journal) PublishSealedSnapshot(ctx context.Context, remote archive.RemoteObjects, snap SnapshotResult, cache string, reserve int64) (archive.PublishedRecord, error) {
+	return j.publishSnapshot(ctx, remote, snap, cache, reserve, false)
+}
+func (j *Journal) PublishActiveSnapshot(ctx context.Context, remote archive.RemoteObjects, snap SnapshotResult, cache string, reserve int64) (archive.PublishedRecord, error) {
+	return j.publishSnapshot(ctx, remote, snap, cache, reserve, true)
+}
+func (j *Journal) publishSnapshot(ctx context.Context, remote archive.RemoteObjects, snap SnapshotResult, cache string, reserve int64, active bool) (archive.PublishedRecord, error) {
+	j.archiveMu.Lock()
+	defer j.archiveMu.Unlock()
 	var zero archive.PublishedRecord
 	m := snap.Manifest
-	if remote == nil || m.SealedAt == nil || m.FileID != "" || reserve <= 0 || reserve > archive.HardLimit || m.Size <= 0 || m.RawSize <= 0 || m.Size > reserve || m.RawSize > reserve-m.Size {
-		return zero, errors.New("sealed snapshot and verification reserve required")
+	intent := PendingArchive{Snapshot: snap, Active: active}
+	if e := j.checkArchiveIntent(ctx, intent, false); e != nil {
+		return zero, e
+	}
+	if active {
+		if _, _, e := archive.ActiveKeys(m); e != nil {
+			return zero, e
+		}
+		if _, e := j.ArchiveRecord(ctx, m.Day, 0); e == nil {
+			return zero, errors.New("day already published as sealed")
+		} else if !errors.Is(e, sql.ErrNoRows) {
+			return zero, e
+		}
+		if s, e := j.ActiveState(ctx, m.Day); e == nil {
+			if s.Current.Manifest.Generation == m.Generation {
+				if s.Current.Manifest.SHA256 != m.SHA256 {
+					return zero, errors.New("active generation conflict")
+				}
+			} else {
+				if s.Previous != nil {
+					return zero, ErrActiveRetirementPending
+				}
+				if e = activeAdvance(s.Current.Manifest, m); e != nil {
+					return zero, e
+				}
+			}
+		} else if !errors.Is(e, sql.ErrNoRows) {
+			return zero, e
+		}
+	}
+
+	if remote == nil || (!active && m.SealedAt == nil) || (active && m.SealedAt != nil) || m.FileID != "" || reserve <= 0 || reserve > archive.HardLimit || m.Size <= 0 || m.RawSize <= 0 || m.Size > reserve || m.RawSize > reserve-m.Size {
+		return zero, errors.New("snapshot and verification reserve required")
 	}
 	cache, e := filepath.Abs(cache)
 	if e != nil {
@@ -70,14 +110,34 @@ func (j *Journal) PublishSealedSnapshot(ctx context.Context, remote archive.Remo
 		}
 		// Only our newly-created private directory, never caller-owned data.
 		defer os.RemoveAll(dir)
-		_, e = RestoreVerifiedDay(ctx, man, body, dir, reserve)
+		if active {
+			_, e = RestoreVerifiedActive(ctx, man, body, dir, reserve)
+		} else {
+			_, e = RestoreVerifiedDay(ctx, man, body, dir, reserve)
+		}
 		return e
 	}
-	p, e := archive.PublishSealed(ctx, remote, m, f, verify)
+	if e = j.checkArchiveIntent(ctx, intent, true); e != nil {
+		return zero, e
+	}
+	var p archive.Publication
+	if active {
+		p, e = archive.PublishActive(ctx, remote, m, f, verify)
+	} else {
+		p, e = archive.PublishSealed(ctx, remote, m, f, verify)
+	}
 	if e != nil {
 		return zero, e
 	}
-	if e = j.RegisterArchive(ctx, p); e != nil {
+	if active {
+		e = j.registerActive(ctx, p)
+	} else {
+		e = j.RegisterArchive(ctx, p)
+	}
+	if e != nil {
+		return zero, e
+	}
+	if e = j.clearArchiveIntent(ctx, intent); e != nil {
 		return zero, e
 	}
 	return p.Record()

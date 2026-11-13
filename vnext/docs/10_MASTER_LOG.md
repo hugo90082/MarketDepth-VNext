@@ -193,3 +193,9 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 使用者提供 Audience 截圖：發布狀態「實際運作中」、使用者類型「外部」，已解除 Testing 發布狀態阻塞；不等於品牌驗證或實際 OAuth/Drive 讀寫驗收。依先前使用者設定僅 drive.file。下一步以正式狀態重新取得 offline refresh token，不沿用測試狀態權杖。
 - 從已提交原始碼（cac77278186e8b5871df55f802acf87d162ee393；main.go/oauth.go/objects.go Git blob 分別核對 368a961abeebb6461797f262829a47f2f0b4135a/e70b5ebcdd8f128dcaaaad8f1a03931633add229/de2afeba59cbf93695f6ea5b437ace0fee69e681）重新執行 Go Drive 測試通過，Go 1.23.2 交叉編譯 Windows amd64、CGO_ENABLED=0、-trimpath，交付 MarketDepth_VNext_Drive_Authorize_Windows.zip（exe SHA256 06d924550629047bd3c04bdbfc72a0bd6d118fa3fadeb0fe80904319aabedac5）。ZIP 完整性測試通過；未簽章、未在 Windows 執行實際授權。
 - 使用者在本機執行並自行保存 marketdepth.oauth.json，僅回報成功或遮蔽秘密的錯誤。工具不建立 Drive 資料、不碰 AWS；後續以安全管道佈署至隔離主機，真實 Drive staging 讀寫、更新權杖、快照輪替、容量清理仍待驗收。不索取秘密檔，不改既有正式服務。
+
+## 2026-11-14｜Phase 4 小時快照世代與可恢復輪替
+- 使用者已在 Windows 成功執行 OAuth 並確認兩個 JSON 自行保存。真實 token/Drive API 讀寫仍未驗證，不索取或傳輸秘密。最新五輪 CI 43456943378/43456066267/43455351309/43453104659/43447701152 全 success。
+- 實作 active/YYYY-MM-DD.h<UTC epoch ms hourly slot>.sqlite.gz + manifest，同一日獨立世代、雙讀回及實際 SQLite active restore，active 與 sealed 嚴格分離。catalog journal_active 保存目前與上一個待退役版本，拒絕日期/世代/筆數/coverage 倒退；上一代未退役前拒絕第三代。新增 journal_archive_pending 單筆持久 upload intent，遠端副作用前記錄完全相同本機 snapshot；失敗時禁止其他世代/日檔取代 pending；catalog commit 後才清除。真 SQLite 崩潰/重啟測試已新增，待 CI。
+- 退役前再次完整讀回最新 active 或 sealed，驗證 SQLite、hash 與筆數。只允許經原始 reservation / 父資料夾 / namespace / 精確 ID/hash 驗證的 active 物件進 Drive 垃圾桶，manifest 先於資料，失敗保持 ledger 以便重試；禁止 historical/legacy 或其他檔案。Drive trash 尚會占用空間、未永久刪除；需真 staging 確認保留策略及容量。未啟用排程/實際刪除，未碰正式服務。
+- 普通 Go test/race/vet、原 SQL/schema 測試全 pass；sandbox 缺 SQLite driver module、tagged integration 交 GitHub CI。真 OAuth/每小時排程/失敗退避、容量 gate、遠端讀取、catalog 重建及 1GB 強制回收仍未完成。下一步先完成共享容量預留、封存 worker 與真隔離環境驗收。

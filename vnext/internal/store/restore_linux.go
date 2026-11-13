@@ -25,9 +25,21 @@ import (
 // trusted catalog manifest and reserve physical space for both temporary files.
 // No local daily file or catalog is replaced, and no eviction is performed.
 func RestoreVerifiedDay(ctx context.Context, manifest archive.Manifest, compressed io.Reader, cache string, reserve int64) (string, error) {
+	return restoreVerified(ctx, manifest, compressed, cache, reserve, false)
+}
+
+// RestoreVerifiedActive is separate from sealed-day restore; an active backup
+// cannot be mistaken for a complete daily archive.
+func RestoreVerifiedActive(ctx context.Context, manifest archive.Manifest, compressed io.Reader, cache string, reserve int64) (string, error) {
+	if _, _, e := archive.ActiveKeys(manifest); e != nil {
+		return "", e
+	}
+	return restoreVerified(ctx, manifest, compressed, cache, reserve, true)
+}
+func restoreVerified(ctx context.Context, manifest archive.Manifest, compressed io.Reader, cache string, reserve int64, active bool) (string, error) {
 	m := manifest
 	a, b, e := dayRange(m.Day, m.Day)
-	if e != nil || m.ContractID != model.Contract || m.Timezone != model.Timezone || m.From != a.UnixMilli() || m.To != b.Add(24*time.Hour).UnixMilli() || m.SealedAt == nil || *m.SealedAt < m.To || m.Revision < 1 || m.DataOrigin != "live" || m.ProducerCommit == "" || m.FileID == "" || len(m.Generation) < 1 || len(m.Generation) > 80 || strings.Trim(m.Generation, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_") != "" || !validSHA(m.SHA256) || !validSHA(m.RawSHA256) || compressed == nil {
+	if e != nil || m.ContractID != model.Contract || m.Timezone != model.Timezone || m.From != a.UnixMilli() || m.To != b.Add(24*time.Hour).UnixMilli() || (!active && (m.SealedAt == nil || *m.SealedAt < m.To)) || (active && m.SealedAt != nil) || m.Revision < 1 || m.DataOrigin != "live" || m.ProducerCommit == "" || m.FileID == "" || len(m.Generation) < 1 || len(m.Generation) > 80 || strings.Trim(m.Generation, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_") != "" || !validSHA(m.SHA256) || !validSHA(m.RawSHA256) || compressed == nil {
 		return "", errors.New("invalid sealed archive manifest")
 	}
 	if reserve <= 0 || reserve > archive.HardLimit || m.Size <= 0 || m.RawSize <= 0 || m.Size > reserve || m.RawSize > reserve-m.Size {
@@ -99,7 +111,7 @@ func RestoreVerifiedDay(ctx context.Context, manifest archive.Manifest, compress
 	if e != nil {
 		return "", e
 	}
-	if d.revision != m.Revision || d.origin != m.DataOrigin || d.producer != m.ProducerCommit || d.sealed == nil || *d.sealed != *m.SealedAt || !reflect.DeepEqual(d.counts, m.RowCounts) || !reflect.DeepEqual(d.expected, m.ExpectedCounts) || !reflect.DeepEqual(d.missing, m.MissingGridCounts) || !reflect.DeepEqual(d.through, m.GridThrough) || !reflect.DeepEqual(d.status, m.StatusCounts) || !reflect.DeepEqual(d.nulls, m.NullCounts) {
+	if d.revision != m.Revision || d.origin != m.DataOrigin || (!active && (d.producer != m.ProducerCommit || d.sealed == nil || *d.sealed != *m.SealedAt)) || (active && d.sealed != nil) || !reflect.DeepEqual(d.counts, m.RowCounts) || !reflect.DeepEqual(d.expected, m.ExpectedCounts) || !reflect.DeepEqual(d.missing, m.MissingGridCounts) || !reflect.DeepEqual(d.through, m.GridThrough) || !reflect.DeepEqual(d.status, m.StatusCounts) || !reflect.DeepEqual(d.nulls, m.NullCounts) {
 		return "", errors.New("archive metadata/counts mismatch")
 	}
 	if e = ctx.Err(); e != nil {

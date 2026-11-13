@@ -150,3 +150,31 @@ func TestSealedPublisherNoManifestBeforeDataVerified(t *testing.T) {
 		t.Fatal("active snapshot accepted", e, r.creates)
 	}
 }
+
+func TestActivePublicationIsSeparateAndReverified(t *testing.T) {
+	ctx := context.Background()
+	b := []byte("active snapshot")
+	m := testManifest(b)
+	m.SealedAt = nil
+	m.Generation = HourGeneration(time.UnixMilli(m.From))
+	r := newRemote()
+	p, e := PublishActive(ctx, r, m, bytes.NewReader(b), consume)
+	if e != nil {
+		t.Fatal(e)
+	}
+	rec, e := p.Record()
+	if e != nil || ValidateActiveRecord(rec) != nil || ValidateRecord(rec) == nil {
+		t.Fatal(rec, e)
+	}
+	if e = VerifyPublished(ctx, r, rec, true, consume); e != nil {
+		t.Fatal(e)
+	}
+	r.corruptData = true
+	if e = VerifyPublished(ctx, r, rec, true, consume); e == nil {
+		t.Fatal("corrupt active accepted")
+	}
+	m.Generation = HourGeneration(time.UnixMilli(m.To))
+	if _, e = PublishActive(ctx, r, m, bytes.NewReader(b), consume); e == nil {
+		t.Fatal("next-day generation accepted")
+	}
+}
