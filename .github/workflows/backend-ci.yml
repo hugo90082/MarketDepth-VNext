@@ -44,3 +44,5 @@ jobs:
         run: |
           python3 tests/schema_check.py
           python3 tests/daily_sql_check.py
+
+          python3 tests/legacy_inventory_test.py
