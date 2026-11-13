@@ -394,3 +394,19 @@ func(w *ArchiveWorker) ClearDisposableScratch(ctx context.Context)(string,error)
  }
  return "scratch_checked",nil
 }
+
+// IdleMaintenance serializes network-backed archive maintenance with Cycle and pressure work.
+func(w *ArchiveWorker) IdleMaintenance(ctx context.Context,r *ArchiveReader)(string,error){
+ if !w.mu.TryLock(){return "maintenance_busy",nil}
+ defer w.mu.Unlock()
+ for _,f:=range []func(context.Context)(string,error){r.ReclaimVerifiedCycle,r.CompactVerifiedCycle,r.SyncLossCycle,r.VacuumCatalogCycle}{
+  state,e:=f(ctx);if e!=nil||state!="idle"{return state,e}
+ }
+ return "idle",nil
+}
+// PressureVerified tries one verified reclaim without waiting behind a publish.
+func(w *ArchiveWorker) PressureVerified(ctx context.Context,r *ArchiveReader)(string,error){
+ if !w.mu.TryLock(){return "maintenance_busy",nil}
+ defer w.mu.Unlock()
+ return r.ReclaimVerifiedCycle(ctx)
+}

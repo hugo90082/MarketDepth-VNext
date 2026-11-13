@@ -82,7 +82,7 @@ func(r *ArchiveReader) EvictVerifiedLocalDay(ctx context.Context,day string)erro
  j.mu.Lock()
  defer j.mu.Unlock()
  if e=j.ready(ctx);e!=nil{return e}
- if pending,e:=j.archivePending(ctx);e!=nil{return e}else if pending!=nil{return ErrArchivePending}
+ if pending,e:=j.archivePending(ctx);e!=nil{return e}else if pending!=nil&&pending.Snapshot.Manifest.Day==day{return ErrArchivePending}
  // Do not strand active generations by removing the local day before
  // the archive worker has retired them.
  var activeCount int

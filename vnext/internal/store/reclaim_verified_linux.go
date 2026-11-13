@@ -23,11 +23,12 @@ func (r *ArchiveReader) ReclaimVerifiedCycle(ctx context.Context)(string,error){
  now:=m.now()
  // Collect last known committed day per kind under a short journal lock.
  latest:=map[string]bool{}
+ var protected string
  e=func()error{
   j.mu.Lock()
   defer j.mu.Unlock()
   if e:=j.ready(ctx);e!=nil{return e}
-  if p,e:=j.archivePending(ctx);e!=nil{return e}else if p!=nil{return ErrArchivePending}
+  if p,e:=j.archivePending(ctx);e!=nil{return e}else if p!=nil{protected=p.Snapshot.Manifest.Day}
   for _,k:=range []model.Kind{model.Spot,model.F10,model.F1}{
    var stamp sql.NullInt64
    if e:=j.db.QueryRowContext(ctx,"SELECT MAX(t) FROM journal_change WHERE kind=?",k).Scan(&stamp);e!=nil{return e}
@@ -39,7 +40,7 @@ func (r *ArchiveReader) ReclaimVerifiedCycle(ctx context.Context)(string,error){
  for _,day:=range days{
   if e=ctx.Err();e!=nil{return "",e}
   a,_,e:=dayRange(day,day);if e!=nil{return "",e}
-  if now.Before(a.Add(24*time.Hour+m.grace))||latest[day]{continue}
+  if now.Before(a.Add(24*time.Hour+m.grace))||latest[day]||day==protected{continue}
   if _,e=j.ArchiveRecord(ctx,day,0);errors.Is(e,sql.ErrNoRows){continue}else if e!=nil{return "",e}
   if _,e=j.ActiveState(ctx,day);e==nil{continue}else if !errors.Is(e,sql.ErrNoRows){return "",e}
   if e=r.EvictVerifiedLocalDay(ctx,day);e!=nil{return "",e}

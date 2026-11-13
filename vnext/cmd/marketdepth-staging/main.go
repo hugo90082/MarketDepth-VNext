@@ -95,6 +95,8 @@ type health struct {
 	lastSpot, lastFutures int64
 	lastArchive           int64
 	archiveState          string
+ capacityState string
+ capacityUsed,capacityFree int64
 }
 
 func (h *health) update(spot bool, t int64) {
@@ -117,7 +119,7 @@ func (h *health) archiveUpdate(state string) {
 func (h *health) read() map[string]any {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return map[string]any{"mode": "isolated_staging", "last_spot_committed_t": h.lastSpot, "last_futures_committed_t": h.lastFutures, "archive": h.archiveState, "last_archive_verified_at": h.lastArchive, "production_ready": false}
+	return map[string]any{"mode": "isolated_staging", "last_spot_committed_t": h.lastSpot, "last_futures_committed_t": h.lastFutures, "archive": h.archiveState, "last_archive_verified_at": h.lastArchive, "production_ready": false,"capacity":h.capacityState,"capacity_used_bytes":h.capacityUsed,"filesystem_free_bytes":h.capacityFree}
 }
 
 // Credentials must remain outside the market-data tree and never be copied
@@ -156,14 +158,8 @@ func archiveLoop(ctx context.Context, w *store.ArchiveWorker, reader *store.Arch
 		}
 		state, e := w.Cycle(ctx)
 		if e == nil && state == "idle" && reader != nil {
-			state, e = reader.ReclaimVerifiedCycle(ctx)
-		}
-		if e == nil && state == "idle" && reader != nil {
-			state, e = reader.CompactVerifiedCycle(ctx)
-		}
-		if e == nil && state == "idle" && reader != nil {
-			state, e = reader.VacuumCatalogCycle(ctx)
-		}
+   state,e=w.IdleMaintenance(ctx,reader)
+  }
 		wait := 15 * time.Second
 		if e != nil {
 			if ctx.Err() != nil {
@@ -199,8 +195,30 @@ func archiveLoop(ctx context.Context, w *store.ArchiveWorker, reader *store.Arch
 		}
 	}
 }
-func run(ctx context.Context, root, addr, origin string, init bool, credentials, producer string) error {
-	host, _, e := net.SplitHostPort(addr)
+func capacityLoop(ctx context.Context,w *store.ArchiveWorker,r *store.ArchiveReader,g *service.CapacityGate,h *health,allowLoss bool)error{
+ ops:=service.PressureOperations{
+  ClearCache:r.ClearHistoryCache,
+  ClearScratch:w.ClearDisposableScratch,
+  Verified:func(ctx context.Context)(string,error){return w.PressureVerified(ctx,r)},
+  Force:func(ctx context.Context)(string,error){return w.ForceLossCycle(ctx,g.ReserveEmergency,service.LossReserve)},
+ }
+ for{
+  if e:=ctx.Err();e!=nil{return e}
+  // A short bounded remote check; the archive worker's retry/backoff is
+  // independent. Unknown verification failures remain fail-closed.
+  step,cancel:=context.WithTimeout(ctx,20*time.Second)
+  state,e:=service.PressureStep(step,g,ops,allowLoss);cancel()
+  if ctx.Err()!=nil{return ctx.Err()}
+  if e!=nil{state="pressure_wait";log.Printf("capacity: %s",state)}
+  s,e:=g.Status();if e!=nil{return e}
+  h.mu.Lock();h.capacityState=state;h.capacityUsed=s.Used;h.capacityFree=s.Free;h.mu.Unlock()
+  if s.Used>=archive.HardLimit||s.Free<service.MinRootFree{return service.ErrCapacity}
+  if e=service.WaitUntil(ctx,time.Now().Add(2*time.Second));e!=nil{return e}
+ }
+}
+func run(ctx context.Context, root, addr, origin string, init bool, credentials, producer string, allowLoss bool) error {
+	if allowLoss && credentials==""{return errors.New("capacity loss requires isolated Drive configuration")}
+ host, _, e := net.SplitHostPort(addr)
 	if e != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
 		return errors.New("staging requires numeric loopback listen address")
 	}
@@ -242,7 +260,7 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 	if e != nil {
 		return e
 	}
-	guard, e := service.NewSharedGuardedWriter(j, gate)
+	guard, e := service.NewWaitingGuardedWriter(j, gate, 60*time.Second)
 	if e != nil {
 		return e
 	}
@@ -383,9 +401,9 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 		})
 	}
 	if backup != nil {
-		workers = append(workers, func(ctx context.Context) error { return archiveLoop(ctx, backup, archiveReader, h) })
+		workers = append(workers, func(ctx context.Context) error { return archiveLoop(ctx, backup, archiveReader, h) },func(ctx context.Context)error{return capacityLoop(ctx,backup,archiveReader,gate,h,allowLoss)})
 	}
-	log.Printf("isolated staging only; first target %d; Drive enabled=%t; verified-only daily reclamation", first, backup != nil)
+	log.Printf("isolated staging only; first target %d; Drive enabled=%t; forced loss explicitly enabled=%t", first, backup != nil,allowLoss)
 	return service.RunGroup(ctx, workers...)
 }
 func main() {
@@ -395,10 +413,11 @@ func main() {
 	init := flag.Bool("init-staging", false, "create new staging directory; never existing data")
 	credentials := flag.String("drive-credentials", "", "optional absolute private OAuth JSON outside data root; staging namespace only")
 	producer := flag.String("producer-commit", "", "exact Git commit for archive provenance")
-	flag.Parse()
+	allowLoss:=flag.Bool("allow-capacity-loss",false,"isolated staging only: explicitly permit permanent loss of eligible unbacked old days under pressure")
+ flag.Parse()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	if e := run(ctx, *root, *addr, *origin, *init, *credentials, *producer); e != nil {
+	if e := run(ctx, *root, *addr, *origin, *init, *credentials, *producer,*allowLoss); e != nil {
 		log.Fatal(e)
 	}
 }
