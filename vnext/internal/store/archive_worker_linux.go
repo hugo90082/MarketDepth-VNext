@@ -251,8 +251,12 @@ func (w *ArchiveWorker) publishPending(ctx context.Context, p PendingArchive) (s
 		return "", errors.New("pending archive outside owned stage")
 	}
 	n, e := restoreReserve(m)
-	if e != nil {
-		return "", e
+	if e != nil { return "", e }
+	if p.Active {
+		// Dense active recovery evidence (JSON ~2.04MB) and catalog WAL
+		// need separate headroom from the restored data itself.
+		if n > archive.HardLimit-8_388_608 { return "", errors.New("active evidence reservation too large") }
+		n += 8_388_608
 	}
 	release, e := w.reserve(ctx, n)
 	if e != nil {

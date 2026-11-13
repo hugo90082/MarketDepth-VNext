@@ -258,3 +258,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 部分 active 備份可恢復精確證據
 - ActiveRecoveryIndex 在 active snapshot 的遠端 readback/SQLite restore 內每 256 key 分頁計算原始 journalHash；固定 presence bitmap + 每 key 32 bytes hash（最多 1,520,640 bytes hashes/active 日，JSON 約 2.04MB），綁 manifest SHA、coverage、筆數及 revision。未來容量強制 loss 可比較本機最新 hash，區分已備份與未備份/修正版本，不以最後時間戳推定完整。
 - journal_active_recovery 在 active catalog commit 後、durable pending clear 前寫入；中斷需重播同一 verified generation 才能補 index，manifest mismatch/缺 index 時不得 partial loss；sealed retirement transaction 同時移除 recovery index。新增 active 測試核對 exact row hashes 及封存後清除。部分 active 日強制 loss executor/reader 仍未完成，待 CI。無真資料或部署變更。
+
+## 2026-11-14｜Phase 4 已驗證日索引縮減接入隔離備份排程
+- CI 43474902772（永久 loss）、43475182588（bitmap）、43475342863（mixed history）、43475531350（原子 prune/vacuum）及 43474678040（正常回收修正）已 success。最初回收 fixture nullable CapturedAt 編譯問題已修。已確認 compact 後跨日 page、sync cursor resync、完整 gap 與 remote 回讀通過。
+- 在 archive worker idle 時依順序 ReclaimVerifiedCycle -> CompactVerifiedCycle -> VacuumCatalogCycle，每次最多一個有界工作，candidate 最多 64 已封存日，跳過有本地副本/active/loss/最新 kind；不在 collector writer 做網路。新增 scheduler 選擇測試。active evidence publish 額外預留 8MiB catalog/WAL headroom（非 OS quota）。loss ledger sync/active evidence CI 尚待，未啟用強制未上傳刪除，未部署。後續待完成 partial loss、容量壓力 executor、disaster discovery/rebuild。

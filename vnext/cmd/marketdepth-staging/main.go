@@ -158,6 +158,12 @@ func archiveLoop(ctx context.Context, w *store.ArchiveWorker, reader *store.Arch
 		if e == nil && state == "idle" && reader != nil {
 			state, e = reader.ReclaimVerifiedCycle(ctx)
 		}
+		if e == nil && state == "idle" && reader != nil {
+			state, e = reader.CompactVerifiedCycle(ctx)
+		}
+		if e == nil && state == "idle" && reader != nil {
+			state, e = reader.VacuumCatalogCycle(ctx)
+		}
 		wait := 15 * time.Second
 		if e != nil {
 			if ctx.Err() != nil {

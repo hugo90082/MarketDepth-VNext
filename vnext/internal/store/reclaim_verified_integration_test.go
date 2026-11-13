@@ -61,7 +61,8 @@ func TestReclaimVerifiedCycleProtectsLatestAndRestoresOldDay(t *testing.T){
  // Compact only after the local copy is gone, and compare every remote
  // row hash with its original journal pointer before dropping pointers.
  before,e:=r.Sync(ctx,rows[0].Kind(),"");if e!=nil||before.Next==""{t.Fatal(before,e)}
- if e=r.CompactVerifiedDay(ctx,day);e!=nil{t.Fatal(e)}
+ if state,e:=r.CompactVerifiedCycle(ctx);e!=nil||state!="catalog_compacted"{t.Fatal(state,e)}
+ if state,e:=r.CompactVerifiedCycle(ctx);e!=nil||state!="idle"{t.Fatal(state,e)}
  var n int
  if e=j.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_change WHERE t>=? AND t<?",rec.Manifest.From,rec.Manifest.To).Scan(&n);e!=nil||n!=0{t.Fatal(n,e)}
  if _,e=r.Sync(ctx,rows[0].Kind(),before.Next);e!=ErrResync{t.Fatal("old sync cursor accepted",e)}

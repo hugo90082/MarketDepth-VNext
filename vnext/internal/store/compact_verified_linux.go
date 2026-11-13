@@ -165,3 +165,38 @@ func(r *ArchiveReader) VacuumCatalogCycle(ctx context.Context)(string,error){
  if busy!=0||frames!=0||done!=0{return "",errors.New("catalog checkpoint incomplete")}
  return "catalog_vacuum",nil
 }
+
+// CompactVerifiedCycle processes one already reclaimed, sealed day at most.
+// No active/current day can be selected; no network I/O under j.mu. Limit
+// candidate enumeration to a small batch and keep original chronological order.
+func(r *ArchiveReader) CompactVerifiedCycle(ctx context.Context)(string,error){
+ j,m:=r.j,r.target.m
+ local,e:=m.archiveDays();if e!=nil{return "",e}
+ present:=map[string]bool{}
+ for _,day:=range local{present[day]=true}
+ var days []string
+ e=func()error{
+  j.mu.Lock();defer j.mu.Unlock()
+  if e:=j.ready(ctx);e!=nil{return e}
+  if p,e:=j.archivePending(ctx);e!=nil{return e}else if p!=nil{return ErrArchivePending}
+  rs,e:=j.db.QueryContext(ctx,`SELECT DISTINCT a.day FROM journal_archive a
+  WHERE NOT EXISTS(SELECT 1 FROM journal_compact c WHERE c.day=a.day)
+    AND NOT EXISTS(SELECT 1 FROM journal_active x WHERE x.day=a.day)
+    AND NOT EXISTS(SELECT 1 FROM journal_loss l WHERE l.day=a.day)
+  ORDER BY a.day LIMIT 64`)
+  if e!=nil{return e}
+  for rs.Next(){var day string;if e=rs.Scan(&day);e!=nil{rs.Close();return e};days=append(days,day)}
+  e=rs.Err();rs.Close();return e
+ }()
+ if e!=nil{return "",e}
+ for _,day:=range days{
+  if e=ctx.Err();e!=nil{return "",e}
+  if present[day]{continue}
+  j.mu.Lock();newest,e:=j.newestDayLocked(ctx,day);j.mu.Unlock()
+  if e!=nil{return "",e}
+  if newest{continue}
+  if e=r.CompactVerifiedDay(ctx,day);e!=nil{return "",e}
+  return "catalog_compacted",nil
+ }
+ return "idle",nil
+}
