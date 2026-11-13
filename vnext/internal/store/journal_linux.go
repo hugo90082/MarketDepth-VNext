@@ -86,3 +86,52 @@ func (x managerJournalTarget) Get(ctx context.Context, k model.Kind, key model.K
 func (x managerJournalTarget) GetMany(ctx context.Context, keys []JournalKey) ([]model.Row, error) {
 	return x.m.GetMany(ctx, keys)
 }
+
+// Reject deterministic policy failures before persisting a new intent. The
+// actual put still rechecks because a day boundary can pass after preflight.
+func (x managerJournalTarget) preflight(ctx context.Context, rows []model.Row) error {
+	m := x.m
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.closed || !m.catalogOpened {
+		return errors.New("catalog manager closed or inactive")
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	now := m.now()
+	day := model.Day(rows[0].Key().T)
+	if day != model.Day(now.UnixMilli()) && (m.grace <= 0 || day != model.Day(now.Add(-m.grace).UnixMilli())) {
+		return errors.New("day outside active/grace window")
+	}
+	for _, r := range rows {
+		if r.Base().AvailableAt == nil || *r.Base().AvailableAt > now.UnixMilli() || r.Key().T > now.UnixMilli() {
+			return errors.New("future row refused")
+		}
+	}
+	p, e := m.path(day)
+	if e != nil {
+		return e
+	}
+	if _, e = os.Stat(p); errors.Is(e, os.ErrNotExist) {
+		return nil
+	} else if e != nil {
+		return e
+	}
+	db, e := m.open(p, true)
+	if e != nil {
+		return e
+	}
+	defer db.Close()
+	if e = validateDayMetadata(ctx, db, day); e != nil {
+		return e
+	}
+	var sealed int
+	if e = db.QueryRowContext(ctx, "SELECT count(*) FROM meta WHERE key='sealed_at'").Scan(&sealed); e != nil {
+		return e
+	}
+	if sealed != 0 {
+		return errors.New("sealed day immutable")
+	}
+	return nil
+}

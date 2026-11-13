@@ -218,7 +218,9 @@ func rowValues(r model.Row) ([]any, error) {
 // Put accepts initial live rows only. Corrections need a durable intent/journal
 // and explicit authorization policy; do not silently overwrite valid history.
 // Retry of a byte-identical revision is a no-op; different contents are refused.
-func (d *Daily) Put(ctx context.Context, rows []model.Row) error {
+func (d *Daily) Put(ctx context.Context, rows []model.Row) error { return d.put(ctx, rows, false) }
+
+func (d *Daily) put(ctx context.Context, rows []model.Row, allowRepair bool) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if len(rows) == 0 {
@@ -247,8 +249,8 @@ func (d *Daily) Put(ctx context.Context, rows []model.Row) error {
 			return e
 		}
 		c := r.Base()
-		if c.Source == nil || *c.Source != model.LiveSource || c.AvailableAt == nil || c.Revision != 1 {
-			return errors.New("initial live rows only")
+		if e := validateLiveWrite(r, allowRepair); e != nil {
+			return e
 		}
 		if model.Day(c.T) != d.day {
 			return errors.New("cross-day batch rejected")
@@ -282,10 +284,38 @@ func (d *Daily) Put(ctx context.Context, rows []model.Row) error {
 			if bytes.Equal(a, b) {
 				continue
 			}
-			return errors.New("existing row differs; correction path not enabled")
+			if !allowRepair {
+				return errors.New("existing row differs; correction path not enabled")
+			}
+			if e = validateRepair(old, r); e != nil {
+				return e
+			}
+			// All fixed columns, guarded by prior revision; transaction also records repair.
+			assignments := make([]string, len(columns[k]))
+			for i, c := range columns[k] {
+				assignments[i] = c + "=?"
+			}
+			args := append(append([]any{}, x.args...), keyArgs(k, r.Key())...)
+			args = append(args, old.Base().Revision)
+			result, err := tx.ExecContext(ctx, "UPDATE "+string(k)+" SET "+strings.Join(assignments, ",")+" WHERE "+whereKey(k)+" AND revision=?", args...)
+			if err != nil {
+				return err
+			}
+			n, err := result.RowsAffected()
+			if err != nil || n != 1 {
+				return errors.New("repair compare-and-set failed")
+			}
+			_, e = tx.ExecContext(ctx, "INSERT INTO events(t,venue,asset,code,message,from_t,to_t,quality_json) VALUES(?,?,?,?,?,?,?,?)", *r.Base().AvailableAt, "binance", r.Key().Asset, "FUTURES_REPAIR", string(k), r.Key().T, r.Key().T+k.Interval(), r.Base().Quality)
+			if e != nil {
+				return e
+			}
+			continue
 		}
 		if !errors.Is(e, sql.ErrNoRows) {
 			return e
+		}
+		if r.Base().Revision != 1 {
+			return errors.New("repair requires existing row")
 		}
 		if _, e = tx.ExecContext(ctx, insertSQL(k), x.args...); e != nil {
 			return e

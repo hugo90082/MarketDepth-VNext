@@ -147,8 +147,8 @@ func (m *Manager) put(ctx context.Context, rows []model.Row, catalog bool) error
 			return errors.New("cross-day batch rejected")
 		}
 		c := r.Base()
-		if c.Source == nil || *c.Source != model.LiveSource || c.AvailableAt == nil || c.Revision != 1 {
-			return errors.New("initial live rows only")
+		if e := validateLiveWrite(r, catalog); e != nil {
+			return e
 		}
 		if c.T > now.UnixMilli() || *c.AvailableAt > now.UnixMilli() {
 			return errors.New("future row refused")
@@ -180,7 +180,7 @@ func (m *Manager) put(ctx context.Context, rows []model.Row, catalog bool) error
 		m.db = db
 		m.daily = d
 	}
-	return m.daily.Put(ctx, rows)
+	return m.daily.put(ctx, rows, catalog)
 }
 
 // Get opens a separate read-only handle for a committed row. The manager lock

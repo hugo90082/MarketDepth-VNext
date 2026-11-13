@@ -24,7 +24,7 @@ type JournalTarget interface {
 // Journal is a separate local catalog, not a change to MD-VNEXT-1 daily schema.
 // Intent is committed before the day DB; publication is committed after exact
 // read-back. A crash between databases leaves an intent, never a false cursor.
-// Only initial live writes are supported; revision policy and pruning are separate.
+// Active-day futures repairs preserve the original row in a durable audit.
 type Journal struct {
 	mu         sync.Mutex
 	db         *sql.DB
@@ -85,6 +85,7 @@ func OpenJournal(ctx context.Context, db *sql.DB, target JournalTarget) (*Journa
 		`CREATE TABLE IF NOT EXISTS journal_intent(id INTEGER PRIMARY KEY CHECK(id=1),payload BLOB NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS journal_change(seq INTEGER PRIMARY KEY AUTOINCREMENT,kind TEXT NOT NULL,t INTEGER NOT NULL,venue TEXT NOT NULL,asset TEXT NOT NULL,revision INTEGER NOT NULL,hash TEXT NOT NULL,UNIQUE(kind,t,venue,asset,revision))`,
 		`CREATE INDEX IF NOT EXISTS journal_kind_seq ON journal_change(kind,seq)`,
+		`CREATE TABLE IF NOT EXISTS journal_repair(kind TEXT NOT NULL,t INTEGER NOT NULL,venue TEXT NOT NULL,asset TEXT NOT NULL,new_revision INTEGER NOT NULL,old_row BLOB NOT NULL,new_hash TEXT NOT NULL,PRIMARY KEY(kind,t,venue,asset,new_revision)) WITHOUT ROWID`,
 	} {
 		if _, e = tx.ExecContext(ctx, q); e != nil {
 			return nil, e
@@ -134,9 +135,8 @@ func journalPayload(rows []model.Row) ([]byte, error) {
 		if e := r.Validate(); e != nil {
 			return nil, e
 		}
-		c := r.Base()
-		if c.Revision != 1 || c.Source == nil || *c.Source != model.LiveSource || c.AvailableAt == nil {
-			return nil, errors.New("journal initial live rows only")
+		if e := validateLiveWrite(r, true); e != nil {
+			return nil, e
 		}
 		d := model.Day(r.Key().T)
 		if day == "" {
@@ -225,6 +225,12 @@ func (j *Journal) Put(ctx context.Context, rows []model.Row) error {
 	}
 	// Reject conflict with already-published rows before staging an intent.
 	allPublished := true
+	type repairAudit struct {
+		r    model.Row
+		old  []byte
+		hash string
+	}
+	var audits []repairAudit
 	for _, r := range owned {
 		var old string
 		k := r.Key()
@@ -237,16 +243,67 @@ func (j *Journal) Put(ctx context.Context, rows []model.Row) error {
 			if h != old {
 				return errors.New("published revision conflict")
 			}
+			if e = j.verify(ctx, []model.Row{r}); e != nil {
+				return e
+			}
 		} else if !errors.Is(e, sql.ErrNoRows) {
 			return e
 		} else {
 			allPublished = false
+			if r.Base().Revision > 1 {
+				prior, e := j.target.Get(ctx, r.Kind(), k)
+				if e != nil {
+					return e
+				}
+				if e = validateRepair(prior, r); e != nil {
+					return e
+				}
+				ph, e := journalHash(prior)
+				if e != nil {
+					return e
+				}
+				var published string
+				e = j.db.QueryRowContext(ctx, `SELECT hash FROM journal_change WHERE kind=? AND t=? AND venue=? AND asset=? AND revision=?`, r.Kind(), k.T, k.Venue, k.Asset, prior.Base().Revision).Scan(&published)
+				if e != nil || ph != published {
+					return errors.New("repair prior version not verified in catalog")
+				}
+				oldJSON, e := json.Marshal(prior)
+				if e != nil {
+					return e
+				}
+				h, e := journalHash(r)
+				if e != nil {
+					return e
+				}
+				audits = append(audits, repairAudit{r, oldJSON, h})
+			}
 		}
 	}
 	if allPublished {
 		return j.verify(ctx, owned)
 	}
-	if _, e = j.db.ExecContext(ctx, `INSERT INTO journal_intent(id,payload) VALUES(1,?)`, b); e != nil {
+	if target, ok := j.target.(interface {
+		preflight(context.Context, []model.Row) error
+	}); ok {
+		if e = target.preflight(ctx, owned); e != nil {
+			return e
+		}
+	}
+	tx, e := j.db.BeginTx(ctx, nil)
+	if e != nil {
+		return e
+	}
+	defer tx.Rollback()
+	for _, a := range audits {
+		k := a.r.Key()
+		if _, e = tx.ExecContext(ctx, `INSERT INTO journal_repair VALUES(?,?,?,?,?,?,?)`, a.r.Kind(), k.T, k.Venue, k.Asset, a.r.Base().Revision, a.old, a.hash); e != nil {
+			return e
+		}
+	}
+	if _, e = tx.ExecContext(ctx, `INSERT INTO journal_intent(id,payload) VALUES(1,?)`, b); e != nil {
+		return e
+	}
+	if e = tx.Commit(); e != nil {
 		return e
 	}
 	if e = j.target.Put(ctx, owned); e != nil {
@@ -319,6 +376,28 @@ func (j *Journal) publish(ctx context.Context, rows []model.Row) error {
 		if e != nil {
 			return e
 		}
+		if r.Base().Revision > 1 {
+			var priorRaw []byte
+			var newHash string
+			if e = tx.QueryRowContext(ctx, `SELECT old_row,new_hash FROM journal_repair WHERE kind=? AND t=? AND venue=? AND asset=? AND new_revision=?`, r.Kind(), k.T, k.Venue, k.Asset, r.Base().Revision).Scan(&priorRaw, &newHash); e != nil || newHash != h {
+				return errors.New("missing or mismatched repair audit")
+			}
+			prior, e := model.Decode(r.Kind(), priorRaw)
+			if e != nil {
+				return e
+			}
+			if e = validateRepair(prior, r); e != nil {
+				return e
+			}
+			ph, e := journalHash(prior)
+			if e != nil {
+				return e
+			}
+			var phPublished string
+			if e = tx.QueryRowContext(ctx, `SELECT hash FROM journal_change WHERE kind=? AND t=? AND venue=? AND asset=? AND revision=?`, r.Kind(), k.T, k.Venue, k.Asset, prior.Base().Revision).Scan(&phPublished); e != nil || phPublished != ph {
+				return errors.New("repair audit prior hash mismatch")
+			}
+		}
 		var old string
 		e = tx.QueryRowContext(ctx, `SELECT hash FROM journal_change WHERE kind=? AND t=? AND venue=? AND asset=? AND revision=?`, r.Kind(), k.T, k.Venue, k.Asset, r.Base().Revision).Scan(&old)
 		if e == nil {
@@ -371,7 +450,7 @@ func (j *Journal) Sync(ctx context.Context, k model.Kind, s string) (Page, error
 	if seq > max {
 		return p, ErrResync
 	}
-	rs, e := j.db.QueryContext(ctx, `SELECT seq,t,venue,asset,revision,hash FROM journal_change WHERE kind=? AND seq>? ORDER BY seq LIMIT 2001`, k, seq)
+	rs, e := j.db.QueryContext(ctx, `SELECT c.seq,c.t,c.venue,c.asset,c.revision,c.hash FROM journal_change c WHERE c.kind=? AND c.seq>? AND NOT EXISTS (SELECT 1 FROM journal_change newer WHERE newer.kind=c.kind AND newer.t=c.t AND newer.venue=c.venue AND newer.asset=c.asset AND newer.revision>c.revision) ORDER BY c.seq LIMIT 2001`, k, seq)
 	if e != nil {
 		return p, e
 	}
