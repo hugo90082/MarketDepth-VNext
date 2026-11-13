@@ -325,3 +325,9 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 新 capacity_qa tag / 獨立只讀 GitHub CI：每一組合成 47,520 keys，完整數值欄位、固定 seed 高熵、真 SQLite/journal。verified 組量測 gzip/raw/snapshot/compact/vacuum；partial_loss 組 12h active snapshot、後 12h 新資料、跨日強制回收後精確 23,760 recovered + 23,760 lost，5ms 取樣 allocated peak，驗證 emergency 32MB 額外預留與 1GB 上限（取樣值不是硬 quota）。不碰真 Drive/AWS；資料是 fixture，不代表真實市場壓縮率/512MB RAM。待 workflow 結果。
 
 - CI 43480128448：完整 sealed/active 重建及回讀通過至 corruption failure 分支；building catalog 的 local History 先命中 compact 判斷回 503 archive unavailable，而非明確 ErrRecoveryIncomplete。調整所有 History readiness check 在 compact 判斷前；ArchiveRecord 同樣拒絕 building。非放寬測試，阻擋未完成 catalog 更早。重跑 CI。
+
+### Phase 4 完整日容量 QA 實測結果（2026-11-14 UTC+8）
+- GitHub Actions 43480478564 success，commit ce9a57a1315d0844dca96a01cdd52bf05bab7fa9；兩組各 47,520 keys，37.23s 測試（hosted Linux runner，非 Sydney VM）。
+- verified：日檔 logical 10,297,344 B，封存 raw 9,465,856 B、gzip 4,503,132 B。備份 sampled peak allocated 41,271,296 B；compact sampled peak 26,435,584 B；catalog vacuum 前 26,951,680 B、後 17,313,792 B（含當日/cache 等）。
+- partial_loss：日檔 logical 10,297,344 B，刪除前 allocated 24,530,944 B，sampled peak 24,563,712 B，after 21,540,864 B，額外 sampled peak 32,768 B；32MB emergency reserve 通過此 fixture，精確 recoverable 23,760 / lost 23,760。vacuum 前 26,292,224 B、後 14,639,104 B。
+- 仍不可宣稱 1GB 為 OS 硬 quota 或 512MB VM 已過實測；合成欄位、5ms sampled peak、mock Drive，不含真網路、實際品質 JSON 分布、多日壓力/OS reserve/長匯出併發。真 Drive 與 Sydney 驗收前不開正式強制遺失。災難重建最新 CI 43480678745 待查。
