@@ -289,3 +289,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ### Phase 4 CI 修正：永久缺口同步與緊急回收
 - CI 43477066912：partial recovery 已通過，緊急回收 fixture 在第三日 00:03，第二日仍處 5 分鐘 grace，故正確無候選。將測試時間推至 00:09，不修改正式 grace。
 - CI 43477149628：SQL Go 字串多餘單引號跳脫造成 unknown escape；移除。待新 CI 全套驗證。
+
+### Phase 4 容量壓力安全整合基礎
+- 新增 NewWaitingGuardedWriter：僅重試 journal 尚未收到 batch 的 pre-admission capacity refusal，最多 60 秒、同一批資料；post-commit ambiguous error 永不重試。緊急 reserve 持有時 writer 暫停，避免兩者同時分配磁碟。測試包含 pre-admission 恢復後 post-commit 不重試及 emergency writer 排他。
+- 新增非阻塞 ClearDisposableScratch，只清已辨識暫存、保護 durable pending snapshot 原始目錄；ClearHistoryCache 只清可重建 cache。尚未接 destructive 自動回收，CI 待驗證。

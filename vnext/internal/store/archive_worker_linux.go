@@ -369,3 +369,28 @@ func (w *ArchiveWorker) Cycle(ctx context.Context) (string, error) {
 	}
 	return w.stageOne(ctx, today, gen, true)
 }
+
+// ClearDisposableScratch reclaims only recognized scratch directories not
+// owned by a durable pending upload. Never waits behind a network operation.
+func(w *ArchiveWorker) ClearDisposableScratch(ctx context.Context)(string,error){
+ if !w.mu.TryLock(){return "maintenance_busy",nil}
+ defer w.mu.Unlock()
+ if e:=ctx.Err();e!=nil{return "",e}
+ p,e:=w.j.ArchivePending(ctx);if e!=nil{return "",e}
+ if e=cleanScratch(w.verify,verifyFile,".verify-",".retire-verify-",".sealed-retire-verify-");e!=nil{return "",e}
+ if p==nil{
+  if e=cleanScratch(w.stage,stageFile,"job-");e!=nil{return "",e}
+ }else{
+  protected:=filepath.Dir(p.Snapshot.Path)
+  if filepath.Dir(protected)!=w.stage||!strings.HasPrefix(filepath.Base(protected),"job-"){return "",ErrArchivePending}
+  es,e:=os.ReadDir(w.stage);if e!=nil{return "",e}
+  for _,x:=range es{
+   if x.Name()==".owner"{continue}
+   path:=filepath.Join(w.stage,x.Name())
+   if path==protected{continue}
+   if !x.IsDir()||!strings.HasPrefix(x.Name(),"job-"){return "",errors.New("unknown scratch entry; manual review required")}
+   if e=cleanJob(w.stage,path,stageFile);e!=nil{return "",e}
+  }
+ }
+ return "scratch_checked",nil
+}

@@ -93,3 +93,6 @@ func(r *ArchiveReader) Days(ctx context.Context,from,to string)([]Day,error){
  }
  return days,nil
 }
+
+// ClearHistoryCache never removes the underlying local day or remote object.
+func(r *ArchiveReader) ClearHistoryCache(ctx context.Context)error{return r.c.Clear(ctx)}

@@ -102,3 +102,27 @@ func TestEmergencyCapacityReservation(t *testing.T){
  used=0;free=MinRootFree+2*LossReserve-1
  if _,e=g.ReserveEmergency(ctx,LossReserve);!errors.Is(e,ErrCapacity){t.Fatal("root reserve ignored",e)}
 }
+
+func TestWaitingGuardNeverRetriesAmbiguousCommit(t *testing.T){
+ ctx:=context.Background()
+ calls:=0
+ g,e:=NewCapacityGate(func()(int64,int64,error){
+  calls++
+  if calls==1{return archive.HighWater,2e9,nil}
+  if calls==3{return archive.HardLimit,2e9,nil}
+  return 0,2e9,nil
+ });if e!=nil{t.Fatal(e)}
+ w:=&fakeWriter{}
+ guard,e:=NewWaitingGuardedWriter(w,g,time.Second);if e!=nil{t.Fatal(e)}
+ if e=guard.Put(ctx,nil);!errors.Is(e,ErrCapacity)||w.calls!=1||calls!=3{t.Fatal(e,w.calls,calls)}
+}
+func TestEmergencyReservationPausesWrites(t *testing.T){
+ ctx:=context.Background()
+ g,e:=NewCapacityGate(func()(int64,int64,error){return 0,2e9,nil});if e!=nil{t.Fatal(e)}
+ w:=&fakeWriter{}
+ guard,e:=NewSharedGuardedWriter(w,g);if e!=nil{t.Fatal(e)}
+ release,e:=g.ReserveEmergency(ctx,LossReserve);if e!=nil{t.Fatal(e)}
+ if e=guard.Put(ctx,nil);!errors.Is(e,ErrCapacity)||w.calls!=0{t.Fatal(e,w.calls)}
+ release()
+ if e=guard.Put(ctx,nil);e!=nil||w.calls!=1{t.Fatal(e,w.calls)}
+}

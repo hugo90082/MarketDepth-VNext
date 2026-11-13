@@ -32,6 +32,7 @@ type CapacityGate struct {
 	mu       sync.Mutex
 	meter    Meter
 	reserved int64
+	emergency bool
 }
 
 func NewCapacityGate(m Meter) (*CapacityGate, error) {
@@ -67,6 +68,7 @@ func (g *CapacityGate) Reserve(ctx context.Context, n int64) (func(), error) {
 type GuardedWriter struct {
 	writer store.Writer
 	gate   *CapacityGate
+	wait time.Duration
 }
 
 func NewGuardedWriter(w store.Writer, m Meter) (*GuardedWriter, error) {
@@ -82,35 +84,40 @@ func NewSharedGuardedWriter(w store.Writer, g *CapacityGate) (*GuardedWriter, er
 	}
 	return &GuardedWriter{writer: w, gate: g}, nil
 }
-func (w *GuardedWriter) Put(ctx context.Context, rows []model.Row) error {
-	g := w.gate
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if e := ctx.Err(); e != nil {
-		return e
-	}
-	if len(rows) > 12 {
-		return errors.New("live service batch exceeds 12 rows")
-	}
-	used, free, e := g.meter()
-	if e != nil {
-		return fmt.Errorf("capacity measurement: %w", e)
-	}
-	if used < 0 || free < 0 || used >= archive.HighWater-WriteReserve-g.reserved || free < MinRootFree+WriteReserve+g.reserved {
-		return ErrCapacity
-	}
-	if e = w.writer.Put(ctx, rows); e != nil {
-		return e
-	}
-	// A returned error here means commit MAY have succeeded; stop, never regenerate.
-	used, free, e = g.meter()
-	if e != nil {
-		return fmt.Errorf("post-commit capacity measurement: %w", e)
-	}
-	if used < 0 || free < 0 || used >= archive.HardLimit-g.reserved || free < MinRootFree+g.reserved {
-		return ErrCapacity
-	}
-	return nil
+// NewWaitingGuardedWriter retries only a pre-admission refusal, before the
+// journal has seen the batch. The caller's immutable queued rows are reused;
+// ambiguous post-commit failures are never retried. The wait is bounded so
+// collection does not accumulate stale observations indefinitely.
+func NewWaitingGuardedWriter(w store.Writer,g *CapacityGate,wait time.Duration)(*GuardedWriter,error){
+ if wait<=0||wait>60*time.Second{return nil,errors.New("invalid capacity wait")}
+ x,e:=NewSharedGuardedWriter(w,g);if e!=nil{return nil,e}
+ x.wait=wait
+ return x,nil
+}
+func (w *GuardedWriter) Put(ctx context.Context,rows []model.Row)error{
+ deadline:=time.Now().Add(w.wait)
+ for{
+  before,e:=w.tryPut(ctx,rows)
+  if !before||!errors.Is(e,ErrCapacity)||w.wait==0{return e}
+  next:=time.Now().Add(200*time.Millisecond)
+  if next.After(deadline){return e}
+  if err:=WaitUntil(ctx,next);err!=nil{return err}
+ }
+}
+func(w *GuardedWriter) tryPut(ctx context.Context,rows []model.Row)(bool,error){
+ g:=w.gate
+ g.mu.Lock()
+ defer g.mu.Unlock()
+ if e:=ctx.Err();e!=nil{return false,e}
+ if len(rows)>12{return false,errors.New("live service batch exceeds 12 rows")}
+ used,free,e:=g.meter()
+ if e!=nil{return false,fmt.Errorf("capacity measurement: %w",e)}
+ if g.emergency||used<0||free<0||used>=archive.HighWater-WriteReserve-g.reserved||free<MinRootFree+WriteReserve+g.reserved{return true,ErrCapacity}
+ if e=w.writer.Put(ctx,rows);e!=nil{return false,e}
+ used,free,e=g.meter()
+ if e!=nil{return false,fmt.Errorf("post-commit capacity measurement: %w",e)}
+ if used<0||free<0||used>=archive.HardLimit-g.reserved||free<MinRootFree+g.reserved{return false,ErrCapacity}
+ return false,nil
 }
 
 // RunGroup cancels siblings on unexpected worker exit/failure and waits for
@@ -195,6 +202,7 @@ func(g *CapacityGate) ReserveEmergency(ctx context.Context,n int64)(func(),error
  if e!=nil{return nil,e}
  if used<0||free<0||used>=archive.HardLimit-2*n||free<MinRootFree+2*n{return nil,ErrCapacity}
  g.reserved=n
+ g.emergency=true
  var once sync.Once
  return func(){once.Do(func(){g.mu.Lock();defer g.mu.Unlock();g.reserved=0})},nil
 }
