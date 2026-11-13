@@ -19,6 +19,7 @@ CREATE TABLE occurrence(
     line_no INTEGER PRIMARY KEY CHECK(line_no > 0),
     sha256 TEXT NOT NULL REFERENCES raw_payload(sha256)
 );
+CREATE INDEX occurrence_sha ON occurrence(sha256);
 """
 MARKER = ".legacy-stage-building"
 DB_NAME = "legacy-raw.sqlite"
