@@ -10,6 +10,7 @@ import (
 
 var ErrResync = errors.New("cursor expired; re-fetch affected days")
 var ErrUnavailable = errors.New("data unavailable")
+var ErrArchiveUnavailable = errors.New("archive unavailable")
 
 type Query struct {
 	Kind         model.Kind

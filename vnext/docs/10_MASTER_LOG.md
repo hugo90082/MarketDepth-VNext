@@ -218,3 +218,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 
 ## 2026-11-14｜歷史快取 CI 編譯回歸修正
 - CI 43469857422、43470016058 均 failure，直接原因 archive_read_cache_linux.go 未使用 path/filepath import；兩次皆在 tagged build 停止，不能視為快取/歷史功能驗收。移除未使用 import，重新跑完整 CI。未改資料契約或正式環境。
+
+## 2026-11-14｜Phase 4 遠端 Reader 接入隔離 HTTP API
+- 新增 ArchiveReader，staging 提供 drive credentials 時 History/Sync/Days/RangeVersion 使用該 wrapper；無憑證時仍原本機 Journal。Sync 抽出 locked plan，遠端解析不持 j.mu；保持 seq cursor 原語意，按日取資料後恢復原順序、核對每列 hash/revision，之後的新 seq 下輪可讀；Latest 保持本機，不以舊封存假裝即時。History/Sync 遠端故障 503 ARCHIVE_UNAVAILABLE。Days 顯示 sealed_remote + revision/hash/etag；封存含缺格時回粗粒度提示 archive_has_grid_gaps_query_history，精確缺格需 History 查詢。API row/schema 未變；day/{day} 原始 gzip 仍待實作。
+- 增加隔離測試中移走日檔後的 History、Sync 續游標、Days、RangeVersion。此輪直接提交，等待 CI；前輪 import 修正 CI 尚在執行。未開啟日檔 eviction、未連真 Drive，未更動 AWS。後續仍需原始檔下載、強制回收/tombstone、catalog 縮減重建、實盤驗收。

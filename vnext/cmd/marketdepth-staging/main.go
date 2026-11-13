@@ -263,6 +263,7 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 	}
 	h := &health{archiveState: "not_connected"}
 	var backup *store.ArchiveWorker
+	var reader store.Reader = j
 	if credentials != "" {
 		remote, e := stagingDrive(root, credentials, producer)
 		if e != nil {
@@ -272,9 +273,13 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 		if e != nil {
 			return e
 		}
+		cache, e := store.NewArchiveReadCache(m, remote, gate.Reserve)
+		if e != nil { return e }
+		reader, e = store.NewArchiveReader(j, cache)
+		if e != nil { return e }
 		h.archiveState = "configured_unverified"
 	}
-	srv := &http.Server{Handler: httpapi.API{Reader: j, Live: true, Auth: auth, Health: h.read}.Handler(), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 125 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
+	srv := &http.Server{Handler: httpapi.API{Reader: reader, Live: true, Auth: auth, Health: h.read}.Handler(), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 125 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
 	// Bind before starting any feeds, so a conflicting port cannot leave partial workers.
 	ln, e := net.Listen("tcp", addr)
 	if e != nil {

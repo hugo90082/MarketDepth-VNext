@@ -34,6 +34,10 @@ func errReply(w http.ResponseWriter, e error) {
 		fail(w, 409, "RESYNC_REQUIRED", e.Error())
 		return
 	}
+	if errors.Is(e,store.ErrArchiveUnavailable) {
+		fail(w,503,"ARCHIVE_UNAVAILABLE","sealed archive unavailable; retry later")
+		return
+	}
 	fail(w, 503, "DATA_UNAVAILABLE", "data unavailable; retry or reduce the range")
 }
 func (a API) ok(w http.ResponseWriter, data any, meta map[string]any) {

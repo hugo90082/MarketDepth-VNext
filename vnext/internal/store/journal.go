@@ -429,34 +429,44 @@ func (j *Journal) publish(ctx context.Context, rows []model.Row) error {
 func (j *Journal) Sync(ctx context.Context, k model.Kind, s string) (Page, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
+	p,ptr,_,e := j.planSyncLocked(ctx,k,s)
+	if e != nil {return p,e}
+	p.Rows,e=j.resolvePointers(ctx,k,ptr)
+	if e != nil{return Page{},ErrResync}
+	return p,nil
+}
+
+// planSyncLocked captures a fixed sequence high-water and latest row pointers.
+// New writes after planning remain discoverable by the next cursor.
+func (j *Journal) planSyncLocked(ctx context.Context, k model.Kind, s string) (Page, []readPointer, string, error) {
 	p := Page{Rows: []model.Row{}, Gaps: []Gap{}, Complete: true}
 	if !k.Valid() {
-		return p, errors.New("invalid kind")
+		return p, nil, "", errors.New("invalid kind")
 	}
 	if b, e := j.pending(ctx); e != nil {
-		return p, e
+		return p, nil, "", e
 	} else if b != nil {
-		return p, ErrPendingWrite
+		return p, nil, "", ErrPendingWrite
 	}
 	c := cursor{Generation: j.generation, Kind: k, Mode: "durable-sync"}
 	var seq int64
 	if s != "" {
 		v, e := decode(s)
 		if e != nil || v.Generation != c.Generation || v.Kind != k || v.Mode != c.Mode || v.Seq < 0 {
-			return p, ErrResync
+			return p, nil, "", ErrResync
 		}
 		seq = int64(v.Seq)
 	}
 	var max int64
 	if e := j.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(seq),0) FROM journal_change`).Scan(&max); e != nil {
-		return p, e
+		return p, nil, "", e
 	}
 	if seq > max {
-		return p, ErrResync
+		return p, nil, "", ErrResync
 	}
 	rs, e := j.db.QueryContext(ctx, `SELECT c.seq,c.t,c.venue,c.asset,c.revision,c.hash FROM journal_change c WHERE c.kind=? AND c.seq>? AND NOT EXISTS (SELECT 1 FROM journal_change newer WHERE newer.kind=c.kind AND newer.t=c.t AND newer.venue=c.venue AND newer.asset=c.asset AND newer.revision>c.revision) ORDER BY c.seq LIMIT 2001`, k, seq)
 	if e != nil {
-		return p, e
+		return p, nil, "", e
 	}
 	type change struct {
 		seq  int64
@@ -469,48 +479,29 @@ func (j *Journal) Sync(ctx context.Context, k model.Kind, s string) (Page, error
 		var x change
 		if e = rs.Scan(&x.seq, &x.key.T, &x.key.Venue, &x.key.Asset, &x.rev, &x.hash); e != nil {
 			rs.Close()
-			return p, e
+			return p, nil, "", e
 		}
 		changes = append(changes, x)
 	}
 	e = rs.Err()
 	rs.Close()
 	if e != nil {
-		return p, e
+		return p, nil, "", e
 	}
 	if len(changes) > 2000 {
 		changes = changes[:2000]
 		p.Complete = false
 	}
-	keys := make([]JournalKey, 0, len(changes))
+	ptr := make([]readPointer, 0, len(changes))
 	for _, x := range changes {
-		keys = append(keys, JournalKey{k, x.key})
-	}
-	rows, e := j.getMany(ctx, keys)
-	if e != nil || len(rows) != len(changes) {
-		return Page{}, ErrResync
-	}
-	for i, x := range changes {
-		r := rows[i]
-		if rowNil(r) || r.Kind() != k || r.Key() != x.key || r.Base().Revision != x.rev {
-			return Page{}, ErrResync
-		}
-		h, e := journalHash(r)
-		if e != nil || h != x.hash {
-			return Page{}, ErrResync
-		}
-		p.Rows = append(p.Rows, r)
+		ptr = append(ptr, readPointer{key:x.key,rev:x.rev,hash:x.hash})
 		seq = x.seq
 	}
-	if p.Complete {
-		seq = max
-	}
+	if p.Complete { seq = max }
 	c.Seq = int(seq)
-	if int64(c.Seq) != seq {
-		return Page{}, ErrResync
-	}
+	if int64(c.Seq) != seq { return p, nil, "", ErrResync }
 	p.Next = encode(c)
-	return p, nil
+	return p, ptr, j.generation, nil
 }
 
 // Close must be called after draining the writer queue, before closing Manager.

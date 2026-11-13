@@ -47,7 +47,12 @@ func TestArchiveReadCacheVerifiedReuseAndCorruption(t *testing.T){
  moved:=filepath.Join(t.TempDir(),"retained.sqlite")
  if e=os.Rename(original,moved);e!=nil{t.Fatal(e)}
  q:=Query{Kind:rows[0].Kind(),From:rec.Manifest.From,To:rec.Manifest.To,Limit:10}
- p,e:=j.HistoryWithArchive(ctx,q,c);if e!=nil||len(p.Rows)!=1{t.Fatal(p,e)}
+ reader,e:=NewArchiveReader(j,c);if e!=nil{t.Fatal(e)}
+ p,e:=reader.History(ctx,q);if e!=nil||len(p.Rows)!=1{t.Fatal(p,e)}
+ syncPage,e:=reader.Sync(ctx,rows[0].Kind(),"");if e!=nil||len(syncPage.Rows)!=1||syncPage.Next==""{t.Fatal(syncPage,e)}
+ syncNext,e:=reader.Sync(ctx,rows[0].Kind(),syncPage.Next);if e!=nil||len(syncNext.Rows)!=0{t.Fatal(syncNext,e)}
+ days,e:=reader.Days(ctx,day,day);if e!=nil||len(days)!=1||days[0].State!="sealed_remote"||days[0].SHA256==nil||*days[0].SHA256!=rec.Manifest.SHA256||days[0].Counts[rows[0].Kind()]!=1{t.Fatal(days,e)}
+ if _,e=reader.RangeVersion(ctx,[]model.Kind{rows[0].Kind()},rec.Manifest.From,rec.Manifest.To);e!=nil{t.Fatal(e)}
  if _,e=os.Stat(original);!os.IsNotExist(e){t.Fatal("reader recreated daily database",e)}
  if e=os.Rename(moved,original);e!=nil{t.Fatal(e)}
  if reservations!=1{t.Fatal("cache miss on repeat",reservations)}
