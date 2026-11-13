@@ -150,3 +150,43 @@ func TestCatalogRequiresExplicitBootstrap(t *testing.T) {
 		t.Fatal("silent bootstrap")
 	}
 }
+
+func TestManagerRequiresExistingCatalogBeforeWrite(t *testing.T) {
+	ctx := context.Background()
+	root := filepath.Join(t.TempDir(), "live")
+	rows := liveRows()
+	now := time.UnixMilli(rows[0].Key().T + 120000)
+	m, e := newManager(root, SQLiteOpener, func() time.Time { return now }, 5*time.Minute)
+	if e != nil {
+		t.Fatal(e)
+	}
+	j, e := m.OpenCatalog(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = j.Put(ctx, rows); e != nil {
+		t.Fatal(e)
+	}
+	if e = j.Close(); e != nil {
+		t.Fatal(e)
+	}
+	if e = m.Close(); e != nil {
+		t.Fatal(e)
+	}
+	m, e = newManager(root, SQLiteOpener, func() time.Time { return now }, 5*time.Minute)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer m.Close()
+	if e = m.Put(ctx, rows); e == nil {
+		t.Fatal("direct writer bypassed existing catalog")
+	}
+	j, e = m.OpenCatalog(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer j.Close()
+	if e = j.Put(ctx, rows); e != nil {
+		t.Fatal(e)
+	}
+}

@@ -114,3 +114,10 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 已發布相同內容重試不重複序號；不同內容拒絕。Manager 開啟 catalog 模式後禁止直接 Put 繞過；現有日檔沒有有效 catalog 則拒絕靜默重建。按日期分組讀取單一唯讀連線，避免每列重開 SQLite。Sync 初版支持持久 cursor、2000 rows 分頁、種類/generation 驗證、遺失/不符時 resync。
 - 工程預設：單批最多 1000 rows / 4 MiB intent，單頁最多 2000；未做 journal retention、遠端 catalog rebuild、讀者 lease、修正 revision 或 HMAC cursor，亦未將 journal 接入正式 API/collector；只接受 revision=1 的初始 live rows。尚需 1GB 總容量實測、保留策略及 publish time 語意核對。跨日未提交且已過 grace 的 intent 仍阻斷，需要後續恢復/缺口治理。
 - 本地 go test/race/vet 及 schema/SQL 回歸通過；新增真 SQLite tagged 重啟/intent 前後兩種 crash 模擬、同值重試、過期已提交核對、跨 kind cursor、阻擋 bypass/靜默重建等測試，待 CI 驗證。正式服務/舊 repo/AWS/Drive 均未改。C 尚未交付。
+
+## 2026-11-13｜Phase 2 第六輪：容量判斷與一致性快照初版
+- main 唯一分支已驗證；main merge CI run 43437089832 與一次性 cleanup 所在提交的常規 CI run 43437339463 均 success。cleanup workflow 已從 main 移除。新增 journal commit `3cc7f48fe5a12d1356e786bec0ba70344e0bdc44`；其 CI run 43437583725 目前尚未確認完成。
+- 補強 catalog 模式：重啟若已存在 catalog.db 或 sidecars，不允許 Manager 直接寫入（先開 catalog）；追加真驅動測試。讀取按日分組且 bounded 2000；目前同步持鎖時間仍需 512MB/長查詢壓測，不是正式 API。
+- 新增 Linux allocated bytes 實測掃描（512-byte blocks、硬連結去重、拒絕 symlink/特殊檔）；純 PlanCapacity dry-run 使用 decimal 950MB/900MB/1GB 及 100MB cache，按 cache/failed part/rebuildable snapshot/remote verified day/unverified day 最舊優先。保護活躍、讀者、待寫與 catalog；最後一類標記 permanent loss 且 executor 必須先持久 tombstone。預留空間仍不足時拒絕 optional 或停止寫入。不含實際刪檔/雲端操作；根磁碟低水位、分類、lease、tombstone、執行器及並行 reservation 尚待整合。
+- 新增 SQLite 一致性 snapshot primitive（真 driver tag）：專用 mode=ro 連線 VACUUM INTO（query_only OFF 只允許寫獨立目的檔），quick_check、版本/日期/契約、各表 counts、gzip 串流、SHA256、fsync、同 filesystem link 原子且不覆蓋。明確新 generation、非 sealed、非遠端 verified。工程預設：呼叫者明示 reserve，以 DB+WAL 大小 3 倍加 1 MiB 預檢，壓縮途中限制 reserve；raw SQLite 暫存本身沒有 OS hard quota，正式需容量/lease 協調，不能宣稱已達 1GB 硬上限。Python 真 SQLite 已確認 WAL+VACUUM INTO（含預建空檔、唯讀源）可行；Go tagged snapshot/解壓 ID 精度/重複 generation/持續 writer 的整合測試待 CI。
+- 本地普通 Go test/race/vet 通過，容量優先順序、保護、cache、hard stop、稀疏檔及硬連結測試通過。未執行刪資料、上傳 Drive、部署或切換正式服務。日檔 seal、durable tombstone、catalog retention/remote rebuild、修正 revision、正式 API 和 futures 仍未完成；Phase 2 尚未 freeze。下一步續做封存與修正、接入 Phase 3，C 延後。

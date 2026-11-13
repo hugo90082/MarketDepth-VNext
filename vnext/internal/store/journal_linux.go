@@ -70,6 +70,7 @@ func (m *Manager) OpenCatalog(ctx context.Context) (*Journal, error) {
 		return nil, e
 	}
 	m.catalogOpened = true
+	m.catalogRequired = true
 	return j, nil
 }
 

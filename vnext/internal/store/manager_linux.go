@@ -24,16 +24,17 @@ type DayOpener func(path string, readOnly bool) (*sql.DB, error)
 // It never removes, seals, or rewrites a day. A batch is atomic within one day;
 // callers must split cross-day data explicitly and handle failures per day.
 type Manager struct {
-	mu            sync.Mutex
-	root          string
-	lock          *os.File
-	open          DayOpener
-	db            *sql.DB
-	daily         *Daily
-	closed        bool
-	catalogOpened bool
-	now           func() time.Time
-	grace         time.Duration
+	mu              sync.Mutex
+	root            string
+	lock            *os.File
+	open            DayOpener
+	db              *sql.DB
+	daily           *Daily
+	closed          bool
+	catalogOpened   bool
+	catalogRequired bool
+	now             func() time.Time
+	grace           time.Duration
 }
 
 func NewManager(root string, open DayOpener) (*Manager, error) {
@@ -75,7 +76,20 @@ func newManager(root string, open DayOpener, now func() time.Time, grace time.Du
 		lock.Close()
 		return nil, fmt.Errorf("exclusive writer lock: %w", err)
 	}
-	return &Manager{root: root, lock: lock, open: open, now: now, grace: grace}, nil
+	required := false
+	for _, name := range []string{"catalog.db", "catalog.db-wal", "catalog.db-shm"} {
+		if st, e := os.Lstat(filepath.Join(root, name)); e == nil {
+			if !st.Mode().IsRegular() {
+				lock.Close()
+				return nil, errors.New("unsafe catalog file")
+			}
+			required = true
+		} else if !errors.Is(e, os.ErrNotExist) {
+			lock.Close()
+			return nil, e
+		}
+	}
+	return &Manager{root: root, lock: lock, open: open, now: now, grace: grace, catalogRequired: required}, nil
 }
 
 func (m *Manager) path(day string) (string, error) {
@@ -103,7 +117,7 @@ func (m *Manager) put(ctx context.Context, rows []model.Row, catalog bool) error
 	if m.closed {
 		return errors.New("manager closed")
 	}
-	if m.catalogOpened != catalog {
+	if m.catalogOpened != catalog || (m.catalogRequired && !catalog) {
 		return errors.New("catalog writer mode mismatch")
 	}
 	if len(rows) == 0 {
