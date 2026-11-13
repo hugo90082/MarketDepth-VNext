@@ -183,3 +183,8 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - Drive v3 傳輸 commit cac77278186e8b5871df55f802acf87d162ee393 的 CI run 43453104659 已確認 success。使用者已完成 Google Auth 基本設定及 drive.file；正式發布被品牌頁設定阻擋。
 - 已新增獨立靜態站 vnext/docs/oauth-site（首頁、隱私權政策、服務條款、CSS、安全 headers），只供 OAuth 公開說明；不發布個人電子郵件、秘密、行情、私人原始碼，不連 API。HTML 結構與內部導覽檢查通過。依 Google 官方 OAuth policy，正式首頁須公開、隱私政策與首頁同網域、授權網域須可驗證；Vercel 免費網域是否接受尚未確定。
 - Vercel team 存取目前 HTTP 403；已要求使用者在一次性連結完成 team consent。尚未建立 Vercel 專案、未部署、無可填的正式 URL。授權後只部署本目錄，再匿名驗證並確認 Console；不購買網域、不改其他既有專案。
+
+## 2026-11-13｜OAuth 說明網站正式部署
+- 使用者完成 Vercel team consent；獨立專案 marketdepth-vnext-info（prj_ViaUZcsDMAuhZVzh5wztN6OT1ZCs）以 commit b8cd09cdd354252ee0c198d717d79c440e657bdd 的 5 個靜態檔案 inline 部署，不連 Git、API、憑證或行情。Deployment dpl_88mNuRTp73sVHczXsqXjGFceJnbV，production READY，Vercel domain verified。
+- 正式網址 https://marketdepth-vnext-info.vercel.app/ 、/privacy.html、/terms.html 均以獨立公開抓取（maxAge 0，無帳號 profile）確認 HTTP 200 與預期頁面標題、內容；其他工具的 DNS/抓取限制不當作網站故障。未修改其他 Vercel 專案或部署保護設定；沒有購買網域。
+- 請使用者填 Google branding 三個 URL 及 marketdepth-vnext-info.vercel.app 授權網域，再嘗試發布。Google Search Console 網域所有權及正式發布是否成功仍待使用者確認；Vercel verified 不等於 Google verified。Drive 真 OAuth/讀寫尚未執行；既有正式服務與歷史資料不動。
