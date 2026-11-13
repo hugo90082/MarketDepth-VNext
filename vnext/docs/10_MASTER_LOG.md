@@ -301,3 +301,6 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - CI 43478796889 捕捉緊急預留 release 未清 emergency flag，已修；正常 release 與預留配對不變，待新 CI。
 ### Phase 4 高壓重啟準備
 - 完整 CI 43478642196 success（partial loss/bitmap/ledger/force fixture）。新 StartupPressure 在 feeds/queue 啟動前處理容量壓力，最多 16 次且每次 20s context，必須可量測釋放空間，無進展即停，無 Drive 時仍拒絕高壓啟動。catalog open/reconciliation 之前保留兩個 32MB headroom；並非 OS quota。正常資料第一個 target 改在 startup 完成後才選。未開啟未備份強制回收。測試 no-progress fail closed、cache 清理後進入寫入預算；新 CI 待驗證。
+
+### Phase 4 災難復原：Drive 唯讀 discovery
+- 新 RecoveryReader 無需原本本機 reservation ID；Discover 完整分頁列舉同 namespace 的 sealed/active manifest、loss ledger（僅 metadata，非驗證通過），拒絕 duplicate/incomplete/repeated token。OpenObject 重新核對 exact ID、logical key、唯一物件、從 My Drive root 到專屬 namespace 的父層、size/hash/MIME；不建立任何 folder/ID reservation、不允許 upload。測試以全新空 stateDir 讀取 mock Drive、duplicate/moved object 拒絕及零副作用。尚未接重建 catalog、真 Drive 未測。

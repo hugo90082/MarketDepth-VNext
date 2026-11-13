@@ -49,7 +49,7 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 		out := []file{}
 		query := q.Get("q")
 		for _, x := range f.files {
-			if !x.Trashed && strings.Contains(query, "'"+x.Parents[0]+"' in parents") && strings.Contains(query, "key='md_key' and value='"+x.Props["md_key"]+"'") && strings.Contains(query, "key='md_ns' and value='"+x.Props["md_ns"]+"'") {
+			if !x.Trashed && strings.Contains(query, "key='md_ns' and value='"+x.Props["md_ns"]+"'") && ((strings.Contains(query, "mimeType = 'application/json'") && x.MIME=="application/json") || (strings.Contains(query, "'"+x.Parents[0]+"' in parents") && strings.Contains(query, "key='md_key' and value='"+x.Props["md_key"]+"'"))) {
 				out = append(out, x)
 				if f.duplicate && x.MIME != folderType {
 					out = append(out, x)
@@ -303,4 +303,26 @@ func TestRetryAfterStatus(t *testing.T) {
 	if !status(e, 429) || RetryDelay(e) != 120*time.Second {
 		t.Fatal(e, RetryDelay(e))
 	}
+}
+
+func TestReadOnlyRecoveryWithoutLocalReservations(t *testing.T){
+ c,f,_:=setup(t);ctx:=context.Background()
+ key:="historical/2026/11/2026-11-13.r1.manifest.json"
+ b:=[]byte("manifest")
+ o,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));if e!=nil{t.Fatal(e)}
+ seq,uploads:=f.seq,f.uploads
+ dir:=t.TempDir();os.Chmod(dir,0700)
+ fresh:=testClient(t,f,dir)
+ r:=fresh.RecoveryReader()
+ list,e:=r.Discover(ctx);if e!=nil||len(list)!=1||list[0]!=o{t.Fatal(list,e)}
+ got,body,e:=r.OpenObject(ctx,o.ID);if e!=nil{t.Fatal(e)}
+ raw,e:=io.ReadAll(body);body.Close()
+ if e!=nil||got!=o||!bytes.Equal(raw,b){t.Fatal(got,e)}
+ if _,e=r.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("recovery write accepted")}
+ entries,e:=os.ReadDir(dir);if e!=nil||len(entries)!=0||f.seq!=seq||f.uploads!=uploads{t.Fatal("recovery side effects",entries,e)}
+ f.duplicate=true
+ if _,e=r.Discover(ctx);e==nil{t.Fatal("duplicate candidate accepted")}
+ f.duplicate=false
+ x:=f.files[o.ID];x.Parents=[]string{"unrelated-folder"};f.files[o.ID]=x
+ if _,body,e=r.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("moved object accepted")}
 }
