@@ -107,3 +107,10 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-13｜主線收斂（使用者決議）
 - 新私人 Repo 以 main 為唯一長期主線；develop 最新 65ba74857b641e9536fd0fbc6b423a3d22c7e1c7 的 CI run 43435403411 已完成 success。保留 QA commit d095413acdc4662cfb15dfdb293562334dded747 的祖先關係與手動 probe workflow，不再建立常駐 QA 分支。合併不改任何舊版 Repo、AWS 或正式部署。CI 改只在 main push / PR 及手動觸發；probe 改手動觸發。
 - Binance 繼續沿用 Railway REST5000 + 1000ms Diff、750bps 觀測覆蓋與可信覆蓋分開的原則，不因 runner 451 改交易所或降深度。實際 Sydney 覆蓋與 RAM 驗收仍未通過；使用者認同既有邏輯，非豁免實測。
+- main merge 3bc1799f2dcbcf3775aa53e63a3da0a6ba0dcd25，保留兩個舊分支祖先；一次性 cleanup run 43437339358 已成功，GitHub branches API 證實僅剩 main。cleanup 以確切 SHA、ancestry、force-with-lease 驗證後刪除兩個已合併 refs；移除一次性 workflow，常規 CI 仍為 contents:read。
+
+## 2026-11-13｜Phase 2 第五輪：持久更新紀錄初版
+- 新增獨立 catalog.db，不改 MD-VNEXT-1 日檔 DDL。WAL + FULL、generation、持久單批 intent、逐筆變更序號與 SHA256。intent 先提交，日檔再提交並讀回逐筆確認，最後原子發布序號及移除 intent。重啟可核對已提交的舊日（即使超過 grace）或透過原政策重試原批；無法核對時 fail closed，不宣稱同步完成。
+- 已發布相同內容重試不重複序號；不同內容拒絕。Manager 開啟 catalog 模式後禁止直接 Put 繞過；現有日檔沒有有效 catalog 則拒絕靜默重建。按日期分組讀取單一唯讀連線，避免每列重開 SQLite。Sync 初版支持持久 cursor、2000 rows 分頁、種類/generation 驗證、遺失/不符時 resync。
+- 工程預設：單批最多 1000 rows / 4 MiB intent，單頁最多 2000；未做 journal retention、遠端 catalog rebuild、讀者 lease、修正 revision 或 HMAC cursor，亦未將 journal 接入正式 API/collector；只接受 revision=1 的初始 live rows。尚需 1GB 總容量實測、保留策略及 publish time 語意核對。跨日未提交且已過 grace 的 intent 仍阻斷，需要後續恢復/缺口治理。
+- 本地 go test/race/vet 及 schema/SQL 回歸通過；新增真 SQLite tagged 重啟/intent 前後兩種 crash 模擬、同值重試、過期已提交核對、跨 kind cursor、阻擋 bypass/靜默重建等測試，待 CI 驗證。正式服務/舊 repo/AWS/Drive 均未改。C 尚未交付。

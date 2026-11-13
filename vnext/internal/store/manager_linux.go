@@ -24,15 +24,16 @@ type DayOpener func(path string, readOnly bool) (*sql.DB, error)
 // It never removes, seals, or rewrites a day. A batch is atomic within one day;
 // callers must split cross-day data explicitly and handle failures per day.
 type Manager struct {
-	mu     sync.Mutex
-	root   string
-	lock   *os.File
-	open   DayOpener
-	db     *sql.DB
-	daily  *Daily
-	closed bool
-	now    func() time.Time
-	grace  time.Duration
+	mu            sync.Mutex
+	root          string
+	lock          *os.File
+	open          DayOpener
+	db            *sql.DB
+	daily         *Daily
+	closed        bool
+	catalogOpened bool
+	now           func() time.Time
+	grace         time.Duration
 }
 
 func NewManager(root string, open DayOpener) (*Manager, error) {
@@ -94,11 +95,16 @@ func (m *Manager) path(day string) (string, error) {
 	return p, nil
 }
 
-func (m *Manager) Put(ctx context.Context, rows []model.Row) error {
+func (m *Manager) Put(ctx context.Context, rows []model.Row) error { return m.put(ctx, rows, false) }
+
+func (m *Manager) put(ctx context.Context, rows []model.Row, catalog bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closed {
 		return errors.New("manager closed")
+	}
+	if m.catalogOpened != catalog {
+		return errors.New("catalog writer mode mismatch")
 	}
 	if len(rows) == 0 {
 		return nil
@@ -214,4 +220,67 @@ func (m *Manager) Close() error {
 		m.lock = nil
 	}
 	return err
+}
+
+// GetMany preserves input order, grouping lookups by calendar day and using
+// one read-only connection per day. The bounded manager lock protects against
+// concurrent lifecycle changes. Production eviction must also respect leases.
+func (m *Manager) GetMany(ctx context.Context, keys []JournalKey) ([]model.Row, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.closed {
+		return nil, errors.New("manager closed")
+	}
+	if len(keys) > 2000 {
+		return nil, errors.New("read batch exceeds 2000")
+	}
+	out := make([]model.Row, len(keys))
+	byDay := map[string][]int{}
+	for i, k := range keys {
+		if !k.Kind.Valid() {
+			return nil, errors.New("invalid kind")
+		}
+		d := model.Day(k.Key.T)
+		byDay[d] = append(byDay[d], i)
+	}
+	for day, indices := range byDay {
+		if e := func() error {
+			p, e := m.path(day)
+			if e != nil {
+				return e
+			}
+			if _, e = os.Stat(p); e != nil {
+				return e
+			}
+			db, e := m.open(p, true)
+			if e != nil {
+				return e
+			}
+			defer db.Close()
+			db.SetMaxOpenConns(1)
+			for name, want := range map[string]string{"day": day, "contract_id": model.Contract, "timezone": model.Timezone} {
+				var got string
+				if e = db.QueryRowContext(ctx, "SELECT value FROM meta WHERE key=?", name).Scan(&got); e != nil || got != want {
+					return fmt.Errorf("reader metadata mismatch: %s", name)
+				}
+			}
+			tx, e := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			if e != nil {
+				return e
+			}
+			defer tx.Rollback()
+			for _, i := range indices {
+				k := keys[i]
+				r, e := readRow(ctx, tx, k.Kind, k.Key)
+				if e != nil {
+					return e
+				}
+				out[i] = r
+			}
+			return tx.Commit()
+		}(); e != nil {
+			return nil, e
+		}
+	}
+	return out, nil
 }
