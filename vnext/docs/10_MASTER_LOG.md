@@ -297,3 +297,5 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ### Phase 4 容量監控與自動回收整合（隔離版）
 - PressureStep/獨立 capacityLoop（2s，20s context）依序測量、清可重建 cache、清安全 scratch、嘗試 verified day、重測後才容許 force；未知錯誤 fail closed。正常 archive idle maintenance 改共用 worker mutex，順序回收/compact/同步 loss ledger/vacuum。pending 只保護該日，其他 verified day 可正常回收。
 - staging 預設禁止未備份日強制刪除，必須明確 --allow-capacity-loss 且有隔離 Drive 配置；此為安全 QA gate，不是正式部署設定。writer pre-admission bounded wait 60s，emergency exclusive。health 新增容量狀態/實際 allocated bytes/free bytes。測試 safe-first、cache 足夠、verified 成功、loss 預設關、未知錯誤拒絕。未執行真實清理；startup 高壓恢復及 full-day 預算量測仍待。
+
+- CI 43478796889 捕捉緊急預留 release 未清 emergency flag，已修；正常 release 與預留配對不變，待新 CI。

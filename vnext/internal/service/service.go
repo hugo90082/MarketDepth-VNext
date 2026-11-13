@@ -204,5 +204,5 @@ func(g *CapacityGate) ReserveEmergency(ctx context.Context,n int64)(func(),error
  g.reserved=n
  g.emergency=true
  var once sync.Once
- return func(){once.Do(func(){g.mu.Lock();defer g.mu.Unlock();g.reserved=0})},nil
+ return func(){once.Do(func(){g.mu.Lock();defer g.mu.Unlock();g.reserved=0;g.emergency=false})},nil
 }
