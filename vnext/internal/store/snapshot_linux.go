@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,8 +21,9 @@ import (
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"
 )
 
-// SnapshotResult is an immutable local generation. FileID and SealedAt remain
-// unset: a snapshot is not an uploaded, verified or sealed day.
+// SnapshotResult is an immutable local generation. FileID remains unset.
+// SealedAt is copied only from a previously sealed day; the snapshot itself
+// neither seals the writer nor proves remote verification.
 type SnapshotResult struct {
 	Manifest archive.Manifest
 	Path     string
@@ -128,7 +130,7 @@ func (m *Manager) CreateSnapshot(ctx context.Context, day, staging, generation, 
 		return out, errors.New("snapshot raw size exceeds reservation")
 	}
 	out.RawBytes = st.Size()
-	counts, rev, e := checkSnapshot(ctx, rawPath, day)
+	details, e := checkSnapshot(ctx, rawPath, day)
 	if e != nil {
 		return out, e
 	}
@@ -145,9 +147,10 @@ func (m *Manager) CreateSnapshot(ctx context.Context, day, staging, generation, 
 	defer os.Remove(partPath)
 	defer part.Close()
 	h := sha256.New()
+	rawHash := sha256.New()
 	limit := &budgetWriter{w: io.MultiWriter(part, h), remaining: reserve - out.RawBytes}
 	gz := gzip.NewWriter(limit)
-	_, copyErr := io.Copy(gz, &contextReader{ctx: ctx, r: f})
+	_, copyErr := io.Copy(gz, &contextReader{ctx: ctx, r: io.TeeReader(f, rawHash)})
 	closeErr := gz.Close()
 	if e = errors.Join(copyErr, closeErr); e != nil {
 		return out, e
@@ -184,47 +187,121 @@ func (m *Manager) CreateSnapshot(ctx context.Context, day, staging, generation, 
 		return out, e
 	}
 	out.Path = final
-	out.Manifest = archive.Manifest{ContractID: model.Contract, Day: day, Timezone: model.Timezone, Revision: rev, Generation: generation, SHA256: hex.EncodeToString(h.Sum(nil)), Size: compressed.Size(), From: a.UnixMilli(), To: a.Add(24 * time.Hour).UnixMilli(), RowCounts: counts, ProducerCommit: producer}
+	if details.sealed != nil {
+		producer = details.producer
+	}
+	out.Manifest = archive.Manifest{ContractID: model.Contract, Day: day, Timezone: model.Timezone, Revision: details.revision, Generation: generation, SHA256: hex.EncodeToString(h.Sum(nil)), Size: compressed.Size(), From: a.UnixMilli(), To: a.Add(24 * time.Hour).UnixMilli(), RowCounts: details.counts, ProducerCommit: producer, SealedAt: details.sealed, DataOrigin: details.origin, ExpectedCounts: details.expected, MissingGridCounts: details.missing, StatusCounts: details.status, RawSize: out.RawBytes, RawSHA256: hex.EncodeToString(rawHash.Sum(nil))}
+
 	return out, nil
 }
 func execVacuum(ctx context.Context, c *sql.Conn, dest string) error {
 	_, e := c.ExecContext(ctx, "VACUUM INTO ?", dest)
 	return e
 }
-func checkSnapshot(ctx context.Context, path, day string) (map[string]int64, int64, error) {
+
+type snapshotDetails struct {
+	counts, expected, missing map[string]int64
+	status                    map[string]map[string]int64
+	revision                  int64
+	origin, producer          string
+	sealed                    *int64
+}
+
+func checkSnapshot(ctx context.Context, path, day string) (snapshotDetails, error) {
+	var d snapshotDetails
 	db, e := SQLiteOpener(path, true)
 	if e != nil {
-		return nil, 0, e
+		return d, e
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
 	var integrity string
 	if e = db.QueryRowContext(ctx, "PRAGMA quick_check").Scan(&integrity); e != nil || integrity != "ok" {
-		return nil, 0, fmt.Errorf("snapshot quick_check: %s %v", integrity, e)
+		return d, fmt.Errorf("snapshot quick_check: %s %v", integrity, e)
 	}
 	var schema int
 	if e = db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&schema); e != nil || schema != 1 {
-		return nil, 0, errors.New("invalid snapshot schema version")
+		return d, errors.New("invalid snapshot schema version")
 	}
 	for k, want := range map[string]string{"day": day, "contract_id": model.Contract, "timezone": model.Timezone} {
 		var got string
 		if e = db.QueryRowContext(ctx, "SELECT value FROM meta WHERE key=?", k).Scan(&got); e != nil || got != want {
-			return nil, 0, fmt.Errorf("snapshot metadata mismatch: %s", k)
+			return d, fmt.Errorf("snapshot metadata mismatch: %s", k)
 		}
 	}
-	var revision int64
-	if e = db.QueryRowContext(ctx, "SELECT CAST(value AS INTEGER) FROM meta WHERE key='archive_revision'").Scan(&revision); e != nil || revision < 1 {
-		return nil, 0, errors.New("invalid snapshot revision")
+	if e = db.QueryRowContext(ctx, "SELECT value FROM meta WHERE key='data_origin'").Scan(&d.origin); e != nil || d.origin != "live" {
+		return d, errors.New("unsupported snapshot origin")
 	}
-	counts := map[string]int64{}
-	for _, k := range []string{string(model.Spot), string(model.F10), string(model.F1), "events"} {
-		var n int64
-		if e = db.QueryRowContext(ctx, "SELECT count(*) FROM "+k).Scan(&n); e != nil {
-			return nil, 0, e
+	var rev string
+	if e = db.QueryRowContext(ctx, "SELECT value FROM meta WHERE key='archive_revision'").Scan(&rev); e != nil {
+		return d, e
+	}
+	d.revision, e = strconv.ParseInt(rev, 10, 64)
+	if e != nil || d.revision < 1 {
+		return d, errors.New("invalid snapshot revision")
+	}
+	a, e := time.ParseInLocation("2006-01-02", day, time.FixedZone("UTC+8", 8*3600))
+	if e != nil {
+		return d, e
+	}
+	from, to := a.UnixMilli(), a.Add(24*time.Hour).UnixMilli()
+	var seal string
+	e = db.QueryRowContext(ctx, "SELECT value FROM meta WHERE key='sealed_at'").Scan(&seal)
+	if e == nil {
+		v, err := strconv.ParseInt(seal, 10, 64)
+		if err != nil || v < to {
+			return d, errors.New("invalid snapshot seal")
 		}
-		counts[k] = n
+		d.sealed = &v
+		if e = db.QueryRowContext(ctx, "SELECT value FROM meta WHERE key='producer_commit'").Scan(&d.producer); e != nil || d.producer == "" {
+			return d, errors.New("sealed snapshot lacks producer")
+		}
+	} else if !errors.Is(e, sql.ErrNoRows) {
+		return d, e
 	}
-	return counts, revision, nil
+	d.counts = map[string]int64{}
+	d.expected = map[string]int64{string(model.Spot): 17280, string(model.F10): 25920, string(model.F1): 4320}
+	d.missing = map[string]int64{}
+	d.status = map[string]map[string]int64{}
+	for _, k := range []model.Kind{model.Spot, model.F10, model.F1} {
+		name := string(k)
+		var n, bad int64
+		if e = db.QueryRowContext(ctx, "SELECT count(*),COALESCE(SUM(CASE WHEN t<? OR t>=? THEN 1 ELSE 0 END),0) FROM "+name, from, to).Scan(&n, &bad); e != nil || bad != 0 || n > d.expected[name] {
+			return d, fmt.Errorf("invalid snapshot grid %s: %v", name, e)
+		}
+		d.counts[name] = n
+		d.missing[name] = d.expected[name] - n
+		rs, e := db.QueryContext(ctx, "SELECT status,count(*) FROM "+name+" GROUP BY status")
+		if e != nil {
+			return d, e
+		}
+		d.status[name] = map[string]int64{}
+		for rs.Next() {
+			var status string
+			var n int64
+			if e = rs.Scan(&status, &n); e != nil {
+				rs.Close()
+				return d, e
+			}
+			d.status[name][status] = n
+		}
+		e = rs.Err()
+		rs.Close()
+		if e != nil {
+			return d, e
+		}
+		if d.sealed != nil {
+			if e = db.QueryRowContext(ctx, "SELECT count(*) FROM "+name+" WHERE available_at IS NOT NULL AND available_at>?", *d.sealed).Scan(&bad); e != nil || bad != 0 {
+				return d, errors.New("row availability after seal")
+			}
+		}
+	}
+	var eventCount int64
+	if e = db.QueryRowContext(ctx, "SELECT count(*) FROM events").Scan(&eventCount); e != nil {
+		return d, e
+	}
+	d.counts["events"] = eventCount
+	return d, nil
 }
 
 type budgetWriter struct {

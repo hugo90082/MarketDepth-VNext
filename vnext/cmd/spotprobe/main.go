@@ -34,7 +34,15 @@ func main() {
 		log.Fatal(e)
 	}
 	defer m.Close()
-	q, e := store.NewWriteQueue(m, 8)
+	journal, e := m.OpenCatalog(ctx)
+	if e != nil {
+		log.Fatal(e)
+	}
+	defer journal.Close()
+	if e = journal.Recover(ctx); e != nil {
+		log.Fatal(e)
+	}
+	q, e := store.NewWriteQueue(journal, 8)
 	if e != nil {
 		log.Fatal(e)
 	}
