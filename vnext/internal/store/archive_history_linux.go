@@ -21,6 +21,7 @@ func (j *Journal) HistoryWithArchive(ctx context.Context,q Query,c *ArchiveReadC
  target,ok:=j.target.(managerJournalTarget)
  if !ok||c==nil||c.root!=filepath.Join(target.m.root,"history-cache"){return Page{},ErrUnavailable}
  j.mu.Lock()
+ if has,e:=j.hasCompactLocked(ctx,q.From,q.To);e!=nil{j.mu.Unlock();return Page{},e}else if has{j.mu.Unlock();return Page{},ErrResync}
  p,ptr,version,e:=j.planHistoryLocked(ctx,q)
  j.mu.Unlock()
  if e!=nil{return Page{},e}

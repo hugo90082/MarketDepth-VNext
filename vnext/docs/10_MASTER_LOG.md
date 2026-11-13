@@ -244,3 +244,6 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 封存日精確位元索引基礎
 - 新增 GridIndex：依固定 (t,venue,asset) 順序、5,940 bytes/日（47,520 bits）保存三表每一 grid key 是否存在；綁 day/revision/manifest SHA，驗證各表 row counts，NULL/status missing row 仍是存在；依 kind/asset/venue 過濾、keyset pagination、合併精確 grid gaps。理論 bitmap 大小約 2.17MB/年（不含 SQLite/JSON/manifest overhead），遠低於逐列 journal。此為基礎資料結構，尚未生成持久 compact record 或刪任何 journal pointer。
 - 新增完整日/多種過濾/游標/重複/非法 key/缺格測試。另 j.ready 核對記憶體及 DB generation，防止 loss tx ambiguous commit 後以舊游標繼續服務。待 CI；下一步從 sealed remote 與 journal latest pointers 雙重核對建立索引，再接 archive history/sync 及安全 prune。未操作真資料。
+
+## 2026-11-14｜Phase 4 compacted day 查詢相容層（尚未 prune）
+- journal_compact 新表存固定日 bitmap，loader 與最新 sealed archive record 核對完整 manifest 身份及各表筆數。ArchiveReader.History mixed plan 將現有 per-row pointers 與 compacted exact keys 合併保序、維持原 query/seq/generation cursor；第一頁 gap 以 bitmap 替換已縮減日的 grid_missing，無需為整段缺格掃 31 個 Drive 日檔。遠端讀取僅選中日、整檔 hash/SQLite 驗證；不再依賴被 prune 的每列 pointer。原 Journal 未連遠端而命中 compact day 明確 503，舊 HistoryWithArchive 防止競態漏資料。Sync 初始 cursor 會提示 sealed_history_query_history 範圍，由 /days+/history 補歷史；增量游標仍原 seq，未變 row schema。此輪未產生任何 compact 記錄、未刪 journal row，下一步做完整逐列核對後原子 prune 及測試。新提交 CI 待驗證。

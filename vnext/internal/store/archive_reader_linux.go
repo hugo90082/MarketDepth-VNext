@@ -26,7 +26,7 @@ func NewArchiveReader(j *Journal,c *ArchiveReadCache)(*ArchiveReader,error){
  if !ok||c.root!=filepath.Join(target.m.root,"history-cache"){return nil,errors.New("archive reader manager mismatch")}
  return &ArchiveReader{j:j,c:c,target:target},nil
 }
-func(r *ArchiveReader) History(ctx context.Context,q Query)(Page,error){return r.j.HistoryWithArchive(ctx,q,r.c)}
+func(r *ArchiveReader) History(ctx context.Context,q Query)(Page,error){return r.historyMixed(ctx,q)}
 func(r *ArchiveReader) Latest(ctx context.Context,k model.Kind)([]model.Row,error){return r.j.Latest(ctx,k)}
 func(r *ArchiveReader) RangeVersion(ctx context.Context,k []model.Kind,from,to int64)(string,error){return r.j.RangeVersion(ctx,k,from,to)}
 func(r *ArchiveReader) Sync(ctx context.Context,k model.Kind,cursor string)(Page,error){
@@ -44,6 +44,20 @@ func(r *ArchiveReader) Sync(ctx context.Context,k model.Kind,cursor string)(Page
  defer j.mu.Unlock()
  if e=j.ready(ctx);e!=nil{return Page{},e}
  if j.generation!=generation{return Page{},ErrResync}
+ // An empty cursor bootstraps the bounded recent journal. Compacted
+ // immutable history must be obtained through /days and /history.
+ if cursor==""{
+  rs,e:=j.db.QueryContext(ctx,"SELECT from_t,to_t FROM journal_compact ORDER BY from_t")
+  if e!=nil{return Page{},e}
+  for rs.Next(){
+   var g Gap
+   if e=rs.Scan(&g.From,&g.To);e!=nil{rs.Close();return Page{},e}
+   g.Reason="sealed_history_query_history"
+   if n:=len(p.Gaps);n>0&&p.Gaps[n-1].To==g.From&&p.Gaps[n-1].Reason==g.Reason{p.Gaps[n-1].To=g.To}else{p.Gaps=append(p.Gaps,g)}
+   if len(p.Gaps)>4096{rs.Close();return Page{},ErrResync}
+  }
+  e=rs.Err();rs.Close();if e!=nil{return Page{},e}
+ }
  return p,nil
 }
 func(r *ArchiveReader) Days(ctx context.Context,from,to string)([]Day,error){

@@ -108,6 +108,7 @@ func (j *Journal) resolvePointers(ctx context.Context, k model.Kind, p []readPoi
 func (j *Journal) History(ctx context.Context, q Query) (Page, error) {
  j.mu.Lock()
  defer j.mu.Unlock()
+ if has,e:=j.hasCompactLocked(ctx,q.From,q.To);e!=nil{return Page{},e}else if has{return Page{},ErrArchiveUnavailable}
  p,ptr,_,e:=j.planHistoryLocked(ctx,q)
  if e!=nil{return p,e}
  p.Rows,e=j.resolvePointers(ctx,q.Kind,ptr)
