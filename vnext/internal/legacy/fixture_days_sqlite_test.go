@@ -5,6 +5,7 @@ package legacy
 import (
  "context"
  "database/sql"
+ "encoding/json"
  "os"
  "path/filepath"
  "testing"
@@ -39,6 +40,17 @@ func TestGenerateFixtureDays(t *testing.T){
  result,e:=l.GenerateFixtureDays(ctx,s,root)
  if e!=nil||result.Days!=2||result.Plan.Occurrences!=4||result.Plan.UniqueKeys!=3||result.Plan.DuplicateOccurrences!=1{t.Fatal(result,e)}
  if _,e=os.Stat(filepath.Join(root,fixtureBuilding));!os.IsNotExist(e){t.Fatal("incomplete marker remains",e)}
+ rawManifest,e:=os.ReadFile(filepath.Join(root,fixtureManifest));if e!=nil{t.Fatal(e)}
+ var manifest struct{
+  FixtureOnly bool `json:"fixture_only"`
+  SourceSHA string `json:"source_sha256"`
+  Plan FixturePlan `json:"plan"`
+  Files []fixtureFile `json:"files"`
+ }
+ if e=json.Unmarshal(rawManifest,&manifest);e!=nil||!manifest.FixtureOnly||manifest.SourceSHA!=s.report.CompressedSHA||manifest.Plan!=result.Plan||len(manifest.Files)!=2{t.Fatal("fixture manifest",manifest,e)}
+ for _,file:=range manifest.Files{
+  data,e:=os.ReadFile(filepath.Join(root,file.Name));if e!=nil||hash(data)!=file.SHA256||int64(len(data))!=file.Bytes{t.Fatal("file digest",file,e)}
+ }
  for _,day:=range []string{model.Day(a.T),model.Day(b.T)}{
   db,e:=sql.Open("sqlite3",filepath.Join(root,"fixture-"+day+".sqlite"));if e!=nil{t.Fatal(e)}
   var bid,ask,avail *float64
