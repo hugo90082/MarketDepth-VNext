@@ -266,3 +266,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 部分遺失 ledger 與 active snapshot 回讀相容層（未啟用刪除）
 - 新 PartialLossRecord 將實際本機 latest keys 分成 recoverable/lost 兩個互斥固定 bitmap；空缺原本無 row 不屬於任何 bitmap；綁 active manifest SHA、revision、coverage、counts、local digest。prepared 阻止讀寫，removed 才可顯示。Days partial_remote + 可用筆數，History 依篩選精確標 permanent_loss，既有 grid_missing 不混淆。Cache 增加 active restore/read，只有已登錄 removed partial ledger 且 key recoverable 才允許讀取，仍核對原 journal row hash/revision，不能用舊修復版本代替。原始 sealed gzip route 不會把 active 當完整日。
 - 尚無 partial ledger 寫入/刪除 executor，尚未啟用任何未上傳日檔強制清理。下一步實作 pre-unlink intent、精確 hash partition、atomic finalize、restart 測試；CI 待驗證。真實 Drive/AWS 無變更。
+
+## 2026-11-14｜Phase 4 部分 active 備份日的強制 loss 原語（未排程）
+- EvictPartialDay 只處理已封存本機、非最新 kind、已過 grace、無該日 pending/正式 sealed remote 的舊日。完全離線，使用上一輪已驗證 active recovery hashes；串流逐筆比對 local latest journal hash，精確 partition recoverable/lost，先持久 prepared record + 原本全日筆數/digest，才 unlink+fsync，再 transaction 刪失去的 keys 所有 revision 指標、保留 exact recoverable、更新 generation；repair audit 保留。無網路/無遠端刪除，active raw snapshot 仍保留。相異修復版本不能退回舊 row。
+- RecoverPartialLoss 啟動前 reconciliation，仍有相同 DB 則取消未完成 intent（不刪），已 unlink 則使用原精確 partition finalize；不明狀態停讀寫。測試建立真 SQLite hourly、後來新增 spot/修復 1m、跨日後模擬兩種 crash，驗證 spot 可恢復、晚到/修復最新版永久缺口、Days partial_remote、拒絕 sealed download。尚未自動強制容量清理、partial loss ledger 尚待遠端同步。CI 待驗證，無真實資料操作。

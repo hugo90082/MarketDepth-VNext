@@ -234,6 +234,7 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 	}
 	defer j.Close()
 	if e = j.RecoverLoss(ctx); e != nil { return e }
+	if e = j.RecoverPartialLoss(ctx); e != nil { return e }
 	if e = j.Recover(ctx); e != nil {
 		return e
 	}

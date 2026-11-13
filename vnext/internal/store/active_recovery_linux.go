@@ -123,9 +123,13 @@ func(j *Journal) registerActiveRecovery(ctx context.Context,r archive.PublishedR
 func(j *Journal) ActiveRecovery(ctx context.Context,day string)(*ActiveRecoveryIndex,error){
  j.mu.Lock();defer j.mu.Unlock()
  s,e:=j.activeState(ctx,day);if e!=nil{return nil,e}
+ return j.activeRecoveryForLocked(ctx,s.Current)
+}
+func(j *Journal) activeRecoveryForLocked(ctx context.Context,rec archive.PublishedRecord)(*ActiveRecoveryIndex,error){
+ day:=rec.Manifest.Day
  var b []byte;var h string
  if e=j.db.QueryRowContext(ctx,"SELECT manifest_sha256,index_json FROM journal_active_recovery WHERE day=?",day).Scan(&h,&b);e!=nil{return nil,e}
  var x ActiveRecoveryIndex
- if h!=s.Current.ManifestSHA256||len(b)>3<<20||json.Unmarshal(b,&x)!=nil||x.validate(s.Current)!=nil{return nil,ErrUnavailable}
+ if h!=rec.ManifestSHA256||len(b)>3<<20||json.Unmarshal(b,&x)!=nil||x.validate(rec)!=nil{return nil,ErrUnavailable}
  return &x,nil
 }
