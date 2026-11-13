@@ -1,0 +1,251 @@
+package drive
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+type staticToken string
+
+func (t staticToken) AccessToken(context.Context) (string, error) { return string(t), nil }
+
+type fakeDrive struct {
+	files                               map[string]file
+	data                                map[string][]byte
+	pending                             map[string]file
+	seq, uploads                        int
+	failAfterCommit, foreign, duplicate bool
+	server                              *httptest.Server
+}
+
+func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Authorization") != "Bearer fake-token" {
+		w.WriteHeader(401)
+		return
+	}
+	respond := func(v any) { w.Header().Set("Content-Type", "application/json"); json.NewEncoder(w).Encode(v) }
+	p := r.URL.Path
+	q := r.URL.Query()
+	switch {
+	case p == "/drive/v3/files/root":
+		respond(file{ID: "my_root", Name: "My Drive", MIME: folderType})
+	case p == "/drive/v3/files/generateIds":
+		f.seq++
+		respond(map[string]any{"ids": []string{fmt.Sprintf("file_%d", f.seq)}})
+	case p == "/drive/v3/files" && r.Method == "GET":
+		out := []file{}
+		query := q.Get("q")
+		for _, x := range f.files {
+			if strings.Contains(query, "'"+x.Parents[0]+"' in parents") && strings.Contains(query, "key='md_key' and value='"+x.Props["md_key"]+"'") && strings.Contains(query, "key='md_ns' and value='"+x.Props["md_ns"]+"'") {
+				out = append(out, x)
+				if f.duplicate && x.MIME != folderType {
+					out = append(out, x)
+				}
+			}
+		}
+		respond(map[string]any{"files": out})
+	case p == "/drive/v3/files" && r.Method == "POST":
+		var x file
+		if json.NewDecoder(r.Body).Decode(&x) != nil {
+			w.WriteHeader(400)
+			return
+		}
+		if _, ok := f.files[x.ID]; ok {
+			w.WriteHeader(409)
+			return
+		}
+		f.files[x.ID] = x
+		respond(x)
+	case p == "/upload/drive/v3/files" && r.Method == "POST":
+		var x file
+		if json.NewDecoder(r.Body).Decode(&x) != nil {
+			w.WriteHeader(400)
+			return
+		}
+		if _, ok := f.files[x.ID]; ok {
+			w.WriteHeader(409)
+			return
+		}
+		f.pending[x.ID] = x
+		loc := f.server.URL + "/upload/drive/v3/files?upload_id=" + x.ID
+		if f.foreign {
+			loc = "https://example.invalid/upload/drive/v3/files?upload_id=bad"
+		}
+		w.Header().Set("Location", loc)
+		w.WriteHeader(200)
+	case p == "/upload/drive/v3/files" && r.Method == "PUT":
+		id := q.Get("upload_id")
+		x, ok := f.pending[id]
+		if !ok {
+			w.WriteHeader(404)
+			return
+		}
+		b, e := io.ReadAll(r.Body)
+		if e != nil {
+			w.WriteHeader(400)
+			return
+		}
+		h := sha256.Sum256(b)
+		x.SHA = hex.EncodeToString(h[:])
+		x.Size = fmt.Sprint(len(b))
+		f.files[id] = x
+		f.data[id] = b
+		f.uploads++
+		if f.failAfterCommit {
+			f.failAfterCommit = false
+			w.WriteHeader(503)
+			return
+		}
+		respond(x)
+	case strings.HasPrefix(p, "/drive/v3/files/"):
+		id := strings.TrimPrefix(p, "/drive/v3/files/")
+		x, ok := f.files[id]
+		if !ok {
+			w.WriteHeader(404)
+			return
+		}
+		if q.Get("alt") == "media" {
+			w.Header().Set("Content-Length", fmt.Sprint(len(f.data[id])))
+			w.Write(f.data[id])
+			return
+		}
+		respond(x)
+	default:
+		w.WriteHeader(405)
+	}
+}
+func setup(t *testing.T) (*Client, *fakeDrive, string) {
+	t.Helper()
+	f := &fakeDrive{files: map[string]file{}, data: map[string][]byte{}, pending: map[string]file{}}
+	f.server = httptest.NewServer(http.HandlerFunc(f.serve))
+	t.Cleanup(f.server.Close)
+	dir := t.TempDir()
+	os.Chmod(dir, 0700)
+	c := testClient(t, f, dir)
+	return c, f, dir
+}
+func testClient(t *testing.T, f *fakeDrive, dir string) *Client {
+	t.Helper()
+	c, e := NewClient(staticToken("fake-token"), "MarketDepth-VNext-staging", dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	c.base = f.server.URL
+	c.client = noRedirectClient(5 * time.Second)
+	return c
+}
+func hash(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func TestImmutableDriveRestartAndReadback(t *testing.T) {
+	c, f, dir := setup(t)
+	ctx := context.Background()
+	key := "historical/2026/11/2026-11-13.r1.sqlite.gz"
+	b := []byte("snapshot")
+	f.failAfterCommit = true
+	if _, e := c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b)); e == nil {
+		t.Fatal("expected ambiguous failure")
+	}
+	if f.uploads != 1 {
+		t.Fatal(f.uploads)
+	}
+	seq := f.seq
+	c = testClient(t, f, dir)
+	o, e := c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if f.seq != seq || f.uploads != 1 {
+		t.Fatal("duplicate remote upload")
+	}
+	got, r, e := c.OpenObject(ctx, o.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	d, e := io.ReadAll(r)
+	r.Close()
+	if e != nil || got != o || !bytes.Equal(b, d) {
+		t.Fatal("readback mismatch")
+	}
+	if _, e = c.PutImmutable(ctx, key, int64(len(b)), hash([]byte("conflict")), bytes.NewReader(b)); e == nil {
+		t.Fatal("accepted revision conflict")
+	}
+	f.duplicate = true
+	if _, e = c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b)); e == nil {
+		t.Fatal("accepted duplicate key")
+	}
+}
+func TestForeignSessionAndReservationRetry(t *testing.T) {
+	c, f, dir := setup(t)
+	b := []byte("manifest")
+	k := "staging/a.json"
+	f.foreign = true
+	if _, e := c.PutImmutable(context.Background(), k, int64(len(b)), hash(b), bytes.NewReader(b)); e == nil {
+		t.Fatal("accepted foreign session")
+	}
+	seq := f.seq
+	if f.uploads != 0 {
+		t.Fatal("unexpected upload")
+	}
+	f.foreign = false
+	c = testClient(t, f, dir)
+	o, e := c.PutImmutable(context.Background(), k, int64(len(b)), hash(b), bytes.NewReader(b))
+	if e != nil || o.ID == "" || seq != f.seq {
+		t.Fatal(o, e, seq, f.seq)
+	}
+	if _, e = c.PutImmutable(context.Background(), "../x", 1, hash(b), bytes.NewReader(b)); e == nil {
+		t.Fatal("accepted traversal")
+	}
+	f.files[o.ID] = file{ID: o.ID, Props: map[string]string{"md_ns": "foreign", "md_key": k}}
+	if _, _, e = c.OpenObject(context.Background(), o.ID); e == nil {
+		t.Fatal("accepted foreign namespace")
+	}
+}
+func TestReservationPermissions(t *testing.T) {
+	c, _, dir := setup(t)
+	p := c.reservationPath("root")
+	if e := os.WriteFile(p, []byte("{}"), 0644); e != nil {
+		t.Fatal(e)
+	}
+	if _, _, e := c.load("root"); e == nil {
+		t.Fatal("accepted loose reservation")
+	}
+	if _, e := NewClient(staticToken("x"), "test", filepath.Join(dir, "missing")); e == nil {
+		t.Fatal("accepted missing directory")
+	}
+}
+
+func TestMovedFolderFailsClosed(t *testing.T) {
+	c, f, _ := setup(t)
+	ctx := context.Background()
+	key := "historical/2026/11/test.json"
+	b := []byte("manifest")
+	o, e := c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b))
+	if e != nil {
+		t.Fatal(e)
+	}
+	r, ok, e := c.load("dir/historical/2026")
+	if e != nil || !ok {
+		t.Fatal("folder reservation missing")
+	}
+	x := f.files[r.ID]
+	x.Parents = []string{"unrelated-folder"}
+	f.files[r.ID] = x
+	if _, r, e := c.OpenObject(ctx, o.ID); e == nil {
+		r.Close()
+		t.Fatal("read accepted moved folder")
+	}
+	if _, e := c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b)); e == nil {
+		t.Fatal("write accepted moved folder")
+	}
+}

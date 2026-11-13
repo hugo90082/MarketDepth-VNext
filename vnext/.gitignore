@@ -13,3 +13,8 @@ catalog.db*
 *.sqlite.gz
 .marketdepth-vnext-staging
 *.oauth.json
+/drive-authorize
+/drive-authorize.exe
+credentials.json
+client_secret*.json
+*.drive-id.json

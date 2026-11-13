@@ -38,6 +38,7 @@ jobs:
           go build -tags live_ws,sqlite_integration ./cmd/spotprobe
           go build -tags live_ws,sqlite_integration ./cmd/futuresprobe
           go build ./cmd/marketdepth
+          go build ./cmd/drive-authorize
           go build -tags live_ws,sqlite_integration,secure_auth ./cmd/marketdepth-staging
       - name: SQL contracts
         run: |
