@@ -22,7 +22,7 @@ jobs:
           cache: false
       - name: Resolve pinned dependencies
         run: |
-          go mod download -json github.com/mattn/go-sqlite3
+          go mod download -json
           go mod verify
       - name: Go checks
         env:
@@ -33,6 +33,9 @@ jobs:
           go vet ./...
           go test -tags sqlite_integration -v ./internal/store
           go test -race -tags sqlite_integration ./internal/store
+          go test -tags live_ws,sqlite_integration ./...
+          go vet -tags live_ws,sqlite_integration ./...
+          go build -tags live_ws,sqlite_integration ./cmd/spotprobe
           go build ./cmd/marketdepth
       - name: SQL contracts
         run: |
