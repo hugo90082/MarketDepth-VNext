@@ -16,6 +16,7 @@ import(
 type compactDay struct{
  grid GridIndex
  record archive.PublishedRecord
+ active bool
 }
 func(j *Journal) compactIndicesLocked(ctx context.Context,from,to int64)([]compactDay,error){
  rs,e:=j.db.QueryContext(ctx,`SELECT c.day,c.from_t,c.to_t,c.grid_json,a.record_json
@@ -30,11 +31,26 @@ func(j *Journal) compactIndicesLocked(ctx context.Context,from,to int64)([]compa
   if len(out)>0&&out[len(out)-1].record.Manifest.To>f{return nil,ErrUnavailable}
   out=append(out,d)
  }
- return out,rs.Err()
+ e=rs.Err();rs.Close();if e!=nil{return nil,e}
+ // Removed partial days have their own immutable recovery bitmap and
+ // active snapshot identity; their per-row pointers were pruned in the
+ // same finalize transaction. Never treat them as complete sealed days.
+ rs,e=j.db.QueryContext(ctx,"SELECT day FROM journal_partial_loss WHERE state='removed' AND from_t<? AND to_t>? ORDER BY from_t",to,from)
+ if e!=nil{return nil,e}
+ partialDays:=[]string{}
+ for rs.Next(){var day string;if e=rs.Scan(&day);e!=nil{rs.Close();return nil,e};partialDays=append(partialDays,day)}
+ e=rs.Err();rs.Close();if e!=nil{return nil,e}
+ for _,day:=range partialDays{
+  p,e:=j.partialLossLocked(ctx,day);if e!=nil{return nil,e}
+  out=append(out,compactDay{grid:p.Record.Recoverable,record:p.Record.Active,active:true})
+ }
+ sort.Slice(out,func(i,k int)bool{return out[i].record.Manifest.From<out[k].record.Manifest.From})
+ for i:=1;i<len(out);i++{if out[i-1].record.Manifest.To>out[i].record.Manifest.From{return nil,ErrUnavailable}}
+ return out,nil
 }
 func(j *Journal) hasCompactLocked(ctx context.Context,from,to int64)(bool,error){
  var n int
- e:=j.db.QueryRowContext(ctx,"SELECT EXISTS(SELECT 1 FROM journal_compact WHERE from_t<? AND to_t>?)",to,from).Scan(&n)
+ e:=j.db.QueryRowContext(ctx,"SELECT EXISTS(SELECT 1 FROM journal_compact WHERE from_t<? AND to_t>? UNION ALL SELECT 1 FROM journal_partial_loss WHERE state='removed' AND from_t<? AND to_t>?)",to,from,to,from).Scan(&n)
  return n!=0,e
 }
 

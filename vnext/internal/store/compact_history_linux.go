@@ -34,6 +34,7 @@ func(r *ArchiveReader) historyMixed(ctx context.Context,q Query)(Page,error){
  }
  if q.Cursor==""{
   p.Gaps,e=mixedGridGaps(q,p.Gaps,days)
+  if e==nil{p.Gaps,e=j.annotatePartialLossGaps(ctx,q,p.Gaps)}
   if e!=nil{j.mu.Unlock();return Page{},e}
  }
  var after *model.Key
@@ -79,11 +80,18 @@ func(r *ArchiveReader) historyMixed(ctx context.Context,q Query)(Page,error){
    d:=items[i].compact
    keys:=make([]JournalKey,0,end-i)
    for _,x:=range items[i:end]{keys=append(keys,JournalKey{q.Kind,x.ptr.key})}
-   got,e:=r.c.Read(ctx,d.record,keys)
-   if e!=nil{return Page{},fmt.Errorf("%w: compacted day unavailable",ErrArchiveUnavailable)}
+   var got []model.Row
+   var err error
+   if d.active {got,err=r.c.ReadActive(ctx,d.record,keys)}else{got,err=r.c.Read(ctx,d.record,keys)}
+   if err!=nil{return Page{},fmt.Errorf("%w: compacted day unavailable",ErrArchiveUnavailable)}
    if len(got)!=len(keys){return Page{},ErrUnavailable}
-   latest,e:=j.ArchiveRecord(ctx,d.grid.Day,0)
-   if e!=nil||latest.ManifestSHA256!=d.grid.ManifestSHA256{return Page{},ErrResync}
+   if d.active{
+    latest,e:=j.PartialLoss(ctx,d.grid.Day)
+    if e!=nil||latest.State!="removed"||latest.Record.Active.ManifestSHA256!=d.grid.ManifestSHA256{return Page{},ErrResync}
+   }else{
+    latest,e:=j.ArchiveRecord(ctx,d.grid.Day,0)
+    if e!=nil||latest.ManifestSHA256!=d.grid.ManifestSHA256{return Page{},ErrResync}
+   }
    p.Rows=append(p.Rows,got...)
   }
   i=end

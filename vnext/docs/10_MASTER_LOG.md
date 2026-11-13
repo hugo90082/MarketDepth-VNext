@@ -270,3 +270,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 部分 active 備份日的強制 loss 原語（未排程）
 - EvictPartialDay 只處理已封存本機、非最新 kind、已過 grace、無該日 pending/正式 sealed remote 的舊日。完全離線，使用上一輪已驗證 active recovery hashes；串流逐筆比對 local latest journal hash，精確 partition recoverable/lost，先持久 prepared record + 原本全日筆數/digest，才 unlink+fsync，再 transaction 刪失去的 keys 所有 revision 指標、保留 exact recoverable、更新 generation；repair audit 保留。無網路/無遠端刪除，active raw snapshot 仍保留。相異修復版本不能退回舊 row。
 - RecoverPartialLoss 啟動前 reconciliation，仍有相同 DB 則取消未完成 intent（不刪），已 unlink 則使用原精確 partition finalize；不明狀態停讀寫。測試建立真 SQLite hourly、後來新增 spot/修復 1m、跨日後模擬兩種 crash，驗證 spot 可恢復、晚到/修復最新版永久缺口、Days partial_remote、拒絕 sealed download。尚未自動強制容量清理、partial loss ledger 尚待遠端同步。CI 待驗證，無真實資料操作。
+
+## 2026-11-14｜Phase 4 部分遺失日以精確 bitmap 原子縮減索引
+- Partial loss finalize 改為同 transaction 保留 verified active manifest + recoverable/lost bitmaps、核對各 kind 最新指標筆數、刪全日 per-row pointers 及已完成用途的 dense active evidence、旋轉 generation；journal_repair 留存。混合歷史 planner 同時載入 compacted sealed 與 removed partial，後者只讀 active snapshot exact recoverable keys、hash/SQLite 整檔驗證；gaps 重新以 Lost bitmap 標 permanent_loss，preexisting missing 不混淆。Sync 初始提示 partial_history_query_history，local-only 遇 partial 明確 503。此決策避免長期 Drive outage 造成每個部分遺失日仍累積 8MB 索引。
+- 延伸真 SQLite fixture 檢查舊 pointers/dense index 清除、active history/修復遺失、sync bootstrap。新程式 CI 待驗證，尚未接自動強制刪除。未實際刪除使用者資料或操作真 Drive/AWS。

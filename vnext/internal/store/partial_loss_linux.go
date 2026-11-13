@@ -11,7 +11,6 @@ import(
  "errors"
  "net/url"
  "os"
- "strings"
  "time"
 
  "github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"
@@ -73,25 +72,6 @@ func(j *Journal) preparePartialLossLocked(ctx context.Context,m *Manager,day str
  return out,nil
 }
 
-func deleteLostKeys(ctx context.Context,tx *sql.Tx,r PartialLossRecord)error{
- for _,k:=range []model.Kind{model.Spot,model.F10,model.F1}{
-  q:=Query{Kind:k,From:r.From,To:r.To,Limit:100}
-  var after *model.Key
-  for{
-   keys,e:=r.Lost.Keys(q,after,100);if e!=nil{return e}
-   if len(keys)==0{break}
-   args:=make([]any,0,4*len(keys));marks:=make([]string,0,len(keys))
-   for _,key:=range keys{marks=append(marks,"(?,?,?,?)");args=append(args,k,key.T,key.Venue,key.Asset)}
-   res,e:=tx.ExecContext(ctx,"DELETE FROM journal_change WHERE (kind,t,venue,asset) IN ("+strings.Join(marks,",")+")",args...)
-   if e!=nil{return e}
-   n,e:=res.RowsAffected();if e!=nil||n<int64(len(keys)){return ErrPendingLoss}
-   last:=keys[len(keys)-1];after=&last
-  }
-  var n int64
-  if e:=tx.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_change c WHERE c.kind=? AND c.t>=? AND c.t<? AND "+latestOnly,k,r.From,r.To).Scan(&n);e!=nil||n!=r.Recoverable.Count(k){return ErrPendingLoss}
- }
- return nil
-}
 func(j *Journal) finalizePartialLossLocked(ctx context.Context,r PartialLossRecord,completed int64)error{
  if completed<r.RecordedAt{completed=r.RecordedAt}
  var seed [16]byte
@@ -103,7 +83,16 @@ func(j *Journal) finalizePartialLossLocked(ctx context.Context,r PartialLossReco
  res,e:=tx.ExecContext(ctx,"UPDATE journal_partial_loss SET state='removed',completed_at=? WHERE day=? AND state='prepared' AND record_json=?",completed,r.Day,b)
  if e!=nil{return e}
  if n,e:=res.RowsAffected();e!=nil||n!=1{return ErrPendingLoss}
- if e=deleteLostKeys(ctx,tx,r);e!=nil{return e}
+ // The verified active raw hash + exact recoverable bitmap is now the
+ // authoritative immutable history index. Every latest pointer was
+ // checked against the actual local DB before the durable intent.
+ // Removing all pointers bounds the index even during prolonged outage.
+ for _,k:=range []model.Kind{model.Spot,model.F10,model.F1}{
+  var n int64
+  if e=tx.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_change c WHERE c.kind=? AND c.t>=? AND c.t<? AND "+latestOnly,k,r.From,r.To).Scan(&n);e!=nil||n!=r.RowCounts[string(k)]{return ErrPendingLoss}
+ }
+ if _,e=tx.ExecContext(ctx,"DELETE FROM journal_change WHERE t>=? AND t<?",r.From,r.To);e!=nil{return e}
+ if _,e=tx.ExecContext(ctx,"DELETE FROM journal_active_recovery WHERE day=?",r.Day);e!=nil{return e}
  if _,e=tx.ExecContext(ctx,"UPDATE journal_meta SET value=? WHERE key='generation'",generation);e!=nil{return e}
  if e=tx.Commit();e!=nil{return e}
  j.generation=generation
@@ -112,7 +101,7 @@ func(j *Journal) finalizePartialLossLocked(ctx context.Context,r PartialLossReco
 
 // EvictPartialDay is an explicit, unscheduled pressure-only primitive.
 // No remote deletion, no network, no loss of a protected pending snapshot.
-// Keep pointers for exactly matching snapshot rows, remove only lost keys.
+// Replace old pointers with exact verified recoverable/lost bitmaps.
 func(j *Journal) EvictPartialDay(ctx context.Context,day string)error{
  target,ok:=j.target.(managerJournalTarget);if !ok{return ErrUnavailable}
  m:=target.m

@@ -71,5 +71,9 @@ func TestPartialLossKeepsExactActiveRowsAndRejectsStaleRepair(t *testing.T){
  if e!=nil||len(page.Rows)!=0||len(page.Gaps)!=1||page.Gaps[0].Reason!="permanent_loss"{t.Fatal("stale snapshot repair exposed",page,e)}
  days,e:=r.Days(ctx,day,day);if e!=nil||len(days)!=1||days[0].State!="partial_remote"||days[0].Counts[model.Spot]!=1{t.Fatal(days,e)}
  if _,e=r.OpenSealed(ctx,day,0);e==nil{t.Fatal("active download called sealed")}
+ var n int
+ if e=j.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_change WHERE t>=? AND t<?",loss.Record.From,loss.Record.To).Scan(&n);e!=nil||n!=0{t.Fatal("partial pointer index retained",n,e)}
+ if e=j.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_active_recovery WHERE day=?",day).Scan(&n);e!=nil||n!=0{t.Fatal("dense recovery evidence retained",n,e)}
+ syncPage,e:=r.Sync(ctx,model.Spot,"");if e!=nil||len(syncPage.Rows)!=1||len(syncPage.Gaps)!=1||syncPage.Gaps[0].Reason!="partial_history_query_history"{t.Fatal(syncPage,e)}
  if len(remote.objects)!=2{t.Fatal("active remote changed")}
 }
