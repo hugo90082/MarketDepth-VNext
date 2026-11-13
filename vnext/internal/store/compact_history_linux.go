@@ -85,7 +85,10 @@ func(r *ArchiveReader) historyMixed(ctx context.Context,q Query)(Page,error){
    if d.active {got,err=r.c.ReadActive(ctx,d.record,keys)}else{got,err=r.c.Read(ctx,d.record,keys)}
    if err!=nil{return Page{},fmt.Errorf("%w: compacted day unavailable",ErrArchiveUnavailable)}
    if len(got)!=len(keys){return Page{},ErrUnavailable}
-   if d.active{
+   if d.recovered{
+    j.mu.Lock();latest,e:=j.recoveredActiveLocked(ctx,d.grid.Day);j.mu.Unlock()
+    if e!=nil||latest.record.ManifestSHA256!=d.grid.ManifestSHA256{return Page{},ErrResync}
+   }else if d.active{
     latest,e:=j.PartialLoss(ctx,d.grid.Day)
     if e!=nil||latest.State!="removed"||latest.Record.Active.ManifestSHA256!=d.grid.ManifestSHA256{return Page{},ErrResync}
    }else{

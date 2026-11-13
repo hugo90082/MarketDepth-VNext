@@ -16,6 +16,7 @@ import(
 type RecoveryDay struct{
  Day string `json:"day"`
  Sealed *archive.PublishedRecord `json:"sealed,omitempty"`
+ SealedRevisions []archive.PublishedRecord `json:"sealed_revisions,omitempty"`
  FullLoss *LossState `json:"full_loss,omitempty"`
  PartialLoss *PartialLossState `json:"partial_loss,omitempty"`
  LossObject *archive.Object `json:"loss_object,omitempty"`
@@ -27,11 +28,13 @@ type RecoveryDay struct{
 // sealed/loss identity is a blocking inconsistency, not a heuristic choice.
 // All selected snapshot data must be independently read back later.
 func InspectRecovery(ctx context.Context,remote archive.RemoteObjects,objects []archive.Object)([]RecoveryDay,error){
- if remote==nil||len(objects)>50000{return nil,ErrUnavailable}
+ if remote==nil||len(objects)>10000{return nil,ErrUnavailable}
  days:=map[string]*RecoveryDay{}
  seen,ids:=map[string]bool{},map[string]bool{}
  get:=func(day string)*RecoveryDay{if days[day]==nil{days[day]=&RecoveryDay{Day:day}};return days[day]}
+ var total int64
  for _,o:=range objects{
+  if o.Size<=0||o.Size>2<<20||total>32<<20-o.Size{return nil,errors.New("recovery metadata budget exceeded")};total+=o.Size
   if e:=ctx.Err();e!=nil{return nil,e}
   if seen[o.Key]||ids[o.ID]{return nil,errors.New("duplicate recovery metadata identity")}
   seen[o.Key],ids[o.ID]=true,true
@@ -41,7 +44,10 @@ func InspectRecovery(ctx context.Context,remote archive.RemoteObjects,objects []
    d:=get(rec.Manifest.Day)
    if active{
     if d.ActiveCandidate==nil||rec.Manifest.Generation>d.ActiveCandidate.Manifest.Generation{x:=rec;d.ActiveCandidate=&x}
-   }else if d.Sealed==nil||rec.Manifest.Revision>d.Sealed.Manifest.Revision{x:=rec;d.Sealed=&x}
+   }else{
+    d.SealedRevisions=append(d.SealedRevisions,rec)
+    if d.Sealed==nil||rec.Manifest.Revision>d.Sealed.Manifest.Revision{x:=rec;d.Sealed=&x}
+   }
   case strings.HasPrefix(o.Key,"catalog/loss/")&&strings.HasSuffix(o.Key,".partial.json"):
    b,e:=archive.ReadRecoveryMetadata(ctx,remote,o,2<<20);if e!=nil{return nil,e}
    var env partialLossEnvelope
@@ -73,6 +79,7 @@ func InspectRecovery(ctx context.Context,remote archive.RemoteObjects,objects []
   // A complete sealed day supersedes residual active generations, which
   // remain untouched. Do not import a stale active row into sealed history.
   if d.Sealed!=nil||d.PartialLoss!=nil{d.ActiveCandidate=nil}
+  sort.Slice(d.SealedRevisions,func(i,j int)bool{return d.SealedRevisions[i].Manifest.Revision<d.SealedRevisions[j].Manifest.Revision})
   out=append(out,*d)
  }
  sort.Slice(out,func(i,j int)bool{return out[i].Day<out[j].Day})

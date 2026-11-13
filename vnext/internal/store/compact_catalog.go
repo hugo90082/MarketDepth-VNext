@@ -17,6 +17,7 @@ type compactDay struct{
  grid GridIndex
  record archive.PublishedRecord
  active bool
+ recovered bool
 }
 func(j *Journal) compactIndicesLocked(ctx context.Context,from,to int64)([]compactDay,error){
  rs,e:=j.db.QueryContext(ctx,`SELECT c.day,c.from_t,c.to_t,c.grid_json,a.record_json
@@ -44,13 +45,19 @@ func(j *Journal) compactIndicesLocked(ctx context.Context,from,to int64)([]compa
   p,e:=j.partialLossLocked(ctx,day);if e!=nil{return nil,e}
   out=append(out,compactDay{grid:p.Record.Recoverable,record:p.Record.Active,active:true})
  }
+ rs,e=j.db.QueryContext(ctx,"SELECT day FROM journal_recovered_active WHERE from_t<? AND to_t>? ORDER BY from_t",to,from)
+ if e!=nil{return nil,e}
+ recoveredDays:=[]string{}
+ for rs.Next(){var day string;if e=rs.Scan(&day);e!=nil{rs.Close();return nil,e};recoveredDays=append(recoveredDays,day)}
+ e=rs.Err();rs.Close();if e!=nil{return nil,e}
+ for _,day:=range recoveredDays{x,e:=j.recoveredActiveLocked(ctx,day);if e!=nil{return nil,e};out=append(out,x)}
  sort.Slice(out,func(i,k int)bool{return out[i].record.Manifest.From<out[k].record.Manifest.From})
  for i:=1;i<len(out);i++{if out[i-1].record.Manifest.To>out[i].record.Manifest.From{return nil,ErrUnavailable}}
  return out,nil
 }
 func(j *Journal) hasCompactLocked(ctx context.Context,from,to int64)(bool,error){
  var n int
- e:=j.db.QueryRowContext(ctx,"SELECT EXISTS(SELECT 1 FROM journal_compact WHERE from_t<? AND to_t>? UNION ALL SELECT 1 FROM journal_partial_loss WHERE state='removed' AND from_t<? AND to_t>?)",to,from,to,from).Scan(&n)
+ e:=j.db.QueryRowContext(ctx,"SELECT EXISTS(SELECT 1 FROM journal_compact WHERE from_t<? AND to_t>? UNION ALL SELECT 1 FROM journal_partial_loss WHERE state='removed' AND from_t<? AND to_t>? UNION ALL SELECT 1 FROM journal_recovered_active WHERE from_t<? AND to_t>?)",to,from,to,from,to,from).Scan(&n)
  return n!=0,e
 }
 

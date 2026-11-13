@@ -31,6 +31,7 @@ type Journal struct {
 	db         *sql.DB
 	target     JournalTarget
 	generation string
+ rebuilding bool
 }
 type JournalKey struct {
 	Kind model.Kind
@@ -100,6 +101,7 @@ func OpenJournal(ctx context.Context, db *sql.DB, target JournalTarget) (*Journa
 		`CREATE TABLE IF NOT EXISTS journal_loss_sync(day TEXT PRIMARY KEY,object_json BLOB NOT NULL,verified_at INTEGER NOT NULL) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_active_recovery(day TEXT PRIMARY KEY,manifest_sha256 TEXT NOT NULL,index_json BLOB NOT NULL) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_partial_loss(day TEXT PRIMARY KEY,from_t INTEGER NOT NULL,to_t INTEGER NOT NULL,record_json BLOB NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','removed')),completed_at INTEGER) WITHOUT ROWID`,
+		`CREATE TABLE IF NOT EXISTS journal_recovered_active(day TEXT PRIMARY KEY,from_t INTEGER NOT NULL,to_t INTEGER NOT NULL,record_json BLOB NOT NULL,grid_json BLOB NOT NULL) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_active(day TEXT PRIMARY KEY,current_json BLOB NOT NULL,previous_json BLOB,verified_at INTEGER NOT NULL) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_archive(day TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>=1),record_json BLOB NOT NULL,verified_at INTEGER NOT NULL,PRIMARY KEY(day,revision)) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS journal_repair(kind TEXT NOT NULL,t INTEGER NOT NULL,venue TEXT NOT NULL,asset TEXT NOT NULL,new_revision INTEGER NOT NULL,old_row BLOB NOT NULL,new_hash TEXT NOT NULL,PRIMARY KEY(kind,t,venue,asset,new_revision)) WITHOUT ROWID`,
@@ -122,7 +124,11 @@ func OpenJournal(ctx context.Context, db *sql.DB, target JournalTarget) (*Journa
 	} else if e != nil {
 		return nil, e
 	}
-	var version string
+	var recovery string
+ e=tx.QueryRowContext(ctx,"SELECT value FROM journal_meta WHERE key='recovery_state'").Scan(&recovery)
+ if e==nil&&recovery!="complete"{return nil,ErrRecoveryIncomplete}
+ if e!=nil&&!errors.Is(e,sql.ErrNoRows){return nil,e}
+ var version string
 	if e = tx.QueryRowContext(ctx, `SELECT value FROM journal_meta WHERE key='version'`).Scan(&version); e != nil || version != "1" || len(generation) != 32 {
 		return nil, errors.New("unknown catalog version or generation")
 	}
@@ -236,6 +242,13 @@ func (j *Journal) Put(ctx context.Context, rows []model.Row) error {
 	if e != nil {
 		return e
 	}
+ // Recovered snapshot-only days remain read-only until explicit merge.
+ // Never silently mix a new local day with an immutable recovered one.
+ if len(owned)>0{
+  var n int
+  if e=j.db.QueryRowContext(ctx,"SELECT EXISTS(SELECT 1 FROM journal_recovered_active WHERE day=? UNION ALL SELECT 1 FROM journal_compact WHERE day=? UNION ALL SELECT 1 FROM journal_loss WHERE day=? UNION ALL SELECT 1 FROM journal_partial_loss WHERE day=?)",model.Day(owned[0].Key().T),model.Day(owned[0].Key().T),model.Day(owned[0].Key().T),model.Day(owned[0].Key().T)).Scan(&n);e!=nil{return e}
+  if n!=0{return errors.New("archived or recovered day is read-only")}
+ }
 	// Reject conflict with already-published rows before staging an intent.
 	allPublished := true
 	type repairAudit struct {

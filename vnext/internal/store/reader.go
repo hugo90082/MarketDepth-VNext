@@ -26,6 +26,7 @@ type readPointer struct {
 }
 
 func (j *Journal) ready(ctx context.Context) error {
+ if j.rebuilding{return ErrRecoveryIncomplete}
 	b, e := j.pending(ctx)
 	if e != nil {
 		return e
@@ -280,7 +281,19 @@ func (j *Journal) Days(ctx context.Context, from, to string) ([]Day, error) {
 		loss,e:=j.lossRecordLocked(ctx,days[i].Day)
 		if errors.Is(e,sql.ErrNoRows){
 			p,e:=j.partialLossLocked(ctx,days[i].Day)
-			if errors.Is(e,sql.ErrNoRows){continue}
+			if errors.Is(e,sql.ErrNoRows){
+    x,e:=j.recoveredActiveLocked(ctx,days[i].Day)
+    if errors.Is(e,sql.ErrNoRows){continue}
+    if e!=nil{return nil,e}
+    d:=&days[i]
+    if d.State!="missing"{return nil,ErrUnavailable}
+    d.State="active_recovered_remote";d.Revision=x.record.Manifest.Revision
+    d.Counts=map[model.Kind]int{}
+    for _,k:=range []model.Kind{model.Spot,model.F10,model.F1}{d.Counts[k]=int(x.grid.Count(k))}
+    h,etag:=x.record.Manifest.SHA256,x.record.ManifestSHA256;d.SHA256=&h;d.ETag=&etag
+    d.Gaps=[]Gap{{d.From,d.To,"snapshot_only_unknown_tail_query_history"}}
+    continue
+   }
 			if e!=nil{return nil,e}
 			if p.State!="removed"||days[i].State!="missing"{return nil,ErrUnavailable}
 			d:=&days[i]

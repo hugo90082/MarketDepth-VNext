@@ -47,7 +47,7 @@ func(r *ArchiveReader) Sync(ctx context.Context,k model.Kind,cursor string)(Page
  // An empty cursor bootstraps the bounded recent journal. Compacted
  // immutable history must be obtained through /days and /history.
  if cursor==""{
-  rs,e:=j.db.QueryContext(ctx,"SELECT from_t,to_t,'sealed_history_query_history' FROM journal_compact UNION ALL SELECT from_t,to_t,'partial_history_query_history' FROM journal_partial_loss WHERE state='removed' ORDER BY from_t")
+  rs,e:=j.db.QueryContext(ctx,"SELECT from_t,to_t,'sealed_history_query_history' FROM journal_compact UNION ALL SELECT from_t,to_t,'partial_history_query_history' FROM journal_partial_loss WHERE state='removed' UNION ALL SELECT from_t,to_t,'recovered_snapshot_query_history' FROM journal_recovered_active ORDER BY from_t")
   if e!=nil{return Page{},e}
   for rs.Next(){
    var g Gap

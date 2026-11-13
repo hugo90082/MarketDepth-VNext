@@ -307,3 +307,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 
 ### Phase 4 災難復原：遠端清單內容驗證與復原計畫
 - ReadRecoveryMetadata 驗 exact object ID/key/size/hash 及實際 bytes；ReadRecoveryManifest 驗 canonical JSON、contract、logical key、sealed/active identity。InspectRecovery 將日期分類為最高 sealed revision、完整/部分 loss、僅 active candidate；拒絕同日 sealed/loss 衝突或 active identity 不符。僅 metadata 檢查不宣稱 snapshot verified；孤立 active 不把未知尾端定為永久遺失。未寫入 catalog，未操作真 Drive。
+
+### Phase 4 復原資料相容層
+- 新 journal_recovered_active 將僅有 hourly snapshot 的災難復原日獨立標記 active_recovered_remote，僅可讀 verified exact keys，缺格仍 grid_missing（未知尾端，不宣告永久遺失），Days 顯示 snapshot_only_unknown_tail，Sync bootstrap 提示另查 history，不能當完整 sealed 日下載。阻擋同日新寫入與已 compact/loss 日重新寫入。
+- InspectRecovery 保留所有 sealed revisions（最高 revision 用查詢），設定 metadata 總 32MiB / 10000 物件防止無界記憶體。journal_recovery_state building 啟動拒絕、ready() 拒絕 building instance；尚未接實際 rebuild writer，CI 待驗證。未操作真資料。
