@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"
+	"reflect"
 )
 
 var ErrResync = errors.New("cursor expired; re-fetch affected days")
@@ -50,4 +51,8 @@ type Reader interface {
 // preserve old revisions, and invalidate sync cursors on unreconciled recovery.
 type Writer interface {
 	Put(context.Context, []model.Row) error
+}
+
+func rowNil(r model.Row) bool {
+	return r == nil || (reflect.ValueOf(r).Kind() == reflect.Ptr && reflect.ValueOf(r).IsNil())
 }

@@ -237,7 +237,7 @@ func (d *Daily) Put(ctx context.Context, rows []model.Row) error {
 		Key model.Key
 	}]bool{}
 	for _, r := range rows {
-		if r == nil {
+		if rowNil(r) {
 			return errors.New("nil row")
 		}
 		if !r.Kind().Valid() {
@@ -289,6 +289,11 @@ func (d *Daily) Put(ctx context.Context, rows []model.Row) error {
 		}
 		if _, e = tx.ExecContext(ctx, insertSQL(k), x.args...); e != nil {
 			return e
+		}
+		if k == model.Spot {
+			if e = recordSpotTransition(ctx, tx, r); e != nil {
+				return e
+			}
 		}
 	}
 	return tx.Commit()

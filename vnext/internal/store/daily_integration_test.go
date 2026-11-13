@@ -31,6 +31,10 @@ func TestSQLiteDailyIntegration(t *testing.T) {
 	if e = d.Put(ctx, rows); e != nil {
 		t.Fatal("retry", e)
 	}
+	var eventCount int
+	if e = db.QueryRowContext(ctx, "SELECT count(*) FROM events WHERE code='SPOT_COVERAGE_PARTIAL'").Scan(&eventCount); e != nil || eventCount != 1 {
+		t.Fatal("duplicate or absent transition", eventCount, e)
+	}
 	r, e := d.Get(ctx, model.F10, rows[1].Key())
 	if e != nil || *r.(*model.Futures10Row).FirstAggID != 9007199254740993 {
 		t.Fatal(r, e)
@@ -44,6 +48,9 @@ func TestSQLiteDailyIntegration(t *testing.T) {
 	}
 	if _, e = d.Get(ctx, model.Spot, newRow.Key()); !errors.Is(e, sql.ErrNoRows) {
 		t.Fatal("batch failed atomicity", e)
+	}
+	if e = db.QueryRowContext(ctx, "SELECT count(*) FROM events").Scan(&eventCount); e != nil || eventCount != 1 {
+		t.Fatal("event not rolled back", eventCount, e)
 	}
 	newRow.T += 86400000
 	newRow.AvailableAt = model.Ptr(newRow.T + 1000)

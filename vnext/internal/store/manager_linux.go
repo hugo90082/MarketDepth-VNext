@@ -106,7 +106,7 @@ func (m *Manager) Put(ctx context.Context, rows []model.Row) error {
 	if len(rows) > 1000 {
 		return errors.New("batch exceeds 1000 rows")
 	}
-	if rows[0] == nil {
+	if rowNil(rows[0]) {
 		return errors.New("nil row")
 	}
 	day := model.Day(rows[0].Key().T)
@@ -117,7 +117,7 @@ func (m *Manager) Put(ctx context.Context, rows []model.Row) error {
 	}
 	// Preflight before opening or creating a day.
 	for _, r := range rows {
-		if r == nil {
+		if rowNil(r) {
 			return errors.New("nil row")
 		}
 		if err := r.Validate(); err != nil {

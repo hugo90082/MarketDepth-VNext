@@ -34,6 +34,11 @@ func main() {
 		log.Fatal(e)
 	}
 	defer m.Close()
+	q, e := store.NewWriteQueue(m, 8)
+	if e != nil {
+		log.Fatal(e)
+	}
+	defer q.Close(context.Background())
 	first := time.Now().Add(10 * time.Second).Truncate(time.Minute).Add(time.Minute).UnixMilli()
 	feeds := map[string]*spot.BinanceFeed{}
 	for _, a := range []string{"BTC", "ETH"} {
@@ -59,7 +64,7 @@ func main() {
 		if len(rows) != 12 {
 			log.Fatal("unexpected row count")
 		}
-		if e = m.Put(ctx, rows); e != nil {
+		if e = q.Put(ctx, rows); e != nil {
 			log.Fatal(e)
 		}
 		counts := map[string]int{}
