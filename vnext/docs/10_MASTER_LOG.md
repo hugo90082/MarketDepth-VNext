@@ -311,3 +311,6 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ### Phase 4 復原資料相容層
 - 新 journal_recovered_active 將僅有 hourly snapshot 的災難復原日獨立標記 active_recovered_remote，僅可讀 verified exact keys，缺格仍 grid_missing（未知尾端，不宣告永久遺失），Days 顯示 snapshot_only_unknown_tail，Sync bootstrap 提示另查 history，不能當完整 sealed 日下載。阻擋同日新寫入與已 compact/loss 日重新寫入。
 - InspectRecovery 保留所有 sealed revisions（最高 revision 用查詢），設定 metadata 總 32MiB / 10000 物件防止無界記憶體。journal_recovery_state building 啟動拒絕、ready() 拒絕 building instance；尚未接實際 rebuild writer，CI 待驗證。未操作真資料。
+
+### Phase 4 實際重建新 catalog（尚未部署）
+- RebuildVerifiedCatalog 僅新空 catalog/無 daily files；先 Inspect metadata，持久化 recovery_state=building，逐 sealed revision/partial active/snapshot-only 完整遠端 gzip+raw hash/SQLite 驗證，再逐筆建立 exact bitmap；每日期 transaction 寫 compact/loss/recovered_active，loss ledger 已同步 identity 保留。全部 quick_check 後標 complete。中途中斷 building 狀態禁止讀寫/重啟，不覆寫既有日檔；尚不做自動 resume。CanCollectDay 阻擋恢復同日的未經核准混合寫入。僅 snapshot-only day 不宣告永久遺失；舊 sealed revision 也保留 download catalog。待 CI 及隔離重建 integration fixture。原資料未修改。
