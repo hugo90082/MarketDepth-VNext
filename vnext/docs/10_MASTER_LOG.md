@@ -336,3 +336,8 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - GitHub Actions 43480678745 已 success，backend job 132076037800；Go checks / SQL contracts 均通過。未完成 recovery catalog 的 History/ArchiveRecord 阻擋修正已取得回歸證據。
 - 保留隔離 gate：mock Drive 與合成 full-day QA 不代表真實 OAuth/Drive 或 Sydney 512MB/1GB 驗收。正式 force-loss 維持關閉；不得操作舊正式服務或歷史資料。
 - 下一個驗收依序：隔離真 Drive OAuth 上傳/下載/復原（不提交本機憑證）、Sydney 四所即時覆蓋及資源長測、歷史匯入與前端整合。任何未取得真實證據的項目不標完成。
+
+### 2026-11-14｜接續規格與操作入口稽核
+- 重新讀取 Phase 0 review、schema、go.mod、staging CLI 與 recovery guide。發現 vnext/README.md 仍描述 Phase 1/2 mock-only、driver 未通過，與現有隔離程式/CI 不一致；已以 7e67f55a46086257309f7d2521d96352b75dd358 修正入口、build tags、憑證限制及真實驗收門。未改程式或契約。
+- 確認 VNext 為 Binance/Coinbase/Kraken/Bitfinex 60s 五個非重疊區，合約 10s/官方 1m；不得沿用舊研究線 ALL4 成員或 15s 決策配置。Phase 5 可先進行 fixture/import 工具；正式新歷史檔尚未取得，不使用舊研究資料冒充。C 由 Codex，Phase 8 正式切換另行批准。
+- 本次未取得本機 OAuth JSON 或 VM shell；真 Drive、Sydney、正式容量及歷史匯入仍未驗收。未更動正式服務或開啟強制遺失。
