@@ -346,3 +346,9 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 新增 tools/legacy_inventory.py（6dca1d0）：Python 標準庫，串流 gzip JSONL，原壓縮/解壓 SHA256、大小、筆數、頂層欄位及型別次數；原檔不改。拒絕重複 JSON key、非有限數、非法 UTF-8/JSON、非 object、空檔、gzip 損毀、讀取期間檔案變動。工程預設每行 4MiB、總解壓 20GiB（可明確調整）、512 頂層欄位、64 層深度。僅 inventory_only、mapping_approved=false；不假設舊格式，不寫任何日庫或 Drive。
 - 新增 tests/legacy_inventory_test.py（3e173a7）：合成 fixture，檢查雙 hash、NULL/0 型別、重跑一致、原檔不變、無效 JSON、截斷、限制與多 gzip member；已接 backend-ci（4997cf6），本輪尚未取得新 CI 結果，不宣稱測試已通過。
 - 執行方式：在 vnext 下 python3 tools/legacy_inventory.py <immutable-export.jsonl.gz>。正式新歷史檔仍未取得；下一步 source-specific nested mapping、逐列 audit、隔離 SQLite staging、去重/衝突及原始列保留。禁止將 1m 合成 10s、未知 available_at 保留 NULL；不修改 live schema。未操作正式服務、OAuth、AWS、Drive、歷史資料。
+
+## 2026-11-14｜Phase 5 第二輪：原始資料隔離 SQLite
+- 前輪 inventory CI 43483503634 尚在 Go checks，不能標 success。新增 validated-record callback（24c1671），只供隔離 staging 使用；原 inventory CLI 行為不變。
+- 新增 tools/legacy_raw_stage.py（6bc1edf）：要求明示 compressed SHA256、新建從未存在的目錄，SQLite DELETE journal/FULL synchronous、8MiB cache；raw_payload 以 SHA256 去重且比較原始 bytes，occurrence 保留每次出現行號。原始 JSONL 可按行號逐 byte 重建（包含換行與 NULL/0/大整數）。整個來源單交易；gzip/JSON/hash/計數/SQLite 驗證失敗 rollback，保留 building marker；完整 commit/close/fsync 後移除 marker。不得將 raw_stage 當成正式日庫或 mapping 已批准。現階段單來源、同目錄重跑拒絕，非多來源語意去重或可續傳；長交易/磁碟需求尚未量測，只能在隔離離線環境，不放 Sydney 1GB 行情 root。
+- 新增 tests/legacy_raw_stage_test.py（357d0ae），驗證原始 bytes 重建、duplicate occurrence、原檔不變、錯誤 hash/JSON rollback、截斷 gzip、重跑不覆寫；backend CI 接入（254bb9a），run 43483856433 in_progress，未宣稱通過。
+- 下一步：明確來源 adapter + normalized candidate ledger，時間格/來源/可用時間/NULL 檢查與衝突分類；正式來源新檔仍未取得，不猜 mapping、不造 10s、不改 live schema。無正式資料、AWS、Drive 或憑證操作。
