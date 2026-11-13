@@ -83,6 +83,11 @@ func(r *ArchiveReader) EvictVerifiedLocalDay(ctx context.Context,day string)erro
  defer j.mu.Unlock()
  if e=j.ready(ctx);e!=nil{return e}
  if pending,e:=j.archivePending(ctx);e!=nil{return e}else if pending!=nil{return ErrArchivePending}
+ // Do not strand active generations by removing the local day before
+ // the archive worker has retired them.
+ var activeCount int
+ if e=j.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM journal_active WHERE day=?",day).Scan(&activeCount);e!=nil{return e}
+ if activeCount!=0{return errors.New("active archive retirement pending")}
  var b []byte
  if e=j.db.QueryRowContext(ctx,`SELECT record_json FROM journal_archive WHERE day=? ORDER BY revision DESC LIMIT 1`,day).Scan(&b);e!=nil{return e}
  expected,e:=json.Marshal(rec);if e!=nil||string(expected)!=string(b){return ErrResync}
@@ -113,5 +118,5 @@ func(r *ArchiveReader) EvictVerifiedLocalDay(ctx context.Context,day string)erro
  }
  if e=os.Remove(p);e!=nil{return e}
  d,e:=os.Open(filepath.Dir(p));if e!=nil{return e}
- return errors.Join(d.Sync(),d.Close())
+ return errors.Join(d.Sync(),d.Close(),c.drop())
 }

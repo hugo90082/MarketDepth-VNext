@@ -148,13 +148,16 @@ func stagingDrive(root, credentials, producer string) (*drive.Client, error) {
 	}
 	return drive.NewClient(tokens, "MarketDepth-VNext-staging", state)
 }
-func archiveLoop(ctx context.Context, w *store.ArchiveWorker, h *health) error {
+func archiveLoop(ctx context.Context, w *store.ArchiveWorker, reader *store.ArchiveReader, h *health) error {
 	delay := 30 * time.Second
 	for {
 		if e := ctx.Err(); e != nil {
 			return e
 		}
 		state, e := w.Cycle(ctx)
+		if e == nil && state == "idle" && reader != nil {
+			state, e = reader.ReclaimVerifiedCycle(ctx)
+		}
 		wait := 15 * time.Second
 		if e != nil {
 			if ctx.Err() != nil {
@@ -263,6 +266,7 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 	}
 	h := &health{archiveState: "not_connected"}
 	var backup *store.ArchiveWorker
+	var archiveReader *store.ArchiveReader
 	var reader store.Reader = j
 	if credentials != "" {
 		remote, e := stagingDrive(root, credentials, producer)
@@ -275,8 +279,9 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 		}
 		cache, e := store.NewArchiveReadCache(m, remote, gate.Reserve)
 		if e != nil { return e }
-		reader, e = store.NewArchiveReader(j, cache)
+		archiveReader, e = store.NewArchiveReader(j, cache)
 		if e != nil { return e }
+		reader = archiveReader
 		h.archiveState = "configured_unverified"
 	}
 	srv := &http.Server{Handler: httpapi.API{Reader: reader, Live: true, Auth: auth, Health: h.read}.Handler(), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 125 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
@@ -370,9 +375,9 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 		})
 	}
 	if backup != nil {
-		workers = append(workers, func(ctx context.Context) error { return archiveLoop(ctx, backup, h) })
+		workers = append(workers, func(ctx context.Context) error { return archiveLoop(ctx, backup, archiveReader, h) })
 	}
-	log.Printf("isolated staging only; first target %d; Drive enabled=%t; no daily eviction", first, backup != nil)
+	log.Printf("isolated staging only; first target %d; Drive enabled=%t; verified-only daily reclamation", first, backup != nil)
 	return service.RunGroup(ctx, workers...)
 }
 func main() {

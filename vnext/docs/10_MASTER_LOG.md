@@ -230,3 +230,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 已驗證日檔安全回收原語（未接排程）
 - 修正快取 import 的 CI 43473251933 已 success；包含真 SQLite 模擬封存回讀、損壞拒絕。新增 API wrapper 與原始 gzip 下載 CI 仍在驗證。
 - 新增 ArchiveReader.EvictVerifiedLocalDay，僅在 caller 明確呼叫時執行；目前任何正式/隔離主程序皆未呼叫。拒絕 active/grace、未登錄、pending intent、開啟 writer、非空 WAL。先用單一 cache slot 強制重新讀回 sealed archive（不信舊 cache），核對 manifest/hash/SQLite，再串流計算全部三種資料表、meta、events 的邏輯 digest；持有 journal/manager lock 比對 local digest、最新 catalog record、無 pending，再刪 checkpointed sidecar + 本地日檔並 fsync 目錄。遠端檔與 journal pointers 保留。真 SQLite 隔離測試涵蓋 active、無 archive、遠端損壞、local events 不同拒刪、成功回收後 History 可讀。尚待 CI，未執行任何真實刪除。容量緊迫時新讀回可能因 reserve 拒絕，需提前清理/保留 headroom；此原語不是 1GB 強制 executor 或未上傳 loss tombstone。
+
+## 2026-11-14｜Phase 4 已驗證日檔自動回收接入隔離版
+- 上輪 CI 43473668464（原始日檔下載）及 43473883969（完整邏輯核對後回收）均 success。新 ReclaimVerifiedCycle 在 archive worker idle 時每 cycle 至多回收一個最舊已封存日檔；必須完成 active generations 退役、無 pending、grace 結束，另保護各 kind 最新日，避免 Latest 依賴遠端。成功後即清自身 cache。仍只允許已驗證等價本機副本回收，無未上傳日檔刪除或正式 Drive 刪除。staging 無憑證時不啟用；尚未實際部署。
+- MeasureAllocated 對掃描中受控 scratch 消失的 ENOENT 不再誤判磁碟故障；root 消失/其他錯誤仍拒絕。加隔離整合測試驗證最新日保護、下一日收集後回收、遠端 History 還原。新提交需 CI 驗證。接下來做 tombstone 與索引縮減；仍非完整 1GB 強制回收。

@@ -37,10 +37,15 @@ func MeasureAllocated(root string) (int64, error) {
 	var total int64
 	e = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			// Reserved scratch jobs may remove a child between directory scan
+			// and stat. A vanished child has no allocated bytes; other errors
+			// and disappearance of the root still fail closed.
+			if path != root && errors.Is(err,fs.ErrNotExist) {return nil}
 			return err
 		}
 		i, e := d.Info()
 		if e != nil {
+			if path != root && errors.Is(e,fs.ErrNotExist) {return nil}
 			return e
 		}
 		if !i.IsDir() && !i.Mode().IsRegular() {
