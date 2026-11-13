@@ -34,7 +34,7 @@ func (j *Journal) ready(ctx context.Context) error {
 		return ErrPendingWrite
 	}
 	var n int
-	if e=j.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM journal_loss WHERE state='prepared'").Scan(&n);e!=nil{return e}
+	if e=j.db.QueryRowContext(ctx, "SELECT (SELECT COUNT(*) FROM journal_loss WHERE state='prepared')+(SELECT COUNT(*) FROM journal_partial_loss WHERE state='prepared')").Scan(&n);e!=nil{return e}
 	if n!=0{return ErrPendingLoss}
 	// A failed Commit may have an ambiguous result. Never keep serving with
 	// an in-memory cursor generation that differs from the durable catalog.
@@ -226,7 +226,9 @@ func (j *Journal) gridGaps(ctx context.Context, q Query) ([]Gap, error) {
 	}
 	// Close the row cursor before reading the ledger on the single DB connection.
 	if e=rs.Close();e!=nil{return nil,e}
-	return j.annotateLossGaps(ctx,q.From,q.To,out)
+	out,e=j.annotateLossGaps(ctx,q.From,q.To,out)
+	if e!=nil{return nil,e}
+	return j.annotatePartialLossGaps(ctx,q,out)
 }
 func (j *Journal) Latest(ctx context.Context, k model.Kind) ([]model.Row, error) {
 	j.mu.Lock()
@@ -276,7 +278,21 @@ func (j *Journal) Days(ctx context.Context, from, to string) ([]Day, error) {
 	if e!=nil{return nil,e}
 	for i:=range days{
 		loss,e:=j.lossRecordLocked(ctx,days[i].Day)
-		if errors.Is(e,sql.ErrNoRows){continue}
+		if errors.Is(e,sql.ErrNoRows){
+			p,e:=j.partialLossLocked(ctx,days[i].Day)
+			if errors.Is(e,sql.ErrNoRows){continue}
+			if e!=nil{return nil,e}
+			if p.State!="removed"||days[i].State!="missing"{return nil,ErrUnavailable}
+			d:=&days[i]
+			d.State="partial_remote"
+			d.Revision=p.Record.Revision
+			d.Counts=map[model.Kind]int{}
+			for _,k:=range []model.Kind{model.Spot,model.F10,model.F1}{d.Counts[k]=int(p.Record.Recoverable.Count(k))}
+			h,etag:=p.Record.Active.Manifest.SHA256,p.Record.Active.ManifestSHA256
+			d.SHA256=&h;d.ETag=&etag
+			d.Gaps=[]Gap{{p.Record.From,p.Record.To,"partial_loss_query_history"}}
+			continue
+		}
 		if e!=nil{return nil,e}
 		if loss.State!="removed"||days[i].State!="missing"{return nil,ErrUnavailable}
 		days[i].State="permanent_loss"

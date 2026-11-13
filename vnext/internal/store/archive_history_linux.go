@@ -4,6 +4,7 @@ package store
 
 import (
  "context"
+ "database/sql"
  "errors"
  "fmt"
  "os"
@@ -59,11 +60,21 @@ func (j *Journal) resolveArchivePointers(ctx context.Context,k model.Kind,ptr []
   if err!=nil{
    if !errors.Is(err,os.ErrNotExist){return nil,fmt.Errorf("%w: local history read failed",ErrUnavailable)}
    rec,err:=j.ArchiveRecord(ctx,day,0)
-   if err!=nil{return nil,fmt.Errorf("%w: sealed archive not registered",ErrArchiveUnavailable)}
-   got,err=c.Read(ctx,rec,keys)
-   if err!=nil{return nil,fmt.Errorf("%w: sealed archive read failed",ErrArchiveUnavailable)}
-   latest,err:=j.ArchiveRecord(ctx,day,0)
-   if err!=nil||latest.ManifestSHA256!=rec.ManifestSHA256{return nil,ErrResync}
+   if errors.Is(err,sql.ErrNoRows){
+    loss,err:=j.PartialLoss(ctx,day)
+    if err!=nil||loss.State!="removed"{return nil,fmt.Errorf("%w: archive not registered",ErrArchiveUnavailable)}
+    for _,k:=range keys{ok,e:=loss.Record.Recoverable.Contains(k.Kind,k.Key);if e!=nil||!ok{return nil,ErrUnavailable}}
+    got,err=c.ReadActive(ctx,loss.Record.Active,keys)
+    if err!=nil{return nil,fmt.Errorf("%w: partial snapshot read failed",ErrArchiveUnavailable)}
+    latest,err:=j.PartialLoss(ctx,day)
+    if err!=nil||latest.State!="removed"||latest.Record.Active.ManifestSHA256!=loss.Record.Active.ManifestSHA256{return nil,ErrResync}
+   }else{
+    if err!=nil{return nil,fmt.Errorf("%w: sealed archive not registered",ErrArchiveUnavailable)}
+    got,err=c.Read(ctx,rec,keys)
+    if err!=nil{return nil,fmt.Errorf("%w: sealed archive read failed",ErrArchiveUnavailable)}
+    latest,err:=j.ArchiveRecord(ctx,day,0)
+    if err!=nil||latest.ManifestSHA256!=rec.ManifestSHA256{return nil,ErrResync}
+   }
   }
   if len(got)!=len(indices){return nil,ErrUnavailable}
   for n,r:=range got{

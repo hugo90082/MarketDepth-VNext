@@ -262,3 +262,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 已驗證日索引縮減接入隔離備份排程
 - CI 43474902772（永久 loss）、43475182588（bitmap）、43475342863（mixed history）、43475531350（原子 prune/vacuum）及 43474678040（正常回收修正）已 success。最初回收 fixture nullable CapturedAt 編譯問題已修。已確認 compact 後跨日 page、sync cursor resync、完整 gap 與 remote 回讀通過。
 - 在 archive worker idle 時依順序 ReclaimVerifiedCycle -> CompactVerifiedCycle -> VacuumCatalogCycle，每次最多一個有界工作，candidate 最多 64 已封存日，跳過有本地副本/active/loss/最新 kind；不在 collector writer 做網路。新增 scheduler 選擇測試。active evidence publish 額外預留 8MiB catalog/WAL headroom（非 OS quota）。loss ledger sync/active evidence CI 尚待，未啟用強制未上傳刪除，未部署。後續待完成 partial loss、容量壓力 executor、disaster discovery/rebuild。
+
+## 2026-11-14｜Phase 4 部分遺失 ledger 與 active snapshot 回讀相容層（未啟用刪除）
+- 新 PartialLossRecord 將實際本機 latest keys 分成 recoverable/lost 兩個互斥固定 bitmap；空缺原本無 row 不屬於任何 bitmap；綁 active manifest SHA、revision、coverage、counts、local digest。prepared 阻止讀寫，removed 才可顯示。Days partial_remote + 可用筆數，History 依篩選精確標 permanent_loss，既有 grid_missing 不混淆。Cache 增加 active restore/read，只有已登錄 removed partial ledger 且 key recoverable 才允許讀取，仍核對原 journal row hash/revision，不能用舊修復版本代替。原始 sealed gzip route 不會把 active 當完整日。
+- 尚無 partial ledger 寫入/刪除 executor，尚未啟用任何未上傳日檔強制清理。下一步實作 pre-unlink intent、精確 hash partition、atomic finalize、restart 測試；CI 待驗證。真實 Drive/AWS 無變更。

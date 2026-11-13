@@ -67,9 +67,12 @@ func cacheIntegrity(ctx context.Context,path string,m archive.Manifest) error {
  if e!=nil||n!=m.RawSize||hex.EncodeToString(h.Sum(nil))!=m.RawSHA256{return ErrUnavailable}
  return ctx.Err()
 }
-func (c *ArchiveReadCache) materialize(ctx context.Context,r archive.PublishedRecord) error {
+func (c *ArchiveReadCache) materialize(ctx context.Context,r archive.PublishedRecord) error {return c.materializeRecord(ctx,r,false)}
+func (c *ArchiveReadCache) materializeRecord(ctx context.Context,r archive.PublishedRecord,active bool) error {
  m:=r.Manifest
- if e:=archive.ValidateRecord(r);e!=nil{return e}
+ var validation error
+ if active{validation=archive.ValidateActiveRecord(r)}else{validation=archive.ValidateRecord(r)}
+ if validation!=nil{return validation}
  // Include both transient compressed and raw files, plus directory / block
  // rounding headroom. A large day fails closed instead of exceeding cache.
  if m.Size>archive.CacheLimit-archiveSlack || m.RawSize>archive.CacheLimit-archiveSlack-m.Size{return errors.New("sealed day exceeds history cache budget")}
@@ -90,10 +93,10 @@ func (c *ArchiveReadCache) materialize(ctx context.Context,r archive.PublishedRe
  var path string
  verify:=func(ctx context.Context,man archive.Manifest,body io.Reader) error {
   var err error
-  path,err=RestoreVerifiedDay(ctx,man,body,dir,budget)
+  if active{path,err=RestoreVerifiedActive(ctx,man,body,dir,budget)}else{path,err=RestoreVerifiedDay(ctx,man,body,dir,budget)}
   return err
  }
- if e=archive.VerifyPublished(ctx,c.remote,r,false,verify);e!=nil{return errors.Join(e,c.drop())}
+ if e=archive.VerifyPublished(ctx,c.remote,r,active,verify);e!=nil{return errors.Join(e,c.drop())}
  if path=="" {return errors.Join(ErrUnavailable,c.drop())}
  used,e=archive.MeasureAllocated(c.root)
  if e!=nil||used>archive.CacheLimit{return errors.Join(ErrUnavailable,e,c.drop())}
@@ -104,14 +107,16 @@ func (c *ArchiveReadCache) materialize(ctx context.Context,r archive.PublishedRe
 // Read returns rows in requested order from one exact sealed revision.
 // The caller still compares each row's revision/hash against authoritative
 // journal pointers; this cache never changes the journal or daily DB.
-func (c *ArchiveReadCache) Read(ctx context.Context,r archive.PublishedRecord,keys []JournalKey)([]model.Row,error){
+func (c *ArchiveReadCache) Read(ctx context.Context,r archive.PublishedRecord,keys []JournalKey)([]model.Row,error){return c.readRecord(ctx,r,keys,false)}
+func (c *ArchiveReadCache) ReadActive(ctx context.Context,r archive.PublishedRecord,keys []JournalKey)([]model.Row,error){return c.readRecord(ctx,r,keys,true)}
+func (c *ArchiveReadCache) readRecord(ctx context.Context,r archive.PublishedRecord,keys []JournalKey,active bool)([]model.Row,error){
  if len(keys)==0||len(keys)>2000{return nil,errors.New("invalid archive read batch")}
  for _,k:=range keys {
   if !k.Kind.Valid()||model.Day(k.Key.T)!=r.Manifest.Day{return nil,errors.New("archive read key outside day")}
  }
  if e:=c.acquire(ctx);e!=nil{return nil,e}
  defer func(){<-c.slot}()
- if e:=c.materialize(ctx,r);e!=nil{return nil,e}
+ if e:=c.materializeRecord(ctx,r,active);e!=nil{return nil,e}
  // Immutable, read-only connection: no SQLite WAL/SHM or writes.
  u:=url.URL{Scheme:"file",Path:c.path}
  q:=u.Query();q.Set("mode","ro");q.Set("immutable","1");q.Set("_query_only","1");u.RawQuery=q.Encode()
