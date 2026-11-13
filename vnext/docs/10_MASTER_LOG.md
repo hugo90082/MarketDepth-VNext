@@ -240,3 +240,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 無備份完整日之永久缺口 ledger 與 crash recovery
 - 新增 journal_loss（本機 catalog，不改日庫 MD-VNEXT-1 schema），先 FULL synchronous 持久化 prepared record：日、起訖、各表筆數、revision、logical SHA256、archive state、reason、recorded_at；僅無任何已登錄 sealed/active backup、無 pending、已封存且非 active/grace 的日可進入。另核對 local / catalog 最新指標筆數。未核對的 active snapshot 不可當作全日永久遺失，直接拒絕此路徑。
 - 新增明確未排程 EvictUnbackedDay；prepared 後刪安全 checkpointed sidecars/日檔、fsync root，再 transaction 標 removed、刪該日 journal_change、更新 generation。journal_repair 保留。prepared 時停讀寫；重啟 RecoverLoss 若 DB 仍在且 digest 一致則取消未完成嘗試（不自動刪），若 DB 已無且無 sidecar 則完成 ledger/游標失效；其他狀態停住。History gap 標 permanent_loss，Days state 同名，Sync 舊游標 409，未假造資料。尚未接自動強制刪除；有 active backup 的部分恢復及 ledger 遠端同步仍待做。新測試用隔離 fixture 模擬 unlink 前/後 crash。CI 待驗證；未刪任何真資料，未操作 AWS 或真 Drive。
+
+## 2026-11-14｜Phase 4 封存日精確位元索引基礎
+- 新增 GridIndex：依固定 (t,venue,asset) 順序、5,940 bytes/日（47,520 bits）保存三表每一 grid key 是否存在；綁 day/revision/manifest SHA，驗證各表 row counts，NULL/status missing row 仍是存在；依 kind/asset/venue 過濾、keyset pagination、合併精確 grid gaps。理論 bitmap 大小約 2.17MB/年（不含 SQLite/JSON/manifest overhead），遠低於逐列 journal。此為基礎資料結構，尚未生成持久 compact record 或刪任何 journal pointer。
+- 新增完整日/多種過濾/游標/重複/非法 key/缺格測試。另 j.ready 核對記憶體及 DB generation，防止 loss tx ambiguous commit 後以舊游標繼續服務。待 CI；下一步從 sealed remote 與 journal latest pointers 雙重核對建立索引，再接 archive history/sync 及安全 prune。未操作真資料。

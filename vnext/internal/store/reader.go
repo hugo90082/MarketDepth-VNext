@@ -36,6 +36,11 @@ func (j *Journal) ready(ctx context.Context) error {
 	var n int
 	if e=j.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM journal_loss WHERE state='prepared'").Scan(&n);e!=nil{return e}
 	if n!=0{return ErrPendingLoss}
+	// A failed Commit may have an ambiguous result. Never keep serving with
+	// an in-memory cursor generation that differs from the durable catalog.
+	var generation string
+	if e=j.db.QueryRowContext(ctx,"SELECT value FROM journal_meta WHERE key='generation'").Scan(&generation);e!=nil{return e}
+	if generation!=j.generation{return ErrResync}
 	return nil
 }
 func validQuery(q Query) bool {
