@@ -359,3 +359,10 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 新增 candidate tests（3aa7c6e），檢查 null/zero、64-bit ID、時間格、非法 source/asset/venue、未知/重複欄位、10s 拒絕等。
 - 新增 tagged SQLite ledger（f56cdf9）、測試（33070fc）、SQLite URI 路徑安全修正（f8ae95e）：只能建立新隔離 root；逐 evidence/key 保存完整候選與 hash，完全相同 replay 不重複，矛盾 replay 拒絕，不同證據同 key 可保留多個版本並計數；無自動 winner、無 live/Drive writes。相異 adapter provenance 也可能分類為 conflict，保守留待審核。此層未直接驗證 raw stage 的原始 SHA/line 內容、未接 source adapter 或正式發布、未做長批壓力/重開續傳。最新 CI 43484245426 queued，尚未宣稱通過。
 - 下一步：綁定已完整核對的 raw stage 與 evidence、實作可重建的 source adapter fixture、逐行 quarantine/audit、明確 canonical 選擇及隔離日庫生成。真新歷史檔尚未取得；不猜欄位，不改 MD-VNEXT-1，無正式服務、AWS、Drive、OAuth 或真歷史資料操作。
+
+## 2026-11-14｜Phase 5 第四輪：原始證據串接及逐行稽核
+- 前輪候選 ledger CI 43484245426 查詢狀態 completed/success；未有 success 不標通過。已核對 Python raw stage schema 和共享 Go model，未改 MD-VNEXT-1。
+- 新增 raw_stage_sqlite.go（3a00679）：要求外部核准 compressed SHA、原始 gzip、已完成 raw stage、無 building/sidecar；以唯讀 SQLite transaction 固定 snapshot、逐行順序及 raw SHA/bytes 對比原始 gzip、雙 hash、筆數、解壓限制、quick_check、孤立 payload 檢查；Line 從已驗證 snapshot 產生 provenance，不信任使用者自行聲稱的 hash。原始檔需離線不可變；未做真歷史檔或大型來源壓測。
+- 新增 fixture adapter（7e2398e）：僅明示 normalized kind/row envelope，從已驗原始 bytes 轉換，不接受 caller 自行捏造的候選。Python-to-Go 整合測試（6290475）涵蓋原始 bytes、重複 occurrence、錯 hash/marker/竄改拒絕；raw stage 增 occurrence SHA index（a188c4a）。fixture 格式不代表真來源 mapping 已批准。
+- 新增 fixture_run/fixture_audit（231cf70）及整批逐行 mapping（4eef8f7）：每一行 accepted/quarantined、原始 hash、原因；存取/證據錯誤中止，保留 building 狀態；批次重跑拒絕。測試三行中兩筆合法、一筆不支援 F10（ade94de），另加完成前候選與 audit 精確筆數/證據核對（8b3b8a4）。不選 canonical winner、不寫日庫、不發布。CI 43484551711 已啟動，最後修正仍待新 CI；不能先宣稱測試通過。
+- 下一步：確認上述 CI，實作 fixture 唯讀 canonical plan（衝突/隔離列顯式阻擋）、獨立日庫生成與 schema/內容核對；真歷史來源欄位及可用時間尚待新檔確認，不能把 fixture 當真來源。單一 source mapping run 不自動續傳，未量測大檔磁碟或 per-row transaction 吞吐。無正式服務、AWS、Drive、OAuth 或歷史資料寫入。
