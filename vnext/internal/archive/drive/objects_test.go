@@ -313,6 +313,9 @@ func TestReadOnlyRecoveryWithoutLocalReservations(t *testing.T){
  seq,uploads:=f.seq,f.uploads
  dir:=t.TempDir();os.Chmod(dir,0700)
  fresh:=testClient(t,f,dir)
+ if _,body,e:=fresh.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("default read accepted absent reservation")}
+ fresh.EnableRecoveryReads()
+ if _,body,e:=fresh.OpenObject(ctx,o.ID);e!=nil{t.Fatal(e)}else{body.Close()}
  r:=fresh.RecoveryReader()
  list,e:=r.Discover(ctx);if e!=nil||len(list)!=1||list[0]!=o{t.Fatal(list,e)}
  got,body,e:=r.OpenObject(ctx,o.ID);if e!=nil{t.Fatal(e)}

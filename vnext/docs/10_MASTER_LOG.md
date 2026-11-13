@@ -317,3 +317,6 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 
 ### Phase 4 災難重建整合測試
 - 真 SQLite source 建立 sealed + active，mock Drive 保存後用新空 root 重建、關閉重啟，檢查跨日分頁、Days、舊 revision、禁止同日重疊、Latest 不將歷史當即時；改壞 active gzip 後重建必須失敗且 building catalog 不可讀/重啟。partial loss fixture 延伸以遠端 ledger+active 重建，精確 gap 仍可讀。待 CI。Drive discovery / metadata CI 43479383472 / 43479530552 success；高壓 startup 43479228387 success。無真實資料操作。
+
+### Phase 4 復原 CLI 與受控恢復讀取
+- 新 --recover-catalog --init-staging，僅全新隔離 root；durable .recovery-build 直到重建、close、fsync 成功才移除。只 GET Drive staging，無 HTTP/collector/archive publishing；失敗阻擋正常啟動。--resume-recovered 必須 explicit、已完成 catalog、Drive credentials；同日已有 recovered/archived 禁止收集。新 Drive missing-reservation fallback 僅明確 recovered root 啟用，仍驗完整 namespace ancestry/key/size/hash，不建立 ID，不掩蓋壞 reservation。新增 RECOVERY_SETUP.md。未執行真實恢復或部署，CI 待驗證。

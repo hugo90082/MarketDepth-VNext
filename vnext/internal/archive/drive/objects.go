@@ -55,6 +55,7 @@ type Client struct {
 	base      string
 	namespace string
 	stateDir  string
+ recoveryReads bool
 }
 
 var _ archive.RemoteObjects = (*Client)(nil)
@@ -525,6 +526,9 @@ func (c *Client) PutImmutable(ctx context.Context, key string, size int64, sha s
 	}
 	return c.object(f, r), nil
 }
+// EnableRecoveryReads must be called only by the explicitly recovered-root
+// startup path, before workers begin. It does not create reservations.
+func(c *Client) EnableRecoveryReads(){c.mu.Lock();defer c.mu.Unlock();c.recoveryReads=true}
 func (c *Client) OpenObject(ctx context.Context, id string) (archive.Object, io.ReadCloser, error) {
 	var z archive.Object
 	c.mu.Lock()
@@ -538,6 +542,12 @@ func (c *Client) OpenObject(ctx context.Context, id string) (archive.Object, io.
 		return z, nil, errors.New("object outside Drive namespace")
 	}
 	r, ok, e := c.load(key)
+ if e==nil&&!ok&&c.recoveryReads{
+  // Only an explicitly recovered catalog can read a missing local
+  // reservation. The read-only path still validates exact remote folder
+  // ancestry, key uniqueness and hash. Corrupt reservations never fallback.
+  return (&RecoveryReader{c:c}).OpenObject(ctx,id)
+ }
 	if e != nil || !ok || r.ID != id {
 		return z, nil, errors.New("Drive object reservation missing or invalid")
 	}

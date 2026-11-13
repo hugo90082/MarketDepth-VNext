@@ -27,6 +27,7 @@ import (
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/collector/spot"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/httpapi"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/service"
+ "github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/store"
 )
 
@@ -219,7 +220,7 @@ func capacityLoop(ctx context.Context,w *store.ArchiveWorker,r *store.ArchiveRea
   if e=service.WaitUntil(ctx,time.Now().Add(2*time.Second));e!=nil{return e}
  }
 }
-func run(ctx context.Context, root, addr, origin string, init bool, credentials, producer string, allowLoss bool) error {
+func run(ctx context.Context, root, addr, origin string, init bool, credentials, producer string, allowLoss,resumeRecovered bool) error {
 	if allowLoss && credentials==""{return errors.New("capacity loss requires isolated Drive configuration")}
  host, _, e := net.SplitHostPort(addr)
 	if e != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
@@ -236,6 +237,7 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 	if e = prepare(root, init); e != nil {
 		return e
 	}
+ if _,e=os.Lstat(filepath.Join(root,recoveryMarker));!errors.Is(e,os.ErrNotExist){return store.ErrRecoveryIncomplete}
 	m, e := store.NewManager(root, store.SQLiteOpener)
 	if e != nil {
 		return e
@@ -255,6 +257,9 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 		return e
 	}
 	defer j.Close()
+ recovered,e:=j.RecoveryCompleted(ctx);if e!=nil{return e}
+ if recovered&&(!resumeRecovered||credentials==""){return errors.New("recovered root requires explicit --resume-recovered and Drive credentials; old writer must be stopped")}
+ if resumeRecovered&&!recovered{return errors.New("resume-recovered requires a completed recovered catalog")}
 	if e = j.RecoverLoss(ctx); e != nil { return e }
 	if e = j.RecoverPartialLoss(ctx); e != nil { return e }
 	if e = j.Recover(ctx); e != nil {
@@ -273,6 +278,7 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 		if e != nil {
 			return e
 		}
+		if recovered{remote.EnableRecoveryReads()}
 		backup, e = store.NewArchiveWorker(m, j, remote, gate.Reserve, producer)
 		if e != nil {
 			return e
@@ -301,6 +307,7 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 	}
 	defer q.Close(context.Background())
 	first := time.Now().Add(10 * time.Second).Truncate(time.Minute).Add(time.Minute).UnixMilli()
+ if e=j.CanCollectDay(ctx,model.Day(first));e!=nil{return e}
 	feeds := map[string]*spot.BinanceFeed{}
 	for _, a := range []string{"BTC", "ETH"} {
 		f, e := spot.NewBinanceFeed(a, first)
@@ -426,10 +433,17 @@ func main() {
 	credentials := flag.String("drive-credentials", "", "optional absolute private OAuth JSON outside data root; staging namespace only")
 	producer := flag.String("producer-commit", "", "exact Git commit for archive provenance")
 	allowLoss:=flag.Bool("allow-capacity-loss",false,"isolated staging only: explicitly permit permanent loss of eligible unbacked old days under pressure")
+ recoverCatalog:=flag.Bool("recover-catalog",false,"read-only Drive recovery into a new isolated root; never start collection")
+ resumeRecovered:=flag.Bool("resume-recovered",false,"explicitly resume a completed recovery root; requires old writer stopped and nonoverlapping day")
  flag.Parse()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	if e := run(ctx, *root, *addr, *origin, *init, *credentials, *producer,*allowLoss); e != nil {
+	if *recoverCatalog{
+  if !*init||*allowLoss||*resumeRecovered{log.Fatal("recovery requires --init-staging without resume or forced loss")}
+  if e:=runRecovery(ctx,*root,*credentials,*producer);e!=nil{log.Fatal(e)}
+  return
+ }
+ if e := run(ctx, *root, *addr, *origin, *init, *credentials, *producer,*allowLoss,*resumeRecovered); e != nil {
 		log.Fatal(e)
 	}
 }
