@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/store"
 	"net/http"
@@ -207,11 +208,38 @@ func (a API) Handler() http.Handler {
 		a.export(w, r.WithContext(ctx))
 	})
 	mux.HandleFunc("GET /api/v2/day/{day}", func(w http.ResponseWriter, r *http.Request) {
-		if a.Live {
-			fail(w, 503, "ARCHIVE_UNAVAILABLE", "remote archive not connected")
+		if !a.Live {
+			fail(w, 501, "MOCK_NOT_IMPLEMENTED", "sealed SQLite download is not available in mock")
 			return
 		}
-		fail(w, 501, "MOCK_NOT_IMPLEMENTED", "sealed SQLite download is Phase 4")
+		download, ok := a.Reader.(store.SealedDownloader)
+		if !ok { fail(w,503,"ARCHIVE_UNAVAILABLE","remote archive not connected"); return }
+		day:=r.PathValue("day")
+		d, e:=time.Parse("2006-01-02",day)
+		if e!=nil||d.Format("2006-01-02")!=day { fail(w,400,"BAD_QUERY","invalid day");return }
+		var revision int64
+		if v:=r.URL.Query().Get("revision");v!=""{
+			revision,e=strconv.ParseInt(v,10,64)
+			if e!=nil||revision<1 {fail(w,400,"BAD_QUERY","invalid revision");return}
+		}
+		select {
+		case exportSlots<-struct{}{}:defer func(){<-exportSlots}()
+		default:limited(w,"5");return
+		}
+		ctx,cancel:=context.WithTimeout(r.Context(),2*time.Minute)
+		defer cancel()
+		v,e:=download.OpenSealed(ctx,day,revision)
+		if e!=nil{errReply(w,e);return}
+		if v.Body==nil {fail(w,503,"ARCHIVE_UNAVAILABLE","archive body missing");return}
+		defer v.Body.Close()
+		w.Header().Set("Content-Type","application/gzip")
+		w.Header().Set("Content-Length",strconv.FormatInt(v.Size,10))
+		w.Header().Set("ETag",`"`+v.ETag+`"`)
+		w.Header().Set("X-Archive-SHA256",v.SHA256)
+		w.Header().Set("Content-Disposition",`attachment; filename="`+day+".r"+strconv.FormatInt(v.Revision,10)+`.sqlite.gz"`)
+		// Verified temporary stream only. If transport fails, Content-Length
+		// and SHA256 let the caller detect an incomplete download.
+		_,_=io.CopyN(w,v.Body,v.Size)
 	})
 	for _, p := range []string{"/api/v2/auth/login", "/api/v2/auth/logout"} {
 		mux.HandleFunc("POST "+p, func(w http.ResponseWriter, r *http.Request) {

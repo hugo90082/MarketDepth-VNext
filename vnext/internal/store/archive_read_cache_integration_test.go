@@ -4,6 +4,9 @@ package store
 
 import (
  "context"
+ "io"
+ "crypto/sha256"
+ "encoding/hex"
  "os"
  "path/filepath"
  "testing"
@@ -61,6 +64,15 @@ func TestArchiveReadCacheVerifiedReuseAndCorruption(t *testing.T){
  if _,e=f.WriteAt([]byte{0},0);e!=nil{t.Fatal(e)};f.Close()
  check();if reservations!=2{t.Fatal("corruption not rebuilt",reservations)}
  if e=c.Clear(ctx);e!=nil{t.Fatal(e)}
+ download,e:=reader.OpenSealed(ctx,day,rec.Manifest.Revision)
+ if e!=nil||download.Body==nil{t.Fatal(download,e)}
+ if _,e=c.Read(ctx,rec,keys);e==nil{t.Fatal("cache lease not protected")}
+ b,e:=io.ReadAll(download.Body);if e!=nil{t.Fatal(e)}
+ digest:=sha256.Sum256(b)
+ if int64(len(b))!=rec.Manifest.Size||hex.EncodeToString(digest[:])!=rec.Manifest.SHA256{t.Fatal("download digest mismatch")}
+ if e=download.Body.Close();e!=nil{t.Fatal(e)}
+ if e=download.Body.Close();e!=nil{t.Fatal(e)}
+ if c.dir!=""{t.Fatal("download scratch not released")}
  // Corrupt the actual remote archive; no valid local cache may be returned.
  obj:=remote.objects[rec.Manifest.FileID];obj.data=append([]byte(nil),obj.data...);obj.data[0]^=1;remote.objects[rec.Manifest.FileID]=obj
  if _,e=c.Read(ctx,rec,keys);e==nil{t.Fatal("corrupt remote accepted")}

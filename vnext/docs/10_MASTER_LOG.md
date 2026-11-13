@@ -222,3 +222,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-14｜Phase 4 遠端 Reader 接入隔離 HTTP API
 - 新增 ArchiveReader，staging 提供 drive credentials 時 History/Sync/Days/RangeVersion 使用該 wrapper；無憑證時仍原本機 Journal。Sync 抽出 locked plan，遠端解析不持 j.mu；保持 seq cursor 原語意，按日取資料後恢復原順序、核對每列 hash/revision，之後的新 seq 下輪可讀；Latest 保持本機，不以舊封存假裝即時。History/Sync 遠端故障 503 ARCHIVE_UNAVAILABLE。Days 顯示 sealed_remote + revision/hash/etag；封存含缺格時回粗粒度提示 archive_has_grid_gaps_query_history，精確缺格需 History 查詢。API row/schema 未變；day/{day} 原始 gzip 仍待實作。
 - 增加隔離測試中移走日檔後的 History、Sync 續游標、Days、RangeVersion。此輪直接提交，等待 CI；前輪 import 修正 CI 尚在執行。未開啟日檔 eviction、未連真 Drive，未更動 AWS。後續仍需原始檔下載、強制回收/tombstone、catalog 縮減重建、實盤驗收。
+
+## 2026-11-14｜Phase 4 指定封存 revision 的原始 gzip 下載
+- 新增 SealedDownloader / ArchiveReader.OpenSealed，接 /api/v2/day/{day}?revision=，驗證日期與版本，使用與 gzip JSONL export 共用的單一重型 route slot。只讀已登錄 sealed archive（指定 revision 或最新），先核對遠端 manifest、壓縮 hash/size、還原 SQLite 全部驗證，再返回原始 gzip bytes。HTTP Content-Length、ETag、X-Archive-SHA256 供瀏覽器判定完整；不讓未驗證串流先發出。mock 501、不含 Drive 憑證或 fileId。
+- 下載與歷史 cache 共用 single slot，下載 lease 持有容量預留直到 Body.Close；100MB 內保守預留兩份 compressed + raw + 4MiB，超出明確 503。關閉後清理 owned scratch，重複 Close 安全。新增真 SQLite mock remote 下載 hash 及 lease 保護測試。此輪直接提交，CI 待驗證。未啟用日檔回收、未連使用者真 Drive、未動 AWS。

@@ -4,6 +4,7 @@ package store
 import (
 	"context"
 	"errors"
+	"io"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"
 	"reflect"
 )
@@ -56,4 +57,16 @@ type Writer interface {
 
 func rowNil(r model.Row) bool {
 	return r == nil || (reflect.ValueOf(r).Kind() == reflect.Ptr && reflect.ValueOf(r).IsNil())
+}
+
+// SealedDownload is a fully verified immutable gzip file. Close releases its
+// bounded scratch allocation and read lease. Callers must always close Body.
+type SealedDownload struct {
+ Day string
+ Revision, Size int64
+ SHA256, ETag string
+ Body io.ReadCloser
+}
+type SealedDownloader interface {
+ OpenSealed(context.Context,string,int64)(SealedDownload,error)
 }
