@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"
+ "github.com/hugo90082/MarketDepth-VNext/vnext/internal/collector/binancewire"
 )
 
 const Interval10 int64 = 10000
@@ -51,6 +52,13 @@ type tradeWire struct {
 	Qty    string `json:"q"`
 	Maker  *bool  `json:"m"`
 }
+
+ // Shared by REST recovery and WS; e/s are only present on WS, and are
+ // separately required by ParseWSAgg. Unknown uppercase keys never alias.
+ func(w *tradeWire)UnmarshalJSON(raw []byte)error{
+  *w=tradeWire{}
+  return binancewire.Object(raw,map[string]any{"a":&w.ID,"f":&w.First,"l":&w.Last,"T":&w.Time,"p":&w.Price,"q":&w.Qty,"m":&w.Maker},map[string]any{"e":&w.Event,"s":&w.Symbol})
+ }
 
 func decodeTrade(w tradeWire, asset string, recv int64) (Trade, error) {
 	if w.ID == nil || w.First == nil || w.Last == nil || w.Time == nil || w.Maker == nil {
