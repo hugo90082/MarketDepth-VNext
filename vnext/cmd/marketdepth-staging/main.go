@@ -173,7 +173,7 @@ func archiveLoop(ctx context.Context, w *store.ArchiveWorker, reader *store.Arch
 				code = "capacity_wait"
 			}
 			h.archiveUpdate(code)
-			log.Printf("archive: %s", code)
+			log.Printf("archive: %s %s", code, drive.SafeDiagnostic(e))
 			wait = delay + time.Duration(rand.Int64N(int64(delay/4)+1))
 			if d := drive.RetryDelay(e); d > wait {
 				wait = d
