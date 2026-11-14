@@ -273,7 +273,7 @@ func checkSnapshot(ctx context.Context, path, day string) (snapshotDetails, erro
 		if e = db.QueryRowContext(ctx, "SELECT count(*),COALESCE(SUM(CASE WHEN t<? OR t>=? THEN 1 ELSE 0 END),0),max(t) FROM "+name, from, to).Scan(&n, &bad, &last); e != nil || bad != 0 {
 			return d, fmt.Errorf("invalid snapshot grid %s: %v", name, e)
 		}
-		if e = db.QueryRowContext(ctx, "SELECT count(*) FROM "+name+" WHERE source IS NULL OR source<>? OR available_at IS NULL OR status=\'legacy_unknown\'", model.LiveSource).Scan(&bad); e != nil || bad != 0 {
+		if e = db.QueryRowContext(ctx, "SELECT count(*) FROM "+name+" WHERE source IS NULL OR source<>? OR available_at IS NULL OR status='legacy_unknown'", model.LiveSource).Scan(&bad); e != nil || bad != 0 {
 			return d, fmt.Errorf("non-live snapshot rows: %s", name)
 		}
 		through := from
