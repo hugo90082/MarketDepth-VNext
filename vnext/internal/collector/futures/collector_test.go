@@ -18,13 +18,13 @@ func TestCollectorSixRowsAndAdmission(t *testing.T) {
 	}
 	for i, x := range []int64{first - 1, first, first + 10000} {
 		now = time.UnixMilli(x + 1)
-		raw := fmt.Sprintf(`{"stream":"btcusdt@aggTrade","data":{"e":"aggTrade","s":"BTCUSDT","a":%d,"p":"100","q":"1","f":%d,"l":%d,"T":%d,"m":false}}`, i+1, i+1, i+1, x)
+		raw := fmt.Sprintf(`{"stream":"btcusdt@aggTrade","data":{"e":"aggTrade","E":1794499200000,"s":"BTCUSDT","a":%d,"p":"100","q":"1","f":%d,"l":%d,"T":%d,"m":false}}`, i+1, i+1, i+1, x)
 		if e = c.Accept([]byte(raw)); e != nil {
 			t.Fatal(e)
 		}
 	}
 	now = time.UnixMilli(first + 10001)
-	raw := fmt.Sprintf(`{"stream":"btcusdt@kline_1m","data":{"e":"kline","s":"BTCUSDT","k":{"t":%d,"T":%d,"s":"BTCUSDT","i":"1m","x":true,"o":"100","h":"101","l":"99","c":"100","v":"10","q":"1000","V":"4","Q":"400","n":23}}}`, t0, t0+59999)
+	raw := fmt.Sprintf(`{"stream":"btcusdt@kline_1m","data":{"e":"kline","E":1794499260000,"s":"BTCUSDT","k":{"t":%d,"T":%d,"s":"BTCUSDT","i":"1m","f":1,"L":200,"x":true,"o":"100","h":"101","l":"99","c":"100","v":"10","q":"1000","V":"4","Q":"400","n":23}}}`, t0, t0+59999)
 	if e = c.Accept([]byte(raw)); e != nil {
 		t.Fatal(e)
 	}
