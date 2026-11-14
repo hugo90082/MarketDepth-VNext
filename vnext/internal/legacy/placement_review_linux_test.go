@@ -78,3 +78,20 @@ func TestPlacementReportDigest(t *testing.T){
  report.Days[0].Status="blocked"
  if _,_,e=CanonicalPlacementReport(report);e==nil{t.Fatal("inconsistent disposition accepted")}
 }
+
+
+func TestMatchProofPlacement(t *testing.T){
+ p:=proofFixture()
+ p.Day="2020-11-09";p.CutoverMS=1605225600000
+ local:=&testLocalPlacement{}
+ remote:=&testRemotePlacement{namespace:"MarketDepth-VNext-staging"}
+ report,e:=InspectPlacement(context.Background(),local,remote,[]string{p.Day},p.CutoverMS);if e!=nil{t.Fatal(e)}
+ _,p.PlacementReportSHA256,e=CanonicalPlacementReport(report);if e!=nil{t.Fatal(e)}
+ if e=MatchProofPlacement(p,report);e!=nil{t.Fatal(e)}
+ p.PlacementReportSHA256=hash([]byte("different"))
+ if e=MatchProofPlacement(p,report);e==nil{t.Fatal("wrong report hash accepted")}
+ remote.objects=[]drive.PlacementObject{{Day:p.Day,Key:"catalog/loss/"+p.Day+".json",ID:"loss"}}
+ report,e=InspectPlacement(context.Background(),local,remote,[]string{p.Day},p.CutoverMS);if e!=nil{t.Fatal(e)}
+ _,p.PlacementReportSHA256,e=CanonicalPlacementReport(report);if e!=nil{t.Fatal(e)}
+ if e=MatchProofPlacement(p,report);e==nil{t.Fatal("blocked day accepted")}
+}
