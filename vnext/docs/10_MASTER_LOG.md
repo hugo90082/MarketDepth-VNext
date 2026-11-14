@@ -491,3 +491,7 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-15｜第九次長測時窗縮短為24h（使用者要求）
 - 使用者要求把48h雙跑縮短至24h。更新 PHASE_7_CROSS_DAY_ACCEPTANCE.md（2f5eb20）為86400秒同一writer、至少一次UTC+8午夜、至少一個sealed verified local day（首日可能partial）、其餘資源/Drive/OAuth/匯出/復原/原五代保護全部不變。完整曆日47520 keys是規格基準，不強行作為兩個partial day各自分母；依first_target及截止時刻逐流精確計數。原Phase0 CR-09兩日界及完整日證據未滿足時仍保留blocker，不宣稱48h原標準通過，不自行延長；正式切換仍另審。
 - 新候選3905aaf527a643e860555902749a55598f26fc38，package43613086023/backend43613086045 completed/success，artifact14120388865，ZIP SHA256 50ed3e20abe2a35875308bb865aee7e2d9c57fafd7da28a51af2b4c432941150（14,038,705 bytes）。已備妥，尚未實際部署。原同日preserve root及五代、840尾端保留；fresh recovery→非重疊日期resume，不改原資料。使用者本輪只要求調整時窗，尚待明確批准24h雙跑、真Drive寫入及只對本輪新備份的正常退役；不得自行啟動或刪除。SSM限制不變，仍由本機Codex/SSH操作。
+
+## 2026-11-15｜第九次24h跨日實盤驗收已獲批准
+- 使用者回覆「那開始」，承接上一輪明示的24h雙跑、真Drive與本次新增且經完整驗證替代的小時備份正常退役。更新 PHASE_7_CROSS_DAY_ACCEPTANCE.md（1161a110）為已批准，新增第6節操作交接。原五代及原writer root、840筆尾端、舊服務、OAuth scope不變，禁止永久刪除、清空垃圾桶、正式切換、升級或自動延長。固定已通過CI/package的artifact14120388865、producer3905aaf527a643e860555902749a55598f26fc38。
+- 實際須由本機Codex/SSH執行：全新root GET-only recovery→確認非重疊日期→--resume-recovered，正常rotation只限新run，原五代ID/hash/trashed狀態為保護基線；沿用96MiB/CPU50%/no swap/150MiB預檢/80MiB停止。systemd硬上限86400秒、同一PID及獨立監控，禁止重啟累計。取得實際啟動證據後才算長測開始；到期停新版、獨立復原及稽核。原兩次日界及完整曆日gate未滿足仍列blocker。未實際啟動主機、傳輸新包或改Drive，SSM拒絕不變。
