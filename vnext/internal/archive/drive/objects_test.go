@@ -26,7 +26,8 @@ type fakeDrive struct {
 	files                               map[string]file
 	data                                map[string][]byte
 	pending                             map[string]file
-	seq, uploads                        int
+	seq, uploads, rootGETs, folderCreates int
+ failRootAfterCommit bool
 	failAfterCommit, foreign, duplicate bool
 	server                              *httptest.Server
 }
@@ -41,7 +42,8 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	switch {
 	case p == "/drive/v3/files/root":
-		respond(file{ID: "my_root", Name: "My Drive", MIME: folderType})
+		f.rootGETs++
+ w.WriteHeader(404)
 	case p == "/drive/v3/files/generateIds":
 		f.seq++
 		respond(map[string]any{"ids": []string{fmt.Sprintf("file_%d", f.seq)}})
@@ -49,8 +51,11 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 		out := []file{}
 		query := q.Get("q")
 		for _, x := range f.files {
-			if !x.Trashed && strings.Contains(query, "key='md_ns' and value='"+x.Props["md_ns"]+"'") && ((!strings.Contains(query, " in parents") && !strings.Contains(query, "mimeType =")) || (strings.Contains(query, "mimeType = 'application/json'") && x.MIME=="application/json") || (strings.Contains(query, "'"+x.Parents[0]+"' in parents") && strings.Contains(query, "key='md_key' and value='"+x.Props["md_key"]+"'"))) {
-				out = append(out, x)
+			parentMatch:=!strings.Contains(query," in parents")||(len(x.Parents)==1&&(strings.Contains(query,"'"+x.Parents[0]+"' in parents")||(x.Parents[0]=="my_root"&&strings.Contains(query,"'root' in parents"))))
+ keyMatch:=!strings.Contains(query,"key='md_key'")||strings.Contains(query,"key='md_key' and value='"+x.Props["md_key"]+"'")
+ mimeMatch:=!strings.Contains(query,"mimeType =")||(strings.Contains(query,"mimeType = 'application/json'")&&x.MIME=="application/json")
+ if !x.Trashed&&strings.Contains(query,"key='md_ns' and value='"+x.Props["md_ns"]+"'")&&parentMatch&&keyMatch&&mimeMatch{
+ out=append(out,x)
 				if f.duplicate && x.MIME != folderType {
 					out = append(out, x)
 				}
@@ -67,8 +72,14 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(409)
 			return
 		}
-		f.files[x.ID] = x
-		respond(x)
+		if x.Props["md_key"]=="root" {
+ if x.Parents!=nil{w.WriteHeader(400);return}
+ x.Parents=[]string{"my_root"}
+ }
+ f.files[x.ID]=x
+ f.folderCreates++
+ if x.Props["md_key"]=="root"&&f.failRootAfterCommit{f.failRootAfterCommit=false;w.WriteHeader(503);return}
+ respond(x)
 	case p == "/upload/drive/v3/files" && r.Method == "POST":
 		var x file
 		if json.NewDecoder(r.Body).Decode(&x) != nil {
@@ -350,4 +361,34 @@ func TestDiscoverPlacementIncludesOrphanData(t *testing.T){
  x.Props["md_key"]="historical/2026/10/2026-11-13.r1.sqlite.gz"
  f.files[o.ID]=x
  if _,e=fresh.DiscoverPlacementObjects(ctx);e==nil{t.Fatal("wrong archive parent date accepted")}
+}
+
+func TestRestrictedScopeRootRetryAndReadOnlyRecovery(t *testing.T){
+ c,f,dir:=setup(t);ctx:=context.Background()
+ key:="historical/2026/11/2026-11-13.r1.manifest.json";b:=[]byte("manifest")
+ f.failRootAfterCommit=true
+ if _,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("expected ambiguous root creation")}
+ if f.rootGETs!=0||f.folderCreates!=1||f.uploads!=0{t.Fatal(f.rootGETs,f.folderCreates,f.uploads)}
+ original,ok,e:=c.load("root");if e!=nil||!ok||original.Parent!="root"{t.Fatal(original,ok,e)}
+ c=testClient(t,f,dir)
+ o,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));if e!=nil{t.Fatal(e)}
+ if f.rootGETs!=0||f.folderCreates!=4||f.uploads!=1{t.Fatal(f.rootGETs,f.folderCreates,f.uploads)}
+ freshDir:=t.TempDir();os.Chmod(freshDir,0700)
+ rr:=testClient(t,f,freshDir).RecoveryReader()
+ _,body,e:=rr.OpenObject(ctx,o.ID);if e!=nil{t.Fatal(e)};body.Close()
+ if f.rootGETs!=0||f.folderCreates!=4||f.uploads!=1{t.Fatal("read-only side effect")}
+ root:=f.files[original.ID];root.Parents=[]string{"moved"};f.files[original.ID]=root
+ if _,e=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("accepted moved namespace root")}
+ if _,body,e=rr.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("recovery accepted moved namespace root")}
+ if f.folderCreates!=4||f.uploads!=1{t.Fatal("created replacement root")}
+}
+func TestDuplicateNamespaceRootFailsClosed(t *testing.T){
+ c,f,_:=setup(t);ctx:=context.Background()
+ b:=[]byte("data");key:="staging/a.json"
+ if _,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e!=nil{t.Fatal(e)}
+ r,_,e:=c.load("root");if e!=nil{t.Fatal(e)}
+ duplicate:=f.files[r.ID];duplicate.ID="foreign_duplicate";duplicate.Parents=[]string{"another_parent"};f.files[duplicate.ID]=duplicate
+ seq,uploads:=f.seq,f.uploads
+ if _,e=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("accepted duplicate namespace key")}
+ if f.seq!=seq||f.uploads!=uploads{t.Fatal("collision caused writes")}
 }
