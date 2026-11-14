@@ -73,3 +73,29 @@ func TestBinanceFreshnessAndMapParity(t *testing.T) {
 		t.Fatal(d, d2, e, e2)
 	}
 }
+
+func TestBinanceCertifiedIntervalSurvivesContinuousRefresh(t *testing.T){
+ b,_:=NewBinanceBook(60000)
+ deep:=BinanceSnapshot{Last:100,Bids:[]Level{{9999,1},{9250,1}},Asks:[]Level{{10001,1},{10750,1}}}
+ if e:=b.Install(50000,deep,[]BinanceDelta{{First:101,Last:101}},false);e!=nil{t.Fatal(e)}
+ shallow:=snap();shallow.Last=101
+ if e:=b.Install(55000,shallow,[]BinanceDelta{{First:102,Last:102}},true);e!=nil{t.Fatal(e)}
+ if e:=b.Delta(59000,BinanceDelta{First:103,Last:103});e!=nil{t.Fatal(e)}
+ c,e:=b.Cut(60000,61000)
+ if e!=nil||c.Reason!=""||*c.TrustedBid!=750||*c.TrustedAsk!=750{t.Fatal(c,e)}
+ // A new snapshot cannot prove that unseen updates outside its own edges
+ // were applied. Reject the refresh if its bridge skips the old cursor.
+ shallow.Last=110
+ if e=b.Install(62000,shallow,[]BinanceDelta{{First:111,Last:111}},true);e==nil{t.Fatal("accepted gap in retained outside interval")}
+ if e=b.Install(63000,shallow,[]BinanceDelta{{First:111,Last:111}},false);e!=nil{t.Fatal(e)}
+ if e=b.Delta(119000,BinanceDelta{First:112,Last:112,Bids:[]Level{{9250,1}},Asks:[]Level{{10750,1}}});e!=nil{t.Fatal(e)}
+ c,e=b.Cut(120000,121000)
+ if e!=nil||c.Reason!=""||*c.TrustedBid!=100||*c.Depth.ObservedBid!=750{t.Fatal(c,e)}
+}
+func TestBinanceRejectBestOutsideCertifiedInterval(t *testing.T){
+ b,_:=NewBinanceBook(60000)
+ if e:=b.Install(50000,snap(),[]BinanceDelta{{First:101,Last:101,Bids:[]Level{{9250,1}}}},false);e!=nil{t.Fatal(e)}
+ if e:=b.Delta(59000,BinanceDelta{First:102,Last:102,Bids:[]Level{{9999,0},{9900,0}}});e!=nil{t.Fatal(e)}
+ c,e:=b.Cut(60000,61000)
+ if e!=nil||c.Reason==""||c.Depth.Mid!=nil{t.Fatal("unproven BBO",c,e)}
+}
