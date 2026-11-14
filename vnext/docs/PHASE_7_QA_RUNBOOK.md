@@ -55,3 +55,24 @@ P50/P95/max 為 nearest-rank 取樣統計；CPU 為單核 100%，雙核心可超
 - Rollback：記錄舊服務、獨立配置、停止 staging 的方式及驗證結果。Phase 8 需使用者另行批准，包含完整歷史尾端及切換時間。
 
 各項證據列入 10_MASTER_LOG.md。沒有真實執行結果時保留未驗收；禁止以 CI/fixture 或單次健康查詢代替長測。
+
+
+## 6. 新增唯讀部署前檢查（Phase 7 第二輪）
+在已授權且具登入通道的 Sydney 主機，以將來執行 staging 的相同非 root 使用者執行。以下是尚未執行的範例；所有路徑和 SHA 必須由實際環境確認：
+```sh
+python3 tools/staging_preflight.py \
+  --new-root "$NEW_STAGING_ROOT" --old-root "$VERIFIED_OLD_DATA_ROOT" \
+  --binary "$STAGING_BINARY" --binary-sha256 "$VERIFIED_BINARY_SHA" \
+  --credential "$PRIVATE_OAUTH_FILE" > /absolute/qa/preflight.json
+```
+如不測 Drive 可省略 credential；此時不能通過真 Drive 驗收。工具不建立目錄、不執行 binary、不 bind port、不讀取憑證內容、不登入 Google 或 AWS。檢查新的資料根目錄尚未存在、與既有資料根目錄無重疊、可寫且非群組/公開可寫的 parent、Linux amd64 ELF header 和檔案 SHA、credential owner/0600、meminfo、/proc/net TCP listeners、filesystem free。初始磁碟檢查至少 2GB（1GB 資料 + 1GB 根磁碟保留），不是容量預留。exit 0 只表示未發現這些具體 blocker；exit 2 有觀測 blocker；exit 1 不完整或無效。端口檢查不保留 port，路徑及資源也可在觀測後改變。ELF header 不等於可成功執行，需另驗 CGO/runtime 相容性。記憶體與舊服務雙跑仍需單獨審查；工具不會自行設定 memory threshold 或授權部署。不要使用 root 使用者部署。
+
+## 7. 長測證據匯總
+在外部驗收機（非 512MiB VM）用同一 run 原始 resource JSONL、全部完整日的 audit JSON，明確提供首次 collector target epoch ms 及 producer：
+```sh
+python3 tools/phase7_evidence.py --resources /absolute/qa/resource.jsonl \
+  --producer-commit "$VERIFIED_PRODUCER" --first-target-ms "$FIRST_TARGET_MS" \
+  --day-audit /absolute/qa/day-2026-11-13.json \
+  --day-audit /absolute/qa/day-2026-11-14.json > /absolute/qa/evidence.json
+```
+只列實際完整觀測日，例示日期不代表真實測試結果。報告重算 resource summary、原始證據 SHA、UTC+8 完整日清單及 18 streams 的數量、status、缺格、延遲統計、覆蓋計數一致性；缺完整日、取樣不連續、容量違規、缺格、missing rows 都有明確 review blocker。起點以 first_target 為準，末端以最後 resource sample 為保守觀測邊界，部分日不納入 full-day 缺格判斷。必須另確認 collector 在整個窗口確實運作；resource probe 本身不能證明資料程序身分、日庫內容與此 run 的因果關係。匯總的 day JSON 是結構稽核證據，雜湊不能取代獨立 manifest/raw verification；不得使用人造報告當真結果。人工必須審查所有列出的 evidence（交易所、合約、事件、OOM、容量、Drive、API、舊服務、歷史），未授權時不執行。輸出永遠 production_ready=false/deployment_approved=false/cutover_approved=false，不存在自動上線路徑。
