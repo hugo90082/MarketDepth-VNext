@@ -41,6 +41,7 @@ type DayAuditStream struct {
  AskTrusted750 int `json:"ask_trusted_750"`
  PairedTrusted750 int `json:"paired_trusted_750"`
  PairedComplete750 int `json:"paired_complete_750"`
+ PairedTrustedBins map[string]int `json:"paired_trusted_bins"`
 }
 type DayAudit struct {
  ContractID string `json:"contract_id"`
@@ -132,6 +133,7 @@ func AuditSealedDay(ctx context.Context,path,day,expectedSHA,producer string)(Da
   for slot:=range ss{
    key:=gridKey(k,from,slot)
    ss[slot]=streamAudit{DayAuditStream:DayAuditStream{Kind:k,Venue:key.Venue,Asset:key.Asset,Expected:n,Status:map[string]int{},MissingIntervals:[]Gap{}},seen:make([]bool,n)}
+   if k==model.Spot{ss[slot].PairedTrustedBins=map[string]int{"0_100":0,"100_200":0,"200_300":0,"300_500":0,"500_750":0}}
   }
   rows,e:=db.QueryContext(ctx,"SELECT "+strings.Join(columns[k],",")+" FROM "+string(k)+" ORDER BY "+strings.Join(keyCols(k),","));if e!=nil{return zero,e}
   err:=func()error{
@@ -141,7 +143,7 @@ func AuditSealedDay(ctx context.Context,path,day,expectedSHA,producer string)(Da
     for i:=range raw{ptr[i]=&raw[i]}
     if e:=rows.Scan(ptr...);e!=nil{return e}
     m:=map[string]any{}
-    for i,name:=range columns[k]{m[name]=raw[i]}
+    for i,name:=range columns[k]{v:=raw[i];if text,ok:=v.([]byte);ok{v=string(text)};m[name]=v}
     b,e:=json.Marshal(m);if e!=nil{return e}
     row,e:=model.Decode(k,b);if e!=nil{return fmt.Errorf("%s invalid row: %w",k,e)}
     if e=validateLiveWrite(row,true);e!=nil{return e}
@@ -158,7 +160,12 @@ func AuditSealedDay(ctx context.Context,path,day,expectedSHA,producer string)(Da
      if at750(r.ObservedAsk){stream.AskObserved750++}
      if at750(r.TrustedBid){stream.BidTrusted750++}
      if at750(r.TrustedAsk){stream.AskTrusted750++}
-     if at750(r.TrustedBid)&&at750(r.TrustedAsk){
+     if c.Status!="missing"&&r.TrustedBid!=nil&&r.TrustedAsk!=nil{
+      for _,z:=range []struct{name string;upper float64;bid,ask *float64}{
+       {"0_100",100,r.Bid0100,r.Ask0100},{"100_200",200,r.Bid100200,r.Ask100200},{"200_300",300,r.Bid200300,r.Ask200300},{"300_500",500,r.Bid300500,r.Ask300500},{"500_750",750,r.Bid500750,r.Ask500750},
+      }{if z.bid!=nil&&z.ask!=nil&&*r.TrustedBid>=z.upper&&*r.TrustedAsk>=z.upper{stream.PairedTrustedBins[z.name]++}}
+     }
+     if c.Status!="missing"&&at750(r.TrustedBid)&&at750(r.TrustedAsk){
       stream.PairedTrusted750++
       if complete750(r){stream.PairedComplete750++;paired[r.Asset][idx]++}
      }
