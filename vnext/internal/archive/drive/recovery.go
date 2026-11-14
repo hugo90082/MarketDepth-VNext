@@ -143,7 +143,7 @@ func(r *RecoveryReader) DiscoverPlacementObjects(ctx context.Context)([]Placemen
    if pieces[0]=="historical"&&(pieces[1]!=day[:4]||pieces[2]!=day[5:7]){return nil,errors.New("archive placement parent date mismatch")}
    mime:="application/octet-stream";if strings.HasSuffix(key,".json"){mime="application/json"}
    n,e:=strconv.ParseInt(f.Size,10,64);h:=f.Props["md_sha256"]
-   if e!=nil||n<=0||n>archive.HardLimit||!digestOK(h)||f.MIME!=mime||f.Name!=name||(f.SHA!=""&&f.SHA!=h){return nil,errors.New("invalid archive placement metadata")}
+   if e!=nil||n<=0||n>archive.HardLimit||!digestOK(h)||!compatibleMIME(key,mime,f.MIME)||f.Name!=name||(f.SHA!=""&&f.SHA!=h){return nil,errors.New("invalid archive placement metadata")}
    seen[key],ids[f.ID]=true,true
    out=append(out,PlacementObject{day,key,f.ID})
   }
