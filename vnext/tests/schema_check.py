@@ -12,3 +12,27 @@ for kind in ['spot_depth','futures_10s','futures_1m']:
  data=json.loads((p.parent/'fixtures'/f'{kind}.json').read_text())['data']
  assert data and all(set(r)==cols for r in data),(kind,cols)
 print('PASS: schema SHA256, quick_check, version, NULL/0, PK, grid, venue, all fixture columns')
+
+
+# Phase 6 documentation drift guard: compare the published row schemas with
+# the embedded SQL and the existing wire fixtures; not a full OpenAPI validator.
+spec=json.loads((p.parent/'openapi.json').read_text())
+schemas=spec['components']['schemas']
+assert spec['info']['version']=='0.2.0-phase6-backend'
+assert spec['components']['securitySchemes']['session']['name']=='__Host-md_session'
+assert spec['security']==[{'session':[]}]
+for kind in ['spot_depth','futures_10s','futures_1m']:
+ cols={r[1] for r in c.execute('pragma table_info('+kind+')')}
+ assert set(schemas[kind]['required'])==cols==set(schemas[kind]['properties'])
+ assert schemas[kind]['additionalProperties'] is False
+for route,name in [('/auth/login','LoginSuccess'),('/auth/logout','LogoutSuccess')]:
+ op=spec['paths'][route]['post']
+ assert op['security']==[] and '403' in op['responses']
+ assert op['responses']['200']['content']['application/json']['schema']['$ref']=='#/components/schemas/'+name
+ assert set(schemas[name]['required'])=={'ok','data'}
+ assert 'meta' not in schemas[name]['properties']
+assert set(spec['paths']['/day/{day}']['get']['responses']['200']['headers'])=={'Content-Length','ETag','X-Archive-SHA256','Content-Disposition'}
+for row in json.loads((p.parent/'fixtures/days.json').read_text())['data']:
+ assert set(row)==set(schemas['Day']['required'])==set(schemas['Day']['properties'])
+ assert row['state'] in schemas['Day']['properties']['state']['enum']
+print('PASS: Phase 6 OpenAPI row columns, session, auth envelopes, day/download contract')
