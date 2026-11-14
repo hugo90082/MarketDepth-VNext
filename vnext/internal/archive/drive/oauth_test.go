@@ -31,7 +31,8 @@ func TestOAuthRefreshAndRevocation(t *testing.T) {
 		fmt.Fprintf(w, `{"access_token":"access-%d","expires_in":3600,"token_type":"Bearer","scope":%q}`, calls, Scope)
 	}))
 	defer server.Close()
-	s, e := NewTokenSource(Credentials{"id", "fake-secret", "fake-refresh", Scope})
+	var observations []TokenEvent
+ s, e := NewObservedTokenSource(Credentials{"id", "fake-secret", "fake-refresh", Scope},func(event TokenEvent){observations=append(observations,event)})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -45,14 +46,18 @@ func TestOAuthRefreshAndRevocation(t *testing.T) {
 			t.Fatal(v, e)
 		}
 	}
-	if calls != 1 {
-		t.Fatal(calls)
+	if calls != 1 || len(observations)!=1 || observations[0]!=(TokenEvent{Grant:1,ExpiresInSeconds:3600}) {
+		t.Fatal(calls,observations)
 	}
+ now=now.Add(time.Hour)
+ if v,e:=s.AccessToken(context.Background());e!=nil||v!="access-2"{t.Fatal(v,e)}
+ if calls!=2||len(observations)!=2||observations[1]!=(TokenEvent{Grant:2,ExpiresInSeconds:3600}){t.Fatal(calls,observations)}
 	now = now.Add(time.Hour)
 	revoke = true
 	if _, e = s.AccessToken(context.Background()); !errors.Is(e, ErrReauthorize) {
 		t.Fatal(e)
 	}
+ if len(observations)!=2||calls!=3{t.Fatal("failed grant emitted success",calls,observations)}
 }
 func TestCredentialSafetyAndAuthURL(t *testing.T) {
 	dir := t.TempDir()
