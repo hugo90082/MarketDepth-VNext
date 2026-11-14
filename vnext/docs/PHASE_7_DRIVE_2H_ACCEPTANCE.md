@@ -49,3 +49,9 @@ marketdepth-staging --recover-catalog --init-staging \
 回傳完整 REPORT.md、逐流/逐分鐘CSV、resource JSONL/summary、所有 hourly_verified generation摘要、最新 manifest（非秘密）、復原 JSON及逐列對照摘要、old baseline/end。報告中不包含 OAuth/session/password、SSH key、token endpoint response 等秘密。
 同一份 2h 實測若達到上述標準才標「hourly 真 Drive + 復原通過」；OAuth in-process 續期另列。沒有兩次 verified/完整復原、發生 OOM、出現不明 remote 物件或停止條件，標失敗/部分完成，原樣保留 evidence。
 本輪不跑24–48h、不封存正式日、不改舊服務、不處理正式歷史、不發布正式V66、不切換。30min舊新數值比較可於測試結束後以原有證據另行唯讀執行，不與備份競搶 VM。
+
+## 7. 第四次實測失敗後的修正版驗收（優先於上方舊 artifact）
+- 2026-11-14 使用者回傳 Codex：OAuth refresh grant、quota、staging listing 成功；實際 GET /drive/v3/files/root=404。新版3m19s停止，spot36/36、F10 39/39、F1 6/6，兩分鐘API export 66筆及gzip/manifest驗證通過；cgroup peak33.38MiB、host min150.70MiB、無OOM；舊容器不受影響。遠端 inventory仍空、verified0，本機pending1。保留 /home/ubuntu/marketdepth-vnext-phase7-drive2h.ZTb8mn9Y/ 完整證據，不刪/續寫/搬移 pending、不手工改 manifest 或 catalog。
+- 修正版 producer cc01c82b17a4fcf58fb7e7ce01c20d4432f28969，package43586576156、backend43586576197，均須 completed/success 才可下載對應新 artifact；以實際 SHA256SUMS/PRODUCER_COMMIT 核對。只改 Drive transport（root lookup/create/verify/recovery），collector/schema 不變。Google drive.file 保持原 scope，不重授權、不開 drive 全權；不再要求 GET /files/root 成功。用 appProperties 的 namespace/root key 全域唯一搜尋及 'root' in parents 搜尋相互核對，建立時省略 parents，依預先保留ID重試；直接讀取 app-owned folder 驗證 identity，移動/重複/不一致即停。真 Google 的 list alias 可用性仍需實測，不能把 fake transport 當實證。
+- 先保留本機舊失敗目錄，重新唯讀查 namespace 確認仍為空、quota、安全門檻及舊服務，沿用既有0600憑證，開全新隔離root。不可刪遠端既有資料，若非空須停止核對。原2h批准仍限本輪重試、同樣安全限制；不另開並行 writer。
+- 啟動同一受限2h run，將第一次 hourly_verified 作為 early gate：若首次到期快照在5分鐘內未完成遠端驗證或發生重複錯誤，立即只停新版、保留實際 HTTP endpoint/method/status 及去敏感錯誤；不可輸出 token、upload session URL 或憑證。若第一份已 verified 且其他安全條件均通過，在**同一個 run、同一個資料根**繼續至原2h hard timeout，勿重啟另開短測造成 namespace/key collision。至少兩代 verified + 停止後 recovery + active snapshot 逐列驗證均依原章節執行。
