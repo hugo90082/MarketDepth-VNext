@@ -107,12 +107,12 @@ func (b *BinanceBook) freezeBefore(at int64) {
 		c := BinanceCut{T: t, LastDataAt: b.lastData, Last: b.last, Reason: b.reason}
 		if b.ready && b.lastData > 0 && b.lastData <= t && t-b.lastData <= BinanceMaxAgeMS {
 			d, e := mapDepth(b.bid, b.ask)
-			if e == nil {
+			if e == nil && insideTrustedBBO(d,b.bidEdge,b.askEdge) {
 				c.Depth = d
 				c.TrustedBid, c.TrustedAsk = trusted(d, b.bidEdge, b.askEdge)
 				c.Reason = ""
 			} else {
-				c.Reason = "invalid_book"
+				c.Reason = "invalid_or_unproven_bbo"
 			}
 		} else if b.ready {
 			c.Reason = "stale_depth"
@@ -175,6 +175,27 @@ func (b *BinanceBook) Install(at int64, s BinanceSnapshot, ds []BinanceDelta, re
 			askEdge = math.Max(askEdge, l.Price)
 		}
 	}
+	// A refresh may extend a contiguous proven interval, but only if the
+	// prior book is still sequence-continuous through the new installation.
+	// A REST snapshot alone cannot repair unknown outer levels after a gap.
+	priorBid,priorAsk:=b.bidEdge,b.askEdge
+	if refresh {
+		cursor:=b.last
+		for _,delta:=range ds{
+			if delta.Last<=cursor{continue}
+			if delta.First>cursor+1{
+				b.ready=false
+				b.reason="refresh_outer_sequence_gap"
+				return errors.New(b.reason)
+			}
+			cursor=delta.Last
+		}
+		if cursor!=last{
+			b.ready=false
+			b.reason="refresh_outer_sequence_unproven"
+			return errors.New(b.reason)
+		}
+	}
 	if !refresh {
 		b.bid = map[float64]float64{}
 		b.ask = map[float64]float64{}
@@ -199,12 +220,16 @@ func (b *BinanceBook) Install(at int64, s BinanceSnapshot, ds []BinanceDelta, re
 	b.last = last
 	b.lastData = at
 	b.refreshAt = at
+	if refresh {
+		bidEdge=math.Min(bidEdge,priorBid)
+		askEdge=math.Max(askEdge,priorAsk)
+	}
 	b.bidEdge = bidEdge
 	b.askEdge = askEdge
 	b.ready = true
 	b.reason = ""
 	d, e := mapDepth(b.bid, b.ask)
-	if e != nil || len(b.bid)+len(b.ask) > maxBinanceLevels {
+	if e != nil || !insideTrustedBBO(d,b.bidEdge,b.askEdge) || len(b.bid)+len(b.ask) > maxBinanceLevels {
 		b.ready = false
 		b.reason = "invalid_or_oversize_book"
 		return errors.New(b.reason)
@@ -270,7 +295,7 @@ func (b *BinanceBook) RefreshReason(now int64) string {
 		return "not_ready"
 	}
 	d, e := mapDepth(b.bid, b.ask)
-	if e != nil {
+	if e != nil || !insideTrustedBBO(d,b.bidEdge,b.askEdge) {
 		return "book_side_depleted"
 	}
 	tb, ta := trusted(d, b.bidEdge, b.askEdge)
@@ -304,6 +329,12 @@ func applyLevels(m map[float64]float64, ls []Level) {
 		}
 	}
 }
+// A known level beyond a certified price interval cannot establish BBO
+// after every known nearer level has been deleted.
+func insideTrustedBBO(d Depth,bid,ask float64)bool{
+ return d.Bid!=nil&&d.Ask!=nil&&*d.Bid>=bid&&*d.Ask<=ask
+}
+
 func trusted(d Depth, bid, ask float64) (*float64, *float64) {
 	mid := *d.Mid
 	return model.Ptr(math.Max(0, (mid-bid)/mid*10000)), model.Ptr(math.Max(0, (ask-mid)/mid*10000))
