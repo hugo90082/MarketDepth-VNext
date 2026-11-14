@@ -1,0 +1,54 @@
+name: Gemini handoff source export (no deployment)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/gemini-source-export.yml']
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a60c00e8594b8efd3f7a217eabc7cb052eb3db29
+          persist-credentials: false
+      - name: Export pinned tree and verify every blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "a60c00e8594b8efd3f7a217eabc7cb052eb3db29"
+          mkdir -p "$RUNNER_TEMP/md-source"
+          git archive --format=zip --output="$RUNNER_TEMP/md-source/MarketDepth-VNext-source.zip" HEAD
+          python3 - "$RUNNER_TEMP/md-source" <<'PY'
+          import hashlib, json, pathlib, subprocess, sys, zipfile
+          dest=pathlib.Path(sys.argv[1])
+          commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          tree=subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip()
+          entries={}
+          for item in subprocess.check_output(['git','ls-tree','-r','-z','HEAD']).split(b'\0'):
+              if not item: continue
+              meta,path=item.split(b'\t',1)
+              mode,kind,oid=meta.decode().split()
+              assert kind=='blob' and mode in ('100644','100755'), (path,kind,mode)
+              entries[path.decode()]={'mode':mode,'git_blob_sha1':oid}
+          archive=dest/'MarketDepth-VNext-source.zip'
+          with zipfile.ZipFile(archive) as z:
+              names=[i.filename for i in z.infolist() if not i.is_dir()]
+              assert len(names)==len(set(names)) and set(names)==set(entries)
+              assert z.testzip() is None
+              for path in names:
+                  b=z.read(path)
+                  assert hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()==entries[path]['git_blob_sha1'],path
+                  entries[path].update(size=len(b),sha256=hashlib.sha256(b).hexdigest())
+          report={'repository':'hugo90082/MarketDepth-VNext','commit':commit,'tree':tree,'file_count':len(entries),'total_bytes':sum(x['size'] for x in entries.values()),'source_zip_sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'files':entries}
+          (dest/'SOURCE_TREE.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print('Verified source files:',len(entries),'bytes:',report['total_bytes'],'commit:',commit)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MarketDepth-VNext-gemini-source-a60c00e8594b
+          path: ${{ runner.temp }}/md-source/
+          if-no-files-found: error
+          retention-days: 14
