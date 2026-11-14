@@ -22,7 +22,7 @@
 - 同writer實際成功grant1及grant2+、時間與有效期限一致，後續 verified Drive 操作；無敏感值。初次 grant 不等同續期，若未觀測不可通過。
 - 資源 P50/P95/max、cgroup峰值及OOM、capacity used/reservation、磁碟1GB保留、原始30s樣本；禁止超過90s取樣間隔或切換PID而宣稱連續。測試至少一次受限長匯出與live收集同時，使用單一API客戶端，核gzip尾manifest及計數/游標，觀察延遲/資源；不要把整日解壓/稽核併行放在512MiB主機。
 - 停止新writer後 fresh GET-only recovery root；核對所有sealed及最新active、原11/14 recovered snapshot仍存在，restore前後inventory一致；最新active與stopped local逐列、量化末端未備份資料，不把active未知尾端當永久遺失。sealed partial day用外部day-audit及實際first_target/日界的到期格核對，不把開始前缺格算成市場故障；phase7_evidence原完整日門檻若未滿足應保留blocker，不能改工具門檻或捏造完整日。正常日庫清理僅既有verified安全策略；不得啟用forced loss。
-- 保留所有報告、逐流CSV、資源及日誌、原五代基線、新run上傳/退役、manifest、復原與逐列比對。舊版同時窗五區/單位/對齊比較、V66前端及真歷史仍獨立gated，長測不代表正式上線。
+- 保留所有報告、逐流CSV、資源及日誌、原五代基線、新run上傳/退役、manifest、復原與逐列比對。新版自身逐流有效覆蓋/單位/對齊驗收、V66前端及真歷史仍獨立gated，長測不代表正式上線。
 
 ## 5. 授權範圍
 使用者已批准24h新舊雙跑、真Drive寫入及**只對本次新run已被完整驗證替代的小時備份進行正常垃圾桶退役**。原五代及舊資料一律保留。不得退役原五代或任何不屬本次run的物件。主控不具SSM SendCommand權限；實際由既有本機Codex/SSH執行。執行者須先完成全部預檢，若不符合則停止；批准不代表已啟動。Phase8另行批准。
@@ -31,3 +31,6 @@
 - 已批准，直接按第2–4節完成，不需再次逐項確認；任何安全停止或預檢不符即停新版並回報。使用固定artifact14120388865，不重編或改程式。
 - 先完成新的復原目錄及非重疊日期驗證，再在該目錄以 --resume-recovered 啟動，保留舊writer root與全部五代，禁止對舊root啟用普通rotation。新run的初始inventory將原五代ID列入禁止變更清單；若任何舊ID/雜湊/trashed狀態改變立即停止，不以人工清理作修復。
 - 在host以有硬上限的systemd unit執行86400s、獨立監控，SSH斷線不應終止監控/服務；本機Codex須實際核對服務與監控已啟動，回報UTC+8起止、unit、PID、root、首次target與初始健康結果。24h到期只停止新版，依第4節完成獨立復原、對照、稽核及最終報告。禁止自動重啟或延長。若原完整曆日/兩日界門檻未滿足，保留該blocker。
+
+## 驗收範圍修訂（2026-11-15；優先於前文）
+2026-11-15 使用者決議：取消舊／新收集器同時窗深度金額逐筆偏差、相關性及聚合數值一致性比較作為 Phase 2/7 驗收門檻；不同捕獲時間及訂單簿覆蓋天然有差異。保留新版自身的18流到期主鍵完整性、逐交易所/商品/區間/側的實際非NULL覆蓋、status與失敗原因、交易對/現貨合約/單位/區間及時間對齊正確性、finite/nonnegative/NULL與0、observed與trusted區分、ALL4同側完整paired集合至少2家等既有資料品質規則。不得將present/missing占位列當有效行情或把observed750當trusted750；若有效覆蓋不足或出現異常，依證據個別處理，不設定任意新數值門檻。此決議只免除跨版本行情數值比較，不免除原始歷史映射逐列核對、備份復原逐列一致性、歷史與新資料時間重疊/缺口檢查、跨日資源/API/Drive/OAuth/前端/正式切換等既有門檻。現行24h測試不改binary、監控、資源及運行時間；待其真實結果完成最終Phase2/7資料品質驗收。
