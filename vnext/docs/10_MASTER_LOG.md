@@ -495,3 +495,8 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 ## 2026-11-15｜第九次24h跨日實盤驗收已獲批准
 - 使用者回覆「那開始」，承接上一輪明示的24h雙跑、真Drive與本次新增且經完整驗證替代的小時備份正常退役。更新 PHASE_7_CROSS_DAY_ACCEPTANCE.md（1161a110）為已批准，新增第6節操作交接。原五代及原writer root、840筆尾端、舊服務、OAuth scope不變，禁止永久刪除、清空垃圾桶、正式切換、升級或自動延長。固定已通過CI/package的artifact14120388865、producer3905aaf527a643e860555902749a55598f26fc38。
 - 實際須由本機Codex/SSH執行：全新root GET-only recovery→確認非重疊日期→--resume-recovered，正常rotation只限新run，原五代ID/hash/trashed狀態為保護基線；沿用96MiB/CPU50%/no swap/150MiB預檢/80MiB停止。systemd硬上限86400秒、同一PID及獨立監控，禁止重啟累計。取得實際啟動證據後才算長測開始；到期停新版、獨立復原及稽核。原兩次日界及完整曆日gate未滿足仍列blocker。未實際啟動主機、傳輸新包或改Drive，SSM拒絕不變。
+
+## 2026-11-15｜使用者回報第九次長測已開始；並行工作
+- 使用者回報「開始跑了」，實際主機 start/first_target/PID/unit/root 及預檢證據尚未取得，不推算截止時間或宣稱24h通過。沿用已批准的監控及自動停止流程，不修改執行中binary、配置、資源門檻、Drive namespace或舊服務。
+- 長測期間並行：D真歷史先取得原始gzip/JSONL樣本、唯讀inventory與來源/單位/時間/欄位證據，禁止正式匯入；Phase2使用第3次已停止的30min evidence及同時段舊版資料在外部機唯讀比較（不在512MiB主機額外跑大匯出/解壓/匯入）；C/V66依 HANDOFF_A_INTERFACE.md 及contract本機mock整合、提供source/build/proxy inventory/測試報告，不指向實盤長測服務或改動部署。若資料尚在主機，避免與長測競搶資源，待停止後再取。
+- 第九次結果回傳後，檢查跨日seal、normal rotation、OAuth同process續期、資源與恢復，24h範圍以實際到期格為準；原兩日界/完整日blocker保留。歷史正式匯入、真前端HTTPS驗收及Phase8仍需獨立審核，正式切換需另批准。
