@@ -1,0 +1,40 @@
+name: Offline QA dependencies (no deployment)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/offline-qa-dependencies.yml']
+permissions:
+  contents: read
+jobs:
+  deps:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: vnext
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache-dependency-path: vnext/go.sum
+      - name: Verify and export pinned dependencies
+        run: |
+          set -euo pipefail
+          go mod download
+          go mod verify
+          go mod vendor
+          tar -czf "$RUNNER_TEMP/go-vendor.tar.gz" vendor
+          sha256sum "$RUNNER_TEMP/go-vendor.tar.gz" | awk '{print $1}' > "$RUNNER_TEMP/go-vendor.sha256"
+          sha256sum go.mod go.sum > "$RUNNER_TEMP/module-sha256.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marketdepth-offline-go-dependencies
+          path: |
+            ${{ runner.temp }}/go-vendor.tar.gz
+            ${{ runner.temp }}/go-vendor.sha256
+            ${{ runner.temp }}/module-sha256.txt
+          if-no-files-found: error
+          retention-days: 14
