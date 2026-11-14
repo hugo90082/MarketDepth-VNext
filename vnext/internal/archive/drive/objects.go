@@ -206,9 +206,11 @@ func (c *Client) get(ctx context.Context, id string) (file, error) {
 }
 func (c *Client) list(ctx context.Context, parent, key string) (*file, error) {
 	// All inputs are constrained; no arbitrary query literals are accepted.
-	q := fmt.Sprintf("'%s' in parents and trashed = false and appProperties has { key='md_key' and value='%s' } and appProperties has { key='md_ns' and value='%s' }", parent, key, c.namespace)
+	q := fmt.Sprintf("trashed = false and appProperties has { key='md_key' and value='%s' } and appProperties has { key='md_ns' and value='%s' }", key, c.namespace)
+ if parent!="" {if !identifier(parent){return nil,errors.New("invalid Drive parent")};q=fmt.Sprintf("'%s' in parents and %s",parent,q)}
 	v := url.Values{"q": {q}, "fields": {"nextPageToken,incompleteSearch,files(" + fields + ")"}, "pageSize": {"100"}, "spaces": {"drive"}, "corpora": {"user"}}
 	var found *file
+ seenTokens:=map[string]bool{}
 	for i := 0; i < 20; i++ {
 		var page struct {
 			Next       string `json:"nextPageToken"`
@@ -218,10 +220,11 @@ func (c *Client) list(ctx context.Context, parent, key string) (*file, error) {
 		if e := c.json(ctx, "GET", "/drive/v3/files", v, nil, &page); e != nil {
 			return nil, e
 		}
-		if page.Incomplete {
+		if page.Incomplete || len(page.Files)>100 {
 			return nil, errors.New("incomplete Drive key search")
 		}
 		for _, f := range page.Files {
+ if f.Trashed||f.Props["md_ns"]!=c.namespace||f.Props["md_key"]!=key||!identifier(f.ID){return nil,errors.New("foreign Drive key search result")}
 			if found != nil {
 				return nil, errors.New("duplicate Drive logical key")
 			}
@@ -231,7 +234,9 @@ func (c *Client) list(ctx context.Context, parent, key string) (*file, error) {
 		if page.Next == "" {
 			return found, nil
 		}
-		v.Set("pageToken", page.Next)
+		if seenTokens[page.Next]||len(page.Next)>4096{return nil,errors.New("invalid Drive key page token")}
+ seenTokens[page.Next]=true
+ v.Set("pageToken", page.Next)
 	}
 	return nil, errors.New("Drive key search page limit")
 }
@@ -396,11 +401,7 @@ func (c *Client) folder(ctx context.Context, parent, key, name string) (string, 
 }
 func (c *Client) parent(ctx context.Context, key string) (string, string, error) {
 	p := strings.Split(key, "/")
-	myRoot, e := c.get(ctx, "root")
-	if e != nil || !identifier(myRoot.ID) || myRoot.MIME != folderType || myRoot.Trashed {
-		return "", "", errors.New("cannot resolve My Drive root")
-	}
-	root, e := c.folder(ctx, myRoot.ID, "root", c.namespace)
+	root, e := c.ensureNamespaceRoot(ctx)
 	if e != nil {
 		return "", "", e
 	}
@@ -417,18 +418,11 @@ func (c *Client) parent(ctx context.Context, key string) (string, string, error)
 // verifyParent follows the exact previously reserved folder chain without
 // creating or moving anything. An object moved outside the tree fails closed.
 func (c *Client) verifyParent(ctx context.Context, key string) (string, error) {
-	myRoot, e := c.get(ctx, "root")
-	if e != nil || !identifier(myRoot.ID) || myRoot.MIME != folderType || myRoot.Trashed {
-		return "", errors.New("cannot resolve My Drive root")
-	}
-	parts := strings.Split(key, "/")
-	parent := myRoot.ID
-	for i := -1; i < len(parts)-1; i++ {
-		k, name := "root", c.namespace
-		if i >= 0 {
-			k = "dir/" + strings.Join(parts[:i+1], "/")
-			name = parts[i]
-		}
+	parent,e:=c.verifyNamespaceRoot(ctx)
+ if e!=nil{return "",e}
+ parts:=strings.Split(key,"/")
+ for i:=0;i<len(parts)-1;i++{
+ k,name:="dir/"+strings.Join(parts[:i+1],"/"),parts[i]
 		r, ok, e := c.load(k)
 		if e != nil || !ok || r.Parent != parent || r.MIME != folderType || r.Size != 0 || r.SHA != "" {
 			return "", errors.New("Drive parent reservation missing or invalid")
