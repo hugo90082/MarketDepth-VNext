@@ -30,7 +30,7 @@ jobs:
           go mod verify
           # Regression gate for Binance wire formats and certified depth refresh continuity.
           go test ./internal/collector/binancewire ./internal/collector/spot ./internal/collector/futures
-          # Gate Drive-inferred gzip aliases, exact pending-object retry and safe diagnostics.
+          # Gate Drive gzip aliases, exact pending retry, diagnostics and preservation rotation.
           go test ./internal/archive/drive
           go test -tags live_ws,sqlite_integration,secure_auth ./...
           python3 tests/schema_check.py
