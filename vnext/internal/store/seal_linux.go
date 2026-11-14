@@ -149,6 +149,7 @@ func (m *Manager) sealDay(ctx context.Context, day, producer string, catalog boo
 	return out, nil
 }
 func validateDayMetadata(ctx context.Context, db *sql.DB, day string) error {
+ if e:=rejectFixtureMeta(ctx,db);e!=nil{return e}
 	var version int
 	if e := db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); e != nil || version != 1 {
 		return errors.New("unsupported day schema")
