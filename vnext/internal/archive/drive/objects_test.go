@@ -28,6 +28,7 @@ type fakeDrive struct {
 	pending                             map[string]file
 	seq, uploads, rootGETs, folderCreates int
  failRootAfterCommit bool
+ gzipMIME string
 	failAfterCommit, foreign, duplicate bool
 	server                              *httptest.Server
 }
@@ -112,6 +113,7 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 		h := sha256.Sum256(b)
 		x.SHA = hex.EncodeToString(h[:])
 		x.Size = fmt.Sprint(len(b))
+ if f.gzipMIME!=""&&strings.HasSuffix(x.Name,".sqlite.gz"){x.MIME=f.gzipMIME}
 		f.files[id] = x
 		f.data[id] = b
 		f.uploads++
@@ -391,4 +393,51 @@ func TestDuplicateNamespaceRootFailsClosed(t *testing.T){
  seq,uploads:=f.seq,f.uploads
  if _,e=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("accepted duplicate namespace key")}
  if f.seq!=seq||f.uploads!=uploads{t.Fatal("collision caused writes")}
+}
+
+func TestDriveGzipMIMEInferenceAcrossRetryAndRecovery(t *testing.T){
+ for _,mime:=range []string{"application/x-gzip","application/gzip"}{t.Run(mime,func(t *testing.T){
+  c,f,dir:=setup(t);ctx:=context.Background()
+  f.gzipMIME=mime
+  key:="active/2026-11-13."+archive.HourGeneration(time.Date(2026,11,13,1,0,0,0,time.FixedZone("UTC+8",8*3600)))+".sqlite.gz"
+  b:=[]byte("opaque sqlite gzip fixture")
+  f.failAfterCommit=true
+  if _,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("expected lost upload response")}
+  r,ok,e:=c.load(key);if e!=nil||!ok||r.MIME!="application/octet-stream"||f.files[r.ID].MIME!=mime{t.Fatal(r,ok,e)}
+  seq,uploads:=f.seq,f.uploads
+  c=testClient(t,f,dir)
+  o,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b))
+  if e!=nil||o.ID!=r.ID||f.seq!=seq||f.uploads!=uploads{t.Fatal(o,e,"duplicate upload")}
+  checkRead:=func(remote archive.RemoteObjects){
+   got,body,e:=remote.OpenObject(ctx,o.ID);if e!=nil{t.Fatal(e)}
+   raw,e:=io.ReadAll(body);body.Close()
+   if e!=nil||got!=o||!bytes.Equal(raw,b){t.Fatal(got,e)}
+  }
+  checkRead(c)
+  freshDir:=t.TempDir();os.Chmod(freshDir,0700)
+  rr:=testClient(t,f,freshDir).RecoveryReader()
+  checkRead(rr)
+  placement,e:=rr.DiscoverPlacementObjects(ctx)
+  if e!=nil||len(placement)!=1||placement[0].ID!=o.ID{t.Fatal(placement,e)}
+  x:=f.files[o.ID];x.MIME="application/pdf";f.files[o.ID]=x
+  if _,e=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("wrong MIME accepted")}
+  if _,body,e=rr.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("wrong recovery MIME accepted")}
+  if _,e=rr.DiscoverPlacementObjects(ctx);e==nil{t.Fatal("wrong placement MIME accepted")}
+  if e=c.TrashActiveObject(ctx,o);e==nil{t.Fatal("wrong MIME retirement accepted")}
+  x.MIME=mime;goodSHA:=x.SHA;x.SHA=hash([]byte("different"));f.files[o.ID]=x
+  if _,body,e=c.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("wrong hash accepted")}
+  x.SHA=goodSHA;f.files[o.ID]=x
+  if e=c.TrashActiveObject(ctx,o);e!=nil{t.Fatal(e)}
+  if !f.files[o.ID].Trashed{t.Fatal("retirement failed")}
+ })}
+}
+func TestDriveMIMEAliasesAreNarrow(t *testing.T){
+ for _,x:=range []struct{key,expected,actual string;want bool}{
+  {"active/a.sqlite.gz","application/octet-stream","application/x-gzip",true},
+  {"historical/a.sqlite.gz","application/octet-stream","application/gzip",true},
+  {"active/a.manifest.json","application/json","application/x-gzip",false},
+  {"dir/active",folderType,"application/x-gzip",false},
+  {"staging/a.gz","application/octet-stream","application/x-gzip",false},
+  {"active/a.sqlite.gz","application/octet-stream","application/pdf",false},
+ }{if compatibleMIME(x.key,x.expected,x.actual)!=x.want{t.Fatal(x)}}
 }
