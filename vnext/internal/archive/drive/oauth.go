@@ -63,6 +63,21 @@ type TokenSource struct {
 	access   string
 	expires  time.Time
 	now      func() time.Time
+ observer func(TokenEvent)
+ grants uint64
+}
+
+// TokenEvent contains only successful grant timing and count, never OAuth secrets.
+type TokenEvent struct {
+ Grant uint64
+ ExpiresInSeconds int64
+}
+
+// NewObservedTokenSource is identical to NewTokenSource except for an optional
+// synchronous, non-reentrant observer of successful exchanges. A cache hit,
+// failed exchange, or rejected rotation does not emit an event.
+func NewObservedTokenSource(c Credentials, observer func(TokenEvent)) (*TokenSource,error) {
+ s,e:=NewTokenSource(c);if e!=nil{return nil,e};s.observer=observer;return s,nil
 }
 
 func noRedirectClient(timeout time.Duration) *http.Client {
@@ -128,6 +143,8 @@ func (s *TokenSource) AccessToken(ctx context.Context) (string, error) {
 	}
 	s.access = t.AccessToken
 	s.expires = now.Add(time.Duration(t.ExpiresIn) * time.Second)
+ s.grants++
+ if s.observer!=nil{s.observer(TokenEvent{Grant:s.grants,ExpiresInSeconds:t.ExpiresIn})}
 	return s.access, nil
 }
 
