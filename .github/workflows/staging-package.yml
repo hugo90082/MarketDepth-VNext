@@ -28,6 +28,8 @@ jobs:
         run: |
           go mod download
           go mod verify
+          # Regression gate for case-sensitive Binance live wire formats.
+          go test ./internal/collector/binancewire ./internal/collector/spot ./internal/collector/futures
           go test -tags live_ws,sqlite_integration,secure_auth ./...
           python3 tests/schema_check.py
           python3 tests/resource_probe_test.py
