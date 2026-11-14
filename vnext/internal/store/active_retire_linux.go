@@ -19,8 +19,19 @@ import (
 // archive worker may call publication/retirement. No sealed objects are removed.
 // A crash between the two trash calls is safely retried from the catalog.
 func (j *Journal) RetirePreviousActive(ctx context.Context, remote archive.ActiveRetirer, day, cache string, reserve int64) error {
-	j.archiveMu.Lock()
-	defer j.archiveMu.Unlock()
+	return j.advancePreviousActive(ctx,remote,day,cache,reserve,false)
+}
+
+// PreservePreviousActive verifies both generations, records the older pair
+// in the QA ledger and releases the local slot without trashing anything.
+func(j *Journal) PreservePreviousActive(ctx context.Context,remote archive.ActiveRetirer,day,cache string,reserve int64)error{
+ return j.advancePreviousActive(ctx,remote,day,cache,reserve,true)
+}
+func(j *Journal) advancePreviousActive(ctx context.Context,remote archive.ActiveRetirer,day,cache string,reserve int64,preserve bool)error{
+ j.archiveMu.Lock()
+ defer j.archiveMu.Unlock()
+ mode,e:=j.ArchivePreservationDay(ctx);if e!=nil{return e}
+ if (preserve&&mode!=day)||(!preserve&&mode!=""){return ErrArchivePreservation}
 	if remote == nil || reserve <= 0 || reserve > archive.HardLimit {
 		return errors.New("remote and reserve required")
 	}
@@ -55,6 +66,10 @@ func (j *Journal) RetirePreviousActive(ctx context.Context, remote archive.Activ
 	if e = archive.VerifyPublished(ctx, remote, s.Current, true, verify); e != nil {
 		return e
 	}
+ if preserve {
+ if e=archive.VerifyPublished(ctx,remote,*s.Previous,true,verify);e!=nil{return e}
+ return j.preservePreviousRecord(ctx,day,s)
+ }
 	data, manifest, e := archive.PublishedObjects(*s.Previous, true)
 	if e != nil {
 		return e
@@ -94,6 +109,7 @@ func (j *Journal) RetirePreviousActive(ctx context.Context, remote archive.Activ
 func (j *Journal) RetireSealedActive(ctx context.Context, remote archive.ActiveRetirer, day, cache string, reserve int64) error {
 	j.archiveMu.Lock()
 	defer j.archiveMu.Unlock()
+ mode,err:=j.ArchivePreservationDay(ctx);if err!=nil{return err};if mode!=""{return ErrArchivePreservation}
 	if remote == nil || reserve <= 0 || reserve > archive.HardLimit {
 		return errors.New("remote and reserve required")
 	}
