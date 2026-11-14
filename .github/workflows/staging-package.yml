@@ -49,9 +49,23 @@ jobs:
           cd "$out"
           sha256sum marketdepth-staging day-audit *.py PHASE_7_QA_RUNBOOK.md PRODUCER_COMMIT BUILD_INFO.txt > SHA256SUMS
           sha256sum -c SHA256SUMS
+          # GitHub artifact ZIP does not preserve executable file modes.
+          # Wrap the verified directory in a tarball and test its extraction.
+          tar -czf "$RUNNER_TEMP/marketdepth-staging-linux-amd64.tar.gz" -C "$out" .
+          extracted="$(mktemp -d)"
+          tar -xzf "$RUNNER_TEMP/marketdepth-staging-linux-amd64.tar.gz" -C "$extracted"
+          cd "$extracted"
+          sha256sum -c SHA256SUMS
+          test -x marketdepth-staging && test -x day-audit
+          ./marketdepth-staging --help >/dev/null 2>&1
+          ./day-audit --help >/dev/null 2>&1
+          cd "$RUNNER_TEMP"
+          sha256sum marketdepth-staging-linux-amd64.tar.gz > marketdepth-staging-linux-amd64.tar.gz.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: marketdepth-staging-linux-amd64-${{ github.sha }}
-          path: ${{ runner.temp }}/md-staging-package/
+          path: |
+            ${{ runner.temp }}/marketdepth-staging-linux-amd64.tar.gz
+            ${{ runner.temp }}/marketdepth-staging-linux-amd64.tar.gz.sha256
           if-no-files-found: error
           retention-days: 14
