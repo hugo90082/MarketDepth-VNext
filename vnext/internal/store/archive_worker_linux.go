@@ -280,16 +280,28 @@ func (w *ArchiveWorker) publishPending(ctx context.Context, p PendingArchive) (s
 	return "daily_verified", nil
 }
 func (w *ArchiveWorker) retire(ctx context.Context, day string, m archive.Manifest, sealed bool) (string, error) {
+ mode,e:=w.j.ArchivePreservationDay(ctx);if e!=nil{return "",e}
+ if mode!=""&&(sealed||mode!=day){return "",ErrArchivePreservation}
 	n, e := restoreReserve(m)
 	if e != nil {
 		return "", e
 	}
-	release, e := w.reserve(ctx, n)
+	if mode!=""{
+ s,e:=w.j.ActiveState(ctx,day);if e!=nil{return "",e}
+ if s.Previous==nil{return "",ErrArchivePreservation}
+ prior,e:=restoreReserve(s.Previous.Manifest);if e!=nil{return "",e}
+ if prior>n{n=prior}
+ }
+ release, e := w.reserve(ctx, n)
 	if e != nil {
 		return "", e
 	}
 	defer release()
-	if sealed {
+	if mode!=""{
+ if e=w.j.PreservePreviousActive(ctx,w.remote,day,w.verify,n);e!=nil{return "",e}
+ return "active_preserved",nil
+ }
+ if sealed {
 		e = w.j.RetireSealedActive(ctx, w.remote, day, w.verify, n)
 	} else {
 		e = w.j.RetirePreviousActive(ctx, w.remote, day, w.verify, n)
@@ -311,6 +323,12 @@ func (w *ArchiveWorker) Cycle(ctx context.Context) (string, error) {
 	}
 	now := w.m.now()
 	today := model.Day(now.UnixMilli())
+ mode,e:=w.j.ArchivePreservationDay(ctx);if e!=nil{return "",e}
+ if mode!=""{
+ if today!=mode{return "",ErrArchivePreservation}
+ days,e:=w.m.archiveDays();if e!=nil{return "",e}
+ for _,d:=range days{if d!=mode{return "",ErrArchivePreservation}}
+ }
 	p, e := w.j.ArchivePending(ctx)
 	if e != nil {
 		return "", e
@@ -319,6 +337,7 @@ func (w *ArchiveWorker) Cycle(ctx context.Context) (string, error) {
 		return "", e
 	}
 	if p != nil {
+ if mode!=""&&(!p.Active||p.Snapshot.Manifest.Day!=mode){return "",ErrArchivePreservation}
 		return w.publishPending(ctx, *p)
 	}
 	if e = cleanScratch(w.stage, stageFile, "job-"); e != nil {
