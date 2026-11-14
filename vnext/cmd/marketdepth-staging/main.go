@@ -163,6 +163,7 @@ func archiveLoop(ctx context.Context, w *store.ArchiveWorker, reader *store.Arch
   }
 		wait := 15 * time.Second
 		if e != nil {
+ if errors.Is(e,store.ErrArchivePreservation){return e}
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
@@ -220,8 +221,9 @@ func capacityLoop(ctx context.Context,w *store.ArchiveWorker,r *store.ArchiveRea
   if e=service.WaitUntil(ctx,time.Now().Add(2*time.Second));e!=nil{return e}
  }
 }
-func run(ctx context.Context, root, addr, origin string, init bool, credentials, producer string, allowLoss,resumeRecovered bool) error {
-	if allowLoss && credentials==""{return errors.New("capacity loss requires isolated Drive configuration")}
+func run(ctx context.Context, root, addr, origin string, init bool, credentials, producer string, allowLoss,resumeRecovered,preserveActive bool) error {
+	if preserveActive&&(credentials==""||allowLoss||resumeRecovered){return errors.New("preserve-active-backups requires isolated Drive without forced loss or recovered resume")}
+ if allowLoss && credentials==""{return errors.New("capacity loss requires isolated Drive configuration")}
  host, _, e := net.SplitHostPort(addr)
 	if e != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
 		return errors.New("staging requires numeric loopback listen address")
@@ -265,6 +267,7 @@ func run(ctx context.Context, root, addr, origin string, init bool, credentials,
 	if e = j.Recover(ctx); e != nil {
 		return e
 	}
+ if e=j.ConfigureArchivePreservation(ctx,preserveActive,model.Day(time.Now().UnixMilli()));e!=nil{return e}
 	gate, e := service.NewCapacityGate(measure)
 	if e != nil {
 		return e
@@ -435,15 +438,16 @@ func main() {
 	allowLoss:=flag.Bool("allow-capacity-loss",false,"isolated staging only: explicitly permit permanent loss of eligible unbacked old days under pressure")
  recoverCatalog:=flag.Bool("recover-catalog",false,"read-only Drive recovery into a new isolated root; never start collection")
  resumeRecovered:=flag.Bool("resume-recovered",false,"explicitly resume a completed recovery root; requires old writer stopped and nonoverlapping day")
+ preserveActive:=flag.Bool("preserve-active-backups",false,"same-day staging QA only: preserve all verified active Drive generations; persistent policy")
  flag.Parse()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	if *recoverCatalog{
-  if !*init||*allowLoss||*resumeRecovered{log.Fatal("recovery requires --init-staging without resume or forced loss")}
+  if !*init||*allowLoss||*resumeRecovered||*preserveActive{log.Fatal("recovery requires --init-staging without resume or forced loss")}
   if e:=runRecovery(ctx,*root,*credentials,*producer);e!=nil{log.Fatal(e)}
   return
  }
- if e := run(ctx, *root, *addr, *origin, *init, *credentials, *producer,*allowLoss,*resumeRecovered); e != nil {
+ if e := run(ctx, *root, *addr, *origin, *init, *credentials, *producer,*allowLoss,*resumeRecovered,*preserveActive); e != nil {
 		log.Fatal(e)
 	}
 }
