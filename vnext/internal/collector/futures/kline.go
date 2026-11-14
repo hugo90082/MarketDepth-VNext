@@ -58,7 +58,7 @@ func ParseWSKline(raw []byte, recv int64) (model.Futures1Row, error) {
 	var w klineWire
 	var nested json.RawMessage
  if e:=binancewire.Object(raw,map[string]any{"e":&w.Event,"s":&w.Symbol,"k":&nested},nil);e!=nil{return model.Futures1Row{},e}
- if e:=binancewire.Object(nested,map[string]any{"t":&w.K.Start,"T":&w.K.End,"s":&w.K.Symbol,"i":&w.K.Interval,"x":&w.K.Closed,"o":&w.K.Open,"h":&w.K.High,"l":&w.K.Low,"c":&w.K.Close,"v":&w.K.Volume,"q":&w.K.Quote,"V":&w.K.BuyQty,"Q":&w.K.BuyQuote,"n":&w.K.Count},nil);e!=nil {
+ if e:=binancewire.Object(nested,map[string]any{"t":&w.K.Start,"T":&w.K.End,"s":&w.K.Symbol,"i":&w.K.Interval,"x":&w.K.Closed,"n":&w.K.Count},map[string]any{"o":&w.K.Open,"h":&w.K.High,"l":&w.K.Low,"c":&w.K.Close,"v":&w.K.Volume,"q":&w.K.Quote,"V":&w.K.BuyQty,"Q":&w.K.BuyQuote});e!=nil {
 		return model.Futures1Row{}, e
 	}
 	k := w.K
