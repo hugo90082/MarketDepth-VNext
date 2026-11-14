@@ -441,3 +441,12 @@ func TestDriveMIMEAliasesAreNarrow(t *testing.T){
   {"active/a.sqlite.gz","application/octet-stream","application/pdf",false},
  }{if compatibleMIME(x.key,x.expected,x.actual)!=x.want{t.Fatal(x)}}
 }
+
+func TestDriveSafeDiagnostic(t *testing.T){
+ req,e:=http.NewRequest("PUT","https://www.googleapis.com/upload/drive/v3/files?upload_id=PRIVATE_SESSION",nil);if e!=nil{t.Fatal(e)}
+ res:=&http.Response{StatusCode:403,Request:req,Header:http.Header{}}
+ s:=SafeDiagnostic(fmt.Errorf("PRIVATE_SECRET: %w",responseStatus(res)))
+ if s!="drive_http=403 method=PUT endpoint=upload"{t.Fatal(s)}
+ if s=SafeDiagnostic(identityError{"mime"});s!="drive_identity_field=mime"{t.Fatal(s)}
+ if s=SafeDiagnostic(fmt.Errorf("PRIVATE_SECRET"));s!="detail=withheld"{t.Fatal(s)}
+}
