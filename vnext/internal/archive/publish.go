@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/legacyproof"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"
 )
 
@@ -76,8 +77,19 @@ func HourGeneration(t time.Time) string {
 
 func manifestKeys(m Manifest, active bool) (string, string, error) {
 	a, e := time.ParseInLocation("2006-01-02", m.Day, time.FixedZone("UTC+8", 8*3600))
-	if e != nil || m.Day != a.Format("2006-01-02") || m.ContractID != model.Contract || m.Timezone != model.Timezone || m.From != a.UnixMilli() || m.To != a.Add(24*time.Hour).UnixMilli() || m.Revision < 1 || m.DataOrigin != "live" || m.ProducerCommit == "" || len(m.ProducerCommit) > 128 || !safeID(m.Generation) || len(m.Generation) > 80 || !validDigest(m.SHA256) || !validDigest(m.RawSHA256) || m.Size <= 0 || m.RawSize <= 0 || m.Size > HardLimit || m.RawSize > HardLimit-m.Size {
+	if e != nil || m.Day != a.Format("2006-01-02") || m.ContractID != model.Contract || m.Timezone != model.Timezone || m.From != a.UnixMilli() || m.To != a.Add(24*time.Hour).UnixMilli() || m.Revision < 1 || m.ProducerCommit == "" || len(m.ProducerCommit) > 128 || !safeID(m.Generation) || len(m.Generation) > 80 || !validDigest(m.SHA256) || !validDigest(m.RawSHA256) || m.Size <= 0 || m.RawSize <= 0 || m.Size > HardLimit || m.RawSize > HardLimit-m.Size {
 		return "", "", errors.New("invalid publication manifest")
+	}
+	if m.DataOrigin == "legacy" {
+		if active || m.Revision != 1 || m.Generation != "legacy-r1" || m.LegacyProof == nil || m.SealedAt == nil || *m.SealedAt < m.LegacyProof.CutoverMS || m.LegacyProof.Day != m.Day || m.LegacyProof.ValidateV66() != nil {
+			return "", "", errors.New("invalid sealed legacy manifest")
+		}
+		_, digest, e := legacyproof.CanonicalLegacyProof(*m.LegacyProof)
+		if e != nil || digest != m.LegacyProofSHA256 || m.RowCounts["spot_depth"] != m.LegacyProof.UniqueSpot || m.RowCounts["futures_1m"] != m.LegacyProof.UniqueFutures1m || m.RowCounts["futures_10s"] != 0 || m.RowCounts["events"] != 0 {
+			return "", "", errors.New("legacy manifest proof mismatch")
+		}
+	} else if m.DataOrigin != "live" || m.LegacyProof != nil || m.LegacyProofSHA256 != "" {
+		return "", "", errors.New("invalid live origin/proof")
 	}
 	var base string
 	if active {
@@ -131,8 +143,24 @@ func (r *countedReader) Read(p []byte) (int, error) {
 // local or remote files are removed. Retry with the identical manifest/body.
 // Network/SQLite verification must run outside the collector writer lock.
 func PublishSealed(ctx context.Context, remote RemoteObjects, manifest Manifest, body io.Reader, verify SnapshotVerifier) (Publication, error) {
+	if manifest.DataOrigin != "live" {
+		return Publication{}, errors.New("live publisher rejects legacy")
+	}
 	return publishSnapshot(ctx, remote, manifest, body, verify, false)
 }
+
+// PublishLegacySealed is only the immutable transport primitive. The store
+// entry point must independently verify the prepared local SQLite and approved
+// placement before calling; no production command invokes this primitive.
+func PublishLegacySealed(ctx context.Context, remote RemoteObjects, manifest Manifest, body io.Reader, verify SnapshotVerifier) (Publication, error) {
+	if manifest.DataOrigin != "legacy" {
+		return Publication{}, errors.New("legacy publisher requires historical origin")
+	}
+	return publishSnapshot(ctx, remote, manifest, body, verify, false)
+}
+
+// ValidateSealedManifest checks the exact sealed key/identity without a file ID.
+func ValidateSealedManifest(m Manifest) error { _, _, e := manifestKeys(m, false); return e }
 
 // PublishActive verifies a new immutable hourly generation; it never overwrites
 // the previous generation and does not itself authorize retirement.

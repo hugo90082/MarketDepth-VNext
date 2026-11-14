@@ -3,6 +3,7 @@ package archive
 
 import (
 	"context"
+	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/legacyproof"
 	"io"
 )
 
@@ -27,6 +28,8 @@ type Manifest struct {
 	RawSize           int64                       `json:"raw_size"`
 	RawSHA256         string                      `json:"raw_sha256"`
 	ProducerCommit    string                      `json:"producer_commit"`
+	LegacyProof       *legacyproof.LegacyDayProof `json:"legacy_proof,omitempty"`
+	LegacyProofSHA256 string                      `json:"legacy_proof_sha256,omitempty"`
 	SealedAt          *int64                      `json:"sealed_at"`
 }
 
