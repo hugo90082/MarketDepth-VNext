@@ -304,8 +304,16 @@ func (c *Client) load(key string) (reservation, bool, error) {
 	}
 	return r, true, nil
 }
+// Drive may infer either registered or historical gzip MIME for a SQLite
+// gzip upload. Keep the reservation MIME unchanged for exact retries.
+// No alias is allowed for JSON manifests, folders or arbitrary objects.
+func compatibleMIME(key, expected, actual string) bool {
+ if expected == actual {return true}
+ return expected == "application/octet-stream" && strings.HasSuffix(key,".sqlite.gz") && (actual == "application/gzip" || actual == "application/x-gzip")
+}
+
 func (c *Client) check(f file, r reservation, name string) error {
-	if f.ID != r.ID || f.Trashed || f.Name != name || f.MIME != r.MIME || len(f.Parents) != 1 || f.Parents[0] != r.Parent || f.Props["md_key"] != r.Key || f.Props["md_ns"] != c.namespace {
+	if f.ID != r.ID || f.Trashed || f.Name != name || !compatibleMIME(r.Key,r.MIME,f.MIME) || len(f.Parents) != 1 || f.Parents[0] != r.Parent || f.Props["md_key"] != r.Key || f.Props["md_ns"] != c.namespace {
 		return errors.New("Drive object identity conflict")
 	}
 	if r.MIME == folderType {
