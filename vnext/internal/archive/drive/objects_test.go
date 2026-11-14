@@ -421,11 +421,11 @@ func TestDriveGzipMIMEInferenceAcrossRetryAndRecovery(t *testing.T){
   if e!=nil||len(placement)!=1||placement[0].ID!=o.ID{t.Fatal(placement,e)}
   x:=f.files[o.ID];x.MIME="application/pdf";f.files[o.ID]=x
   if _,e=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("wrong MIME accepted")}
-  if _,body,e=rr.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("wrong recovery MIME accepted")}
+  if _,body,e:=rr.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("wrong recovery MIME accepted")}
   if _,e=rr.DiscoverPlacementObjects(ctx);e==nil{t.Fatal("wrong placement MIME accepted")}
   if e=c.TrashActiveObject(ctx,o);e==nil{t.Fatal("wrong MIME retirement accepted")}
   x.MIME=mime;goodSHA:=x.SHA;x.SHA=hash([]byte("different"));f.files[o.ID]=x
-  if _,body,e=c.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("wrong hash accepted")}
+  if _,body,e:=c.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("wrong hash accepted")}
   x.SHA=goodSHA;f.files[o.ID]=x
   if e=c.TrashActiveObject(ctx,o);e!=nil{t.Fatal(e)}
   if !f.files[o.ID].Trashed{t.Fatal("retirement failed")}
