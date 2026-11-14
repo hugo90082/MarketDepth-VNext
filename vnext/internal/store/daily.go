@@ -122,6 +122,7 @@ func OpenDaily(ctx context.Context, db *sql.DB, day string) (*Daily, error) {
 			return nil, e
 		}
 	}
+	if e := rejectFixtureMeta(ctx, db); e != nil { return nil, e }
 	// Validate all tables' actual columns, not only user_version.
 	for k, expected := range columns {
 		rs, e := db.QueryContext(ctx, "PRAGMA table_info("+string(k)+")")
@@ -398,4 +399,14 @@ func (d *Daily) DumpDayRows(ctx context.Context, k model.Kind, w io.Writer) erro
 		}
 	}
 	return rs.Err()
+}
+
+
+// Fixture-only metadata must never enter the production reader/writer or
+// archival paths, even if a fixture file is renamed or its origin relabeled.
+func rejectFixtureMeta(ctx context.Context, q queryRower) error {
+ var n int
+ if e:=q.QueryRowContext(ctx,"SELECT count(*) FROM meta WHERE key='fixture_only'").Scan(&n);e!=nil{return e}
+ if n!=0{return errors.New("fixture-only database refused by live storage")}
+ return nil
 }
