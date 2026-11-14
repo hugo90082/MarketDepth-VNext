@@ -79,9 +79,41 @@ func InspectPlacement(ctx context.Context,local placementLocal,remote placementR
   os:=append([]drive.PlacementObject{},byDay[p.Day]...)
   sort.Strings(rs)
   sort.Slice(os,func(i,j int)bool{return os[i].Key<os[j].Key})
+  end,e:=time.ParseInLocation("2006-01-02",p.Day,time.FixedZone("UTC+8",8*3600));if e!=nil{return zero,e}
+  if p.LocalClear&&end.Add(24*time.Hour).UnixMilli()>cutover{return zero,errors.New("local clear crosses cutover")}
   status:="candidate_for_review"
   if len(rs)>0||len(os)>0{status="blocked"}
   out.Days=append(out.Days,DayPlacement{p.Day,rs,os,status})
  }
  return out,nil
+}
+
+
+// CanonicalPlacementReport binds the advisory observation to a stable hash.
+// It rejects an inconsistent or purportedly approved report; it cannot
+// verify that a caller-supplied observation is truthful or still current.
+func CanonicalPlacementReport(r PlacementReport)([]byte,string,error){
+ if r.Version!="legacy-placement-review-v1"||r.Namespace!="MarketDepth-VNext-staging"||r.PublicationApproved||r.CutoverMS<=0||r.StartedAtMS<r.CutoverMS||r.FinishedAtMS<r.StartedAtMS||len(r.Days)==0||len(r.Days)>366||r.ObservedRemoteCount<0||r.ObservedRemoteCount>50000{return nil,"",errors.New("invalid advisory report")}
+ seenKey,seenID:=map[string]bool{},map[string]bool{}
+ last:=""
+ for _,d:=range r.Days{
+  a,e:=time.ParseInLocation("2006-01-02",d.Day,time.FixedZone("UTC+8",8*3600))
+  if e!=nil||a.Format("2006-01-02")!=d.Day||d.Day<=last||d.LocalReasons==nil||d.RemoteObjects==nil{return nil,"",errors.New("invalid report day")}
+  last=d.Day
+  blocked:=len(d.LocalReasons)>0||len(d.RemoteObjects)>0
+  if (blocked&&d.Status!="blocked")||(!blocked&&d.Status!="candidate_for_review")||(!blocked&&a.Add(24*time.Hour).UnixMilli()>r.CutoverMS){return nil,"",errors.New("invalid placement disposition")}
+  prior:=""
+  for _,s:=range d.LocalReasons{
+   if s<=prior{return nil,"",errors.New("invalid local reasons")}
+   prior=s
+  }
+  prior=""
+  for _,o:=range d.RemoteObjects{
+   if o.Day!=d.Day||!strings.HasPrefix(path.Base(o.Key),d.Day+".")||o.Key<=prior||o.ID==""||seenID[o.ID]||seenKey[o.Key]{return nil,"",errors.New("invalid remote observation")}
+   prior=o.Key;seenID[o.ID],seenKey[o.Key]=true,true
+  }
+ }
+ if len(seenKey)>r.ObservedRemoteCount{return nil,"",errors.New("inconsistent remote count")}
+ b,e:=json.Marshal(r);if e!=nil{return nil,"",e}
+ return b,hash(b),nil
 }
