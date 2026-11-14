@@ -49,7 +49,7 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 		out := []file{}
 		query := q.Get("q")
 		for _, x := range f.files {
-			if !x.Trashed && strings.Contains(query, "key='md_ns' and value='"+x.Props["md_ns"]+"'") && ((strings.Contains(query, "mimeType = 'application/json'") && x.MIME=="application/json") || (strings.Contains(query, "'"+x.Parents[0]+"' in parents") && strings.Contains(query, "key='md_key' and value='"+x.Props["md_key"]+"'"))) {
+			if !x.Trashed && strings.Contains(query, "key='md_ns' and value='"+x.Props["md_ns"]+"'") && ((!strings.Contains(query, " in parents") && !strings.Contains(query, "mimeType =")) || (strings.Contains(query, "mimeType = 'application/json'") && x.MIME=="application/json") || (strings.Contains(query, "'"+x.Parents[0]+"' in parents") && strings.Contains(query, "key='md_key' and value='"+x.Props["md_key"]+"'"))) {
 				out = append(out, x)
 				if f.duplicate && x.MIME != folderType {
 					out = append(out, x)
@@ -328,4 +328,26 @@ func TestReadOnlyRecoveryWithoutLocalReservations(t *testing.T){
  f.duplicate=false
  x:=f.files[o.ID];x.Parents=[]string{"unrelated-folder"};f.files[o.ID]=x
  if _,body,e=r.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("moved object accepted")}
+}
+
+
+func TestDiscoverPlacementIncludesOrphanData(t *testing.T){
+ c,f,_:=setup(t);ctx:=context.Background()
+ b:=[]byte("opaque data")
+ k:="historical/2026/11/2026-11-13.r1.sqlite.gz"
+ o,e:=c.PutImmutable(ctx,k,int64(len(b)),hash(b),bytes.NewReader(b));if e!=nil{t.Fatal(e)}
+ seq,uploads:=f.seq,f.uploads
+ dir:=t.TempDir();os.Chmod(dir,0700)
+ fresh:=testClient(t,f,dir).RecoveryReader()
+ meta,e:=fresh.Discover(ctx);if e!=nil||len(meta)!=0{t.Fatal(meta,e)}
+ got,e:=fresh.DiscoverPlacementObjects(ctx)
+ if e!=nil||len(got)!=1||got[0]!=(PlacementObject{"2026-11-13",k,o.ID}){t.Fatal(got,e)}
+ entries,e:=os.ReadDir(dir);if e!=nil||len(entries)!=0||seq!=f.seq||uploads!=f.uploads{t.Fatal("placement read has side effects",entries,e)}
+ f.duplicate=true
+ if _,e=fresh.DiscoverPlacementObjects(ctx);e==nil{t.Fatal("duplicate archive placement accepted")}
+ f.duplicate=false
+ x:=f.files[o.ID]
+ x.Props["md_key"]="historical/2026/10/2026-11-13.r1.sqlite.gz"
+ f.files[o.ID]=x
+ if _,e=fresh.DiscoverPlacementObjects(ctx);e==nil{t.Fatal("wrong archive parent date accepted")}
 }
