@@ -29,7 +29,7 @@ go build -tags sqlite_integration -o /tmp/md-day-audit ./cmd/day-audit
   --day 2026-11-13 --raw-sha256 "$VERIFIED_RAW_SHA" \
   --producer-commit "$VERIFIED_PRODUCER" > /absolute/qa/day-2026-11-13.json
 ```
-結果含每個 stream 的 expected/present/absent、精確缺格區間、status、可用延遲 P50/P95/max（spot 相對目標 t；futures 相對 bar close）、每側 observed/trusted 750bps、五區 paired trusted、0–750 全區非 NULL 且雙側 trusted 的分鐘。ALL4 指標只計同資產同分鐘至少兩家 paired complete750；它不是策略訊號，也沒有自動評定市場可用率合格。核對事件、collector 及 archive log 的原因，另比對舊版同時窗/區間及 Binance 750bps。沒有來源證明不可稱真實 live。
+結果含每個 stream 的 expected/present/absent、精確缺格區間、status、可用延遲 P50/P95/max（spot 相對目標 t；futures 相對 bar close）、每側 observed/trusted 750bps、五區 paired trusted、0–750 全區非 NULL 且雙側 trusted 的分鐘。ALL4 指標只計同資產同分鐘至少兩家 paired complete750；它不是策略訊號，也沒有自動評定市場可用率合格。核對事件、collector 及 archive log 的原因，核對新版逐流各區各側有效覆蓋及 Binance observed/trusted 750bps；不再要求與舊版同時窗數值比較。沒有來源證明不可稱真實 live。
 
 ## 4. 資源取樣
 `tools/resource_probe.py` 為 Linux 單次唯讀觀測，取樣者需知道 staging 程序的 PID 與 start ticks。先人工核對該 PID 確為此 run 的 staging binary（例如 readlink /proc/PID/exe，檢查 binary hash），不要記錄可能含敏感資訊的完整環境或 command line。
@@ -76,3 +76,6 @@ python3 tools/phase7_evidence.py --resources /absolute/qa/resource.jsonl \
   --day-audit /absolute/qa/day-2026-11-14.json > /absolute/qa/evidence.json
 ```
 只列實際完整觀測日，例示日期不代表真實測試結果。報告重算 resource summary、原始證據 SHA、UTC+8 完整日清單及 18 streams 的數量、status、缺格、延遲統計、覆蓋計數一致性；缺完整日、取樣不連續、容量違規、缺格、missing rows 都有明確 review blocker。起點以 first_target 為準，末端以最後 resource sample 為保守觀測邊界，部分日不納入 full-day 缺格判斷。必須另確認 collector 在整個窗口確實運作；resource probe 本身不能證明資料程序身分、日庫內容與此 run 的因果關係。匯總的 day JSON 是結構稽核證據，雜湊不能取代獨立 manifest/raw verification；不得使用人造報告當真結果。人工必須審查所有列出的 evidence（交易所、合約、事件、OOM、容量、Drive、API、舊服務、歷史），未授權時不執行。輸出永遠 production_ready=false/deployment_approved=false/cutover_approved=false，不存在自動上線路徑。
+
+## 驗收範圍修訂（2026-11-15；優先於前文）
+2026-11-15 使用者決議：取消舊／新收集器同時窗深度金額逐筆偏差、相關性及聚合數值一致性比較作為 Phase 2/7 驗收門檻；不同捕獲時間及訂單簿覆蓋天然有差異。保留新版自身的18流到期主鍵完整性、逐交易所/商品/區間/側的實際非NULL覆蓋、status與失敗原因、交易對/現貨合約/單位/區間及時間對齊正確性、finite/nonnegative/NULL與0、observed與trusted區分、ALL4同側完整paired集合至少2家等既有資料品質規則。不得將present/missing占位列當有效行情或把observed750當trusted750；若有效覆蓋不足或出現異常，依證據個別處理，不設定任意新數值門檻。此決議只免除跨版本行情數值比較，不免除原始歷史映射逐列核對、備份復原逐列一致性、歷史與新資料時間重疊/缺口檢查、跨日資源/API/Drive/OAuth/前端/正式切換等既有門檻。現行24h測試不改binary、監控、資源及運行時間；待其真實結果完成最終Phase2/7資料品質驗收。
