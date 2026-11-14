@@ -65,3 +65,20 @@ func TestFixtureVerificationRejectsChangedContentEvenWithNewHash(t *testing.T){
   })
  }
 }
+
+func TestReadOnlyFixtureLedgerReopen(t *testing.T){
+ ctx:=context.Background()
+ rawRoot,source,sha:=makeRawStage(t,fixtureLine(t,spot()))
+ s,e:=VerifyRawStage(ctx,rawRoot,source,sha,1<<20);if e!=nil{t.Fatal(e)}
+ defer s.Close()
+ ledgerRoot:=filepath.Join(t.TempDir(),"ledger")
+ l,e:=CreateLedger(ledgerRoot);if e!=nil{t.Fatal(e)}
+ if _,e=l.MapVerifiedFixture(ctx,s);e!=nil{l.Close();t.Fatal(e)}
+ root:=filepath.Join(t.TempDir(),"days")
+ want,e:=l.GenerateFixtureDays(ctx,s,root);if e!=nil{l.Close();t.Fatal(e)}
+ if e=l.Close();e!=nil{t.Fatal(e)}
+ ro,e:=OpenFixtureLedgerReadOnly(ctx,ledgerRoot);if e!=nil{t.Fatal(e)}
+ defer ro.Close()
+ got,e:=ro.VerifyFixtureDays(ctx,s,root);if e!=nil||got!=want{t.Fatal(got,want,e)}
+ if _,e=ro.db.Exec("DELETE FROM candidate");e==nil{t.Fatal("read-only ledger accepted write")}
+}
