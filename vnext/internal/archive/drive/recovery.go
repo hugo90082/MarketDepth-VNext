@@ -153,3 +153,10 @@ func(r *RecoveryReader) DiscoverPlacementObjects(ctx context.Context)([]Placemen
  }
  return nil,errors.New("placement listing page limit")
 }
+
+
+// PlacementNamespace exposes only the logical namespace, not credentials.
+func(r *RecoveryReader) PlacementNamespace() string {
+ if r==nil||r.c==nil{return ""}
+ return r.c.namespace
+}
