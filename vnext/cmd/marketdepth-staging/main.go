@@ -141,7 +141,9 @@ func stagingDrive(root, credentials, producer string) (*drive.Client, error) {
 	if e != nil {
 		return nil, e
 	}
-	tokens, e := drive.NewTokenSource(cred)
+	tokens, e := drive.NewObservedTokenSource(cred,func(event drive.TokenEvent){
+ log.Printf("drive oauth: grant_success=%d expires_in_seconds=%d",event.Grant,event.ExpiresInSeconds)
+ })
 	if e != nil {
 		return nil, e
 	}
