@@ -72,6 +72,9 @@ type BinanceCut struct {
 	Last                   uint64
 	Depth                  Depth
 	TrustedBid, TrustedAsk *float64
+ SnapshotBidEdge, SnapshotAskEdge, CertifiedBidEdge, CertifiedAskEdge float64
+ SnapshotLast uint64
+ RefreshCount int
 	Reason                 string
 }
 
@@ -88,6 +91,9 @@ type BinanceBook struct {
 	ready                                bool
 	reason                               string
 	bidEdge, askEdge, bidFloor, askFloor float64
+ snapshotBidEdge,snapshotAskEdge float64
+ snapshotLast uint64
+ refreshCount int
 	cuts                                 map[int64]BinanceCut
 }
 
@@ -110,6 +116,9 @@ func (b *BinanceBook) freezeBefore(at int64) {
 			if e == nil && insideTrustedBBO(d,b.bidEdge,b.askEdge) {
 				c.Depth = d
 				c.TrustedBid, c.TrustedAsk = trusted(d, b.bidEdge, b.askEdge)
+ c.SnapshotBidEdge,c.SnapshotAskEdge=b.snapshotBidEdge,b.snapshotAskEdge
+ c.CertifiedBidEdge,c.CertifiedAskEdge=b.bidEdge,b.askEdge
+ c.SnapshotLast,c.RefreshCount=b.snapshotLast,b.refreshCount
 				c.Reason = ""
 			} else {
 				c.Reason = "invalid_or_unproven_bbo"
@@ -220,6 +229,9 @@ func (b *BinanceBook) Install(at int64, s BinanceSnapshot, ds []BinanceDelta, re
 	b.last = last
 	b.lastData = at
 	b.refreshAt = at
+ b.snapshotBidEdge,b.snapshotAskEdge=bidEdge,askEdge
+ b.snapshotLast=s.Last
+ if refresh {b.refreshCount++}else{b.refreshCount=0}
 	if refresh {
 		bidEdge=math.Min(bidEdge,priorBid)
 		askEdge=math.Max(askEdge,priorAsk)
