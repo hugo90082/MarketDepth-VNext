@@ -85,6 +85,7 @@ func InspectPlacement(ctx context.Context,local placementLocal,remote placementR
   if len(rs)>0||len(os)>0{status="blocked"}
   out.Days=append(out.Days,DayPlacement{p.Day,rs,os,status})
  }
+ if _,_,e=CanonicalPlacementReport(out);e!=nil{return zero,e}
  return out,nil
 }
 
@@ -116,4 +117,20 @@ func CanonicalPlacementReport(r PlacementReport)([]byte,string,error){
  if len(seenKey)>r.ObservedRemoteCount{return nil,"",errors.New("inconsistent remote count")}
  b,e:=json.Marshal(r);if e!=nil{return nil,"",e}
  return b,hash(b),nil
+}
+
+
+// MatchProofPlacement binds the detached source proof to the specific
+// advisory observation and checks its day and cutover. No publication grant.
+func MatchProofPlacement(p LegacyDayProof,r PlacementReport)error{
+ if e:=p.Validate();e!=nil{return e}
+ _,digest,e:=CanonicalPlacementReport(r);if e!=nil{return e}
+ if digest!=p.PlacementReportSHA256||p.CutoverMS!=r.CutoverMS{return errors.New("proof placement digest or cutover differs")}
+ for _,d:=range r.Days{
+  if d.Day==p.Day{
+   if d.Status!="candidate_for_review"{return errors.New("proof day placement blocked")}
+   return nil
+  }
+ }
+ return errors.New("proof day absent from placement report")
 }
