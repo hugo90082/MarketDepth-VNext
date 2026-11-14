@@ -136,12 +136,22 @@ func (c *Client) request(ctx context.Context, method, u string, body io.Reader, 
 type statusError struct {
 	code       int
 	retryAfter time.Duration
+ method, endpoint string
 }
 
 func (s statusError) Error() string { return fmt.Sprintf("Drive HTTP %d", s.code) }
 func status(e error, s int) bool    { var x statusError; return errors.As(e, &x) && x.code == s }
 func responseStatus(res *http.Response) statusError {
 	s := statusError{code: res.StatusCode}
+ if res.Request!=nil&&res.Request.URL!=nil{
+  switch res.Request.Method{case "GET","POST","PUT","PATCH":s.method=res.Request.Method}
+  switch path:=res.Request.URL.Path;{
+  case path=="/drive/v3/files":s.endpoint="files"
+  case path=="/drive/v3/files/generateIds":s.endpoint="generate_ids"
+  case strings.HasPrefix(path,"/drive/v3/files/"):s.endpoint="file_by_id"
+  case path=="/upload/drive/v3/files":s.endpoint="upload"
+  }
+ }
 	v := strings.TrimSpace(res.Header.Get("Retry-After"))
 	if v == "" {
 		return s
@@ -312,16 +322,30 @@ func compatibleMIME(key, expected, actual string) bool {
  return expected == "application/octet-stream" && strings.HasSuffix(key,".sqlite.gz") && (actual == "application/gzip" || actual == "application/x-gzip")
 }
 
+type identityError struct{ field string }
+func(e identityError)Error()string{return "Drive object identity conflict: "+e.field}
+
+// SafeDiagnostic never includes remote response bodies, URLs, IDs, token
+// strings, local paths or arbitrary wrapped error messages.
+func SafeDiagnostic(err error)string{
+ var s statusError
+ if errors.As(err,&s){return fmt.Sprintf("drive_http=%d method=%s endpoint=%s",s.code,s.method,s.endpoint)}
+ var i identityError
+ if errors.As(err,&i){return "drive_identity_field="+i.field}
+ return "detail=withheld"
+}
+
 func (c *Client) check(f file, r reservation, name string) error {
-	if f.ID != r.ID || f.Trashed || f.Name != name || !compatibleMIME(r.Key,r.MIME,f.MIME) || len(f.Parents) != 1 || f.Parents[0] != r.Parent || f.Props["md_key"] != r.Key || f.Props["md_ns"] != c.namespace {
-		return errors.New("Drive object identity conflict")
+ if !compatibleMIME(r.Key,r.MIME,f.MIME){return identityError{"mime"}}
+	if f.ID != r.ID || f.Trashed || f.Name != name || len(f.Parents) != 1 || f.Parents[0] != r.Parent || f.Props["md_key"] != r.Key || f.Props["md_ns"] != c.namespace {
+		return identityError{"id_name_parent_namespace_or_trash"}
 	}
 	if r.MIME == folderType {
 		return nil
 	}
 	n, e := strconv.ParseInt(f.Size, 10, 64)
 	if e != nil || n != r.Size || f.Props["md_sha256"] != r.SHA || (f.SHA != "" && f.SHA != r.SHA) {
-		return errors.New("Drive object size/hash conflict")
+		return identityError{"size_or_hash"}
 	}
 	return nil
 }
