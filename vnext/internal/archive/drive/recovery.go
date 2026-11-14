@@ -10,6 +10,7 @@ import(
  "sort"
  "strconv"
  "strings"
+ "time"
 
  "github.com/hugo90082/MarketDepth-VNext/vnext/internal/archive"
 )
@@ -103,4 +104,52 @@ func(r *RecoveryReader) Discover(ctx context.Context)([]archive.Object,error){
   tokens[page.Next]=true;v.Set("pageToken",page.Next)
  }
  return nil,errors.New("recovery listing page limit")
+}
+
+
+// PlacementObject is an observed archive namespace collision, not a
+// verified archive. Both compressed data and metadata reserve a day.
+type PlacementObject struct {
+ Day string `json:"day"`
+ Key string `json:"key"`
+ ID string `json:"id"`
+}
+
+// DiscoverPlacementObjects includes orphan bulk data that Discover (which
+// is deliberately metadata-only for recovery) does not list. It performs
+// only GET requests. The namespace appProperties listing is scoped to the
+// granted Drive access; it is not evidence of globally absent files or
+// permission to publish. Unknown archive keys fail closed.
+func(r *RecoveryReader) DiscoverPlacementObjects(ctx context.Context)([]PlacementObject,error){
+ if r==nil||r.c==nil{return nil,errors.New("recovery client required")}
+ c:=r.c
+ q:=fmt.Sprintf("trashed = false and appProperties has { key='md_ns' and value='%s' }",c.namespace)
+ v:=url.Values{"q":{q},"fields":{"nextPageToken,incompleteSearch,files("+fields+")"},"pageSize":{"100"},"spaces":{"drive"},"corpora":{"user"}}
+ seen,ids,tokens:=map[string]bool{},map[string]bool{},map[string]bool{}
+ out:=[]PlacementObject{}
+ for i:=0;i<500;i++{
+  var page struct{Next string `json:"nextPageToken"`;Incomplete bool `json:"incompleteSearch"`;Files []file `json:"files"`}
+  if e:=c.json(ctx,"GET","/drive/v3/files",v,nil,&page);e!=nil{return nil,e}
+  if page.Incomplete||len(page.Files)>100{return nil,errors.New("incomplete placement listing")}
+  for _,f:=range page.Files{
+   if f.Trashed||f.Props["md_ns"]!=c.namespace{return nil,errors.New("foreign placement listing result")}
+   key:=f.Props["md_key"]
+   if !strings.HasPrefix(key,"historical/")&&!strings.HasPrefix(key,"active/")&&!strings.HasPrefix(key,"catalog/loss/"){continue}
+   if !validKey(key)||!recoveryKey.MatchString(key)||!identifier(f.ID)||seen[key]||ids[f.ID]{return nil,errors.New("invalid or duplicate archive placement key")}
+   pieces:=strings.Split(key,"/")
+   name:=pieces[len(pieces)-1]
+   day:=name[:10]
+   if a,e:=time.Parse("2006-01-02",day);e!=nil||a.Format("2006-01-02")!=day{return nil,errors.New("invalid archive placement date")}
+   if pieces[0]=="historical"&&(pieces[1]!=day[:4]||pieces[2]!=day[5:7]){return nil,errors.New("archive placement parent date mismatch")}
+   mime:="application/octet-stream";if strings.HasSuffix(key,".json"){mime="application/json"}
+   n,e:=strconv.ParseInt(f.Size,10,64);h:=f.Props["md_sha256"]
+   if e!=nil||n<=0||n>archive.HardLimit||!digestOK(h)||f.MIME!=mime||f.Name!=name||(f.SHA!=""&&f.SHA!=h){return nil,errors.New("invalid archive placement metadata")}
+   seen[key],ids[f.ID]=true,true
+   out=append(out,PlacementObject{day,key,f.ID})
+  }
+  if page.Next==""{sort.Slice(out,func(i,j int)bool{return out[i].Key<out[j].Key});return out,nil}
+  if tokens[page.Next]||len(page.Next)>4096{return nil,errors.New("invalid placement page token")}
+  tokens[page.Next]=true;v.Set("pageToken",page.Next)
+ }
+ return nil,errors.New("placement listing page limit")
 }
