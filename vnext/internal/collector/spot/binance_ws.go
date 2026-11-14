@@ -4,7 +4,6 @@ package spot
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/gorilla/websocket"
 	"net/http"
@@ -92,28 +91,9 @@ func (f *BinanceFeed) runConnection(ctx context.Context, report func(string)) er
 			_, raw, e := c.ReadMessage()
 			if e == nil {
 				_ = c.SetReadDeadline(time.Now().Add(90 * time.Second))
-				var m struct {
-					Event  string     `json:"e"`
-					Symbol string     `json:"s"`
-					First  uint64     `json:"U"`
-					Last   uint64     `json:"u"`
-					Bids   [][]string `json:"b"`
-					Asks   [][]string `json:"a"`
-				}
-				e = json.Unmarshal(raw, &m)
-				if e == nil && (m.Event != "depthUpdate" || m.Symbol != Symbol("binance", f.asset)) {
-					e = errors.New("unexpected Binance message")
-				}
-				if e == nil {
-					var b, a []Level
-					b, e = parseBinanceLevels(m.Bids, true)
-					if e == nil {
-						a, e = parseBinanceLevels(m.Asks, true)
-					}
-					if e == nil {
-						e = session.onDelta(BinanceDelta{m.First, m.Last, b, a})
-					}
-				}
+				var d BinanceDelta
+				d,e=decodeBinanceDelta(raw,f.asset)
+				if e==nil{e=session.onDelta(d)}
 			}
 			if e != nil {
 				session.fail("websocket_or_sequence_failure")
