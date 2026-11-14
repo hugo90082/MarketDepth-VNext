@@ -209,12 +209,7 @@ func (m *Manager) Get(ctx context.Context, k model.Kind, key model.Key) (model.R
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
-	for name, want := range map[string]string{"day": day, "contract_id": model.Contract, "timezone": model.Timezone} {
-		var got string
-		if err = db.QueryRowContext(ctx, "SELECT value FROM meta WHERE key=?", name).Scan(&got); err != nil || got != want {
-			return nil, fmt.Errorf("reader metadata mismatch: %s", name)
-		}
-	}
+	if err=validateDayMetadata(ctx,db,day);err!=nil{return nil,err}
 	return readRow(ctx, db, k, key)
 }
 func (m *Manager) Close() error {
@@ -273,12 +268,7 @@ func (m *Manager) GetMany(ctx context.Context, keys []JournalKey) ([]model.Row, 
 			}
 			defer db.Close()
 			db.SetMaxOpenConns(1)
-			for name, want := range map[string]string{"day": day, "contract_id": model.Contract, "timezone": model.Timezone} {
-				var got string
-				if e = db.QueryRowContext(ctx, "SELECT value FROM meta WHERE key=?", name).Scan(&got); e != nil || got != want {
-					return fmt.Errorf("reader metadata mismatch: %s", name)
-				}
-			}
+			if e=validateDayMetadata(ctx,db,day);e!=nil{return e}
 			tx, e := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 			if e != nil {
 				return e
