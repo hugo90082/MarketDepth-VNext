@@ -89,3 +89,20 @@ func(l *Ledger)Add(ctx context.Context,ev Evidence,k model.Kind,b []byte)(Admiss
  if e=tx.Commit();e!=nil{return Admission{},e}
  return out,nil
 }
+
+
+// OpenFixtureLedgerReadOnly reopens an offline ledger for independent QA.
+// WalkFixturePlan still revalidates all source evidence and completion state.
+func OpenFixtureLedgerReadOnly(ctx context.Context,root string)(*Ledger,error){
+ path,e:=filepath.Abs(filepath.Join(root,LedgerName));if e!=nil{return nil,e}
+ st,e:=os.Lstat(path);if e!=nil||!st.Mode().IsRegular(){return nil,errors.New("regular candidate ledger required")}
+ for _,suffix:=range []string{"-wal","-shm","-journal"}{
+  if _,e=os.Lstat(path+suffix);!errors.Is(e,os.ErrNotExist){return nil,errors.New("candidate ledger sidecar present")}
+ }
+ uri:=url.URL{Scheme:"file",Path:path,RawQuery:"mode=ro&_query_only=1"}
+ db,e:=sql.Open("sqlite3",uri.String());if e!=nil{return nil,e}
+ db.SetMaxOpenConns(1)
+ var check string
+ if e=db.QueryRowContext(ctx,"PRAGMA quick_check").Scan(&check);e!=nil||check!="ok"{db.Close();return nil,errors.New("candidate ledger integrity failure")}
+ return &Ledger{db},nil
+}
