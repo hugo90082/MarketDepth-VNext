@@ -38,6 +38,7 @@ jobs:
           go build -tags live_ws,sqlite_integration ./cmd/spotprobe
           go build -tags live_ws,sqlite_integration ./cmd/futuresprobe
           go build ./cmd/marketdepth
+          go build -tags sqlite_integration ./cmd/day-audit
           go build ./cmd/drive-authorize
           go build -tags live_ws,sqlite_integration,secure_auth ./cmd/marketdepth-staging
       - name: SQL contracts
@@ -47,3 +48,4 @@ jobs:
 
           python3 tests/legacy_inventory_test.py
           python3 tests/legacy_raw_stage_test.py
+          python3 tests/resource_probe_test.py
