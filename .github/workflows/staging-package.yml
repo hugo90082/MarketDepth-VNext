@@ -28,7 +28,7 @@ jobs:
         run: |
           go mod download
           go mod verify
-          # Regression gate for case-sensitive Binance live wire formats.
+          # Regression gate for Binance wire formats and certified depth refresh continuity.
           go test ./internal/collector/binancewire ./internal/collector/spot ./internal/collector/futures
           go test -tags live_ws,sqlite_integration,secure_auth ./...
           python3 tests/schema_check.py
