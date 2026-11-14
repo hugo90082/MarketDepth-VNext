@@ -68,7 +68,7 @@ func BinanceCutRow(t, available int64, asset string, c BinanceCut) (model.SpotRo
 	if c.T != t || c.Reason != "" || c.Depth.Mid == nil || c.LastDataAt > t || t-c.LastDataAt > BinanceMaxAgeMS {
 		return missingRow(t, available, nil, "binance", asset, "local_book:"+c.Reason)
 	}
-	return depthRow(t, available, "binance", asset, &t, c.Depth, c.TrustedBid, c.TrustedAsk, map[string]any{"method": "binance_rest5000_diff1000ms_exact_t", "symbol": Symbol("binance", asset), "last_depth_admitted_at": c.LastDataAt, "last_update_id": c.Last, "depth_age_ms": t - c.LastDataAt, "coverage_basis": "observed_local_book"})
+	return depthRow(t, available, "binance", asset, &t, c.Depth, c.TrustedBid, c.TrustedAsk, map[string]any{"method": "binance_rest5000_diff1000ms_exact_t", "symbol": Symbol("binance", asset), "last_depth_admitted_at": c.LastDataAt, "last_update_id": c.Last, "depth_age_ms": t - c.LastDataAt, "coverage_basis": "observed_local_book; trusted_contiguous_snapshot_union", "snapshot_bid_edge":c.SnapshotBidEdge,"snapshot_ask_edge":c.SnapshotAskEdge,"certified_bid_edge":c.CertifiedBidEdge,"certified_ask_edge":c.CertifiedAskEdge,"snapshot_last_update_id":c.SnapshotLast,"continuous_refresh_count":c.RefreshCount})
 }
 
 // Kraken retains the legacy exact-first and grouped-only-on-unknown rules.
