@@ -2,12 +2,17 @@
   "openapi": "3.1.0",
   "info": {
     "title": "MarketDepth VNext API",
-    "version": "0.1.0-phase1",
-    "description": "MD-VNEXT-1 開發草案；mock 限 loopback，未實作 auth/封存下載；正式 API 需 Phase 3/4 驗收。"
+    "version": "0.2.0-phase6-backend",
+    "description": "MD-VNEXT-1 後端實作交接版；正式資料驗收及部署尚未完成。mock 僅限 loopback、無登入；live-local 必須使用 HTTPS 同源代理與 session。"
   },
   "servers": [
     {
-      "url": "http://127.0.0.1:18081/api/v2"
+      "url": "/api/v2",
+      "description": "HTTPS 同源代理（尚待 C 整合）"
+    },
+    {
+      "url": "http://127.0.0.1:18081/api/v2",
+      "description": "僅供本機開發 mock"
     }
   ],
   "paths": {
@@ -47,6 +52,16 @@
               }
             }
           },
+          "403": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "JSON response",
             "content": {
@@ -65,6 +80,14 @@
                   "$ref": "#/components/schemas/Error"
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "等待秒數"
+              }
             }
           },
           "503": {
@@ -82,7 +105,7 @@
     },
     "/health": {
       "get": {
-        "summary": "健康狀態；mock 不代表正式收集",
+        "summary": "健康狀態；live-local 不代表 production_ready",
         "x-mock-implemented": true,
         "parameters": [],
         "responses": {
@@ -116,6 +139,16 @@
               }
             }
           },
+          "403": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "JSON response",
             "content": {
@@ -134,6 +167,14 @@
                   "$ref": "#/components/schemas/Error"
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "等待秒數"
+              }
             }
           },
           "503": {
@@ -151,7 +192,7 @@
     },
     "/latest": {
       "get": {
-        "summary": "最後已完成資料；無 kind 時以三類資料 map 回傳",
+        "summary": "各 kind 的最新已提交目標格；不同 kind 不保證同時刻",
         "x-mock-implemented": true,
         "parameters": [
           {
@@ -159,12 +200,10 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "spot_depth",
-                "futures_10s",
-                "futures_1m"
-              ]
-            }
+              "type": "string",
+              "pattern": "^(spot_depth|futures_10s|futures_1m)(,(spot_depth|futures_10s|futures_1m)){0,2}$"
+            },
+            "description": "可逗號分隔、不得重複；省略為三種。單 kind 回陣列，多 kind 回所選 map。"
           }
         ],
         "responses": {
@@ -209,11 +248,8 @@
                                   }
                                 }
                               },
-                              "required": [
-                                "spot_depth",
-                                "futures_10s",
-                                "futures_1m"
-                              ]
+                              "minProperties": 2,
+                              "additionalProperties": false
                             }
                           ]
                         }
@@ -244,6 +280,16 @@
               }
             }
           },
+          "403": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "JSON response",
             "content": {
@@ -262,6 +308,14 @@
                   "$ref": "#/components/schemas/Error"
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "等待秒數"
+              }
             }
           },
           "503": {
@@ -279,7 +333,7 @@
     },
     "/history": {
       "get": {
-        "summary": "半開區間、穩定排序、最多31日",
+        "summary": "半開 epoch-ms 區間、最多31日、游標綁定範圍及版本；首頁 gaps",
         "x-mock-implemented": true,
         "parameters": [
           {
@@ -403,6 +457,16 @@
               }
             }
           },
+          "403": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "JSON response",
             "content": {
@@ -421,6 +485,14 @@
                   "$ref": "#/components/schemas/Error"
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "等待秒數"
+              }
             }
           },
           "503": {
@@ -438,7 +510,7 @@
     },
     "/sync": {
       "get": {
-        "summary": "依寫入序列同步，含遲到修正；409 需重抓",
+        "summary": "持久化寫入序列同步；游標不透明，409 需重抓；完整頁也需保存 next_cursor",
         "x-mock-implemented": true,
         "parameters": [
           {
@@ -508,6 +580,16 @@
               }
             }
           },
+          "403": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "JSON response",
             "content": {
@@ -526,6 +608,14 @@
                   "$ref": "#/components/schemas/Error"
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "等待秒數"
+              }
             }
           },
           "503": {
@@ -543,7 +633,7 @@
     },
     "/days": {
       "get": {
-        "summary": "台灣日期目錄；起訖日均含",
+        "summary": "台灣日期目錄；起訖日均含，最多366日差（367個日期）",
         "x-mock-implemented": true,
         "parameters": [
           {
@@ -580,7 +670,7 @@
                         "data": {
                           "type": "array",
                           "items": {
-                            "type": "object"
+                            "$ref": "#/components/schemas/Day"
                           }
                         }
                       }
@@ -610,6 +700,16 @@
               }
             }
           },
+          "403": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "JSON response",
             "content": {
@@ -627,6 +727,14 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "等待秒數"
               }
             }
           },
@@ -672,7 +780,8 @@
             "required": false,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "逗號分隔 kind，不得重複；省略為三種"
           },
           {
             "name": "format",
@@ -687,7 +796,7 @@
         ],
         "responses": {
           "200": {
-            "description": "gzip 檔",
+            "description": "gzip JSONL；逐列 kind/row，最後一列必須為 complete=true manifest；缺尾列、計數不符或 gzip 截斷皆不得匯入。HTTP 200 不保證完成。",
             "content": {
               "application/gzip": {
                 "schema": {
@@ -717,6 +826,16 @@
               }
             }
           },
+          "403": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "JSON response",
             "content": {
@@ -734,6 +853,14 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "等待秒數"
               }
             }
           },
@@ -776,12 +903,36 @@
         ],
         "responses": {
           "200": {
-            "description": "gzip 檔",
+            "description": "已驗證封存 gzip SQLite；未連接 archive 回503；mock 501",
             "content": {
               "application/gzip": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Length": {
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "帶雙引號的 manifest SHA256"
+              },
+              "X-Archive-SHA256": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "gzip 檔案 SHA256"
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -797,6 +948,16 @@
             }
           },
           "401": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "JSON response",
             "content": {
               "application/json": {
@@ -824,9 +985,17 @@
                   "$ref": "#/components/schemas/Error"
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "等待秒數"
+              }
             }
           },
-          "503": {
+          "501": {
             "description": "JSON response",
             "content": {
               "application/json": {
@@ -836,7 +1005,7 @@
               }
             }
           },
-          "501": {
+          "503": {
             "description": "JSON response",
             "content": {
               "application/json": {
@@ -851,17 +1020,35 @@
     },
     "/auth/login": {
       "post": {
-        "summary": "正式登入預留；mock 501",
+        "summary": "密碼登入；mock 501",
         "x-mock-implemented": false,
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "live-local 必須等於設定的 HTTPS Origin；mock 回501",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "JSON response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Success"
+                  "$ref": "#/components/schemas/LoginSuccess"
                 }
+              }
+            },
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "建立 __Host-md_session"
               }
             }
           },
@@ -876,6 +1063,16 @@
             }
           },
           "401": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "JSON response",
             "content": {
               "application/json": {
@@ -903,9 +1100,17 @@
                   "$ref": "#/components/schemas/Error"
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "等待秒數"
+              }
             }
           },
-          "503": {
+          "501": {
             "description": "JSON response",
             "content": {
               "application/json": {
@@ -915,7 +1120,7 @@
               }
             }
           },
-          "501": {
+          "503": {
             "description": "JSON response",
             "content": {
               "application/json": {
@@ -938,28 +1143,49 @@
                 "properties": {
                   "password": {
                     "type": "string",
-                    "format": "password"
+                    "format": "password",
+                    "description": "UTF-8 1–72 bytes；請勿記錄密碼"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/auth/logout": {
       "post": {
-        "summary": "正式登出預留；mock 501",
+        "summary": "同源登出並撤銷 session；mock 501",
         "x-mock-implemented": false,
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "live-local 必須等於設定的 HTTPS Origin；mock 回501",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "JSON response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Success"
+                  "$ref": "#/components/schemas/LogoutSuccess"
                 }
+              }
+            },
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "撤銷並清除 __Host-md_session"
               }
             }
           },
@@ -974,6 +1200,16 @@
             }
           },
           "401": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "JSON response",
             "content": {
               "application/json": {
@@ -1001,15 +1237,13 @@
                   "$ref": "#/components/schemas/Error"
                 }
               }
-            }
-          },
-          "503": {
-            "description": "JSON response",
-            "content": {
-              "application/json": {
+            },
+            "headers": {
+              "Retry-After": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                  "type": "string"
+                },
+                "description": "等待秒數"
               }
             }
           },
@@ -1022,8 +1256,19 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": []
       }
     }
   },
@@ -1514,7 +1759,8 @@
         "type": "object",
         "required": [
           "contract_id",
-          "timezone"
+          "timezone",
+          "mock"
         ],
         "properties": {
           "contract_id": {
@@ -1599,15 +1845,239 @@
             }
           }
         }
+      },
+      "LoginSuccess": {
+        "type": "object",
+        "required": [
+          "ok",
+          "data"
+        ],
+        "properties": {
+          "ok": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "authenticated",
+              "expires_in"
+            ],
+            "properties": {
+              "authenticated": {
+                "const": true
+              },
+              "expires_in": {
+                "const": 604800
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "LogoutSuccess": {
+        "type": "object",
+        "required": [
+          "ok",
+          "data"
+        ],
+        "properties": {
+          "ok": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "authenticated"
+            ],
+            "properties": {
+              "authenticated": {
+                "const": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "Day": {
+        "type": "object",
+        "required": [
+          "day",
+          "state",
+          "revision",
+          "from",
+          "to",
+          "row_counts",
+          "sha256",
+          "etag",
+          "gaps"
+        ],
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "fixture",
+              "missing",
+              "active_local",
+              "sealed_local",
+              "sealed_remote",
+              "permanent_loss",
+              "partial_remote",
+              "active_recovered_remote"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "from": {
+            "type": "integer"
+          },
+          "to": {
+            "type": "integer"
+          },
+          "row_counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "etag": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Gap"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ExportRow": {
+        "type": "object",
+        "required": [
+          "kind",
+          "row"
+        ],
+        "oneOf": [
+          {
+            "properties": {
+              "kind": {
+                "const": "spot_depth"
+              },
+              "row": {
+                "$ref": "#/components/schemas/spot_depth"
+              }
+            }
+          },
+          {
+            "properties": {
+              "kind": {
+                "const": "futures_10s"
+              },
+              "row": {
+                "$ref": "#/components/schemas/futures_10s"
+              }
+            }
+          },
+          {
+            "properties": {
+              "kind": {
+                "const": "futures_1m"
+              },
+              "row": {
+                "$ref": "#/components/schemas/futures_1m"
+              }
+            }
+          }
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "row": {
+            "type": "object"
+          }
+        }
+      },
+      "ExportManifest": {
+        "type": "object",
+        "required": [
+          "type",
+          "complete",
+          "mock",
+          "contract_id",
+          "row_counts",
+          "gaps"
+        ],
+        "properties": {
+          "type": {
+            "const": "manifest"
+          },
+          "complete": {
+            "const": true
+          },
+          "mock": {
+            "type": "boolean"
+          },
+          "contract_id": {
+            "const": "MD-VNEXT-1"
+          },
+          "row_counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "gaps": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "$ref": "#/components/schemas/Gap"
+              }
+            }
+          }
+        },
+        "additionalProperties": false
       }
     },
     "securitySchemes": {
       "session": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "marketdepth_session"
+        "name": "__Host-md_session",
+        "description": "live-local；Secure、HttpOnly、SameSite=Lax、Path=/，7天；程序重啟失效。"
       }
     }
   },
-  "x-production-security-required": true
+  "x-production-security-required": true,
+  "security": [
+    {
+      "session": []
+    }
+  ],
+  "x-mock-security-exception": "mock 只能 loopback；不得用於正式服務",
+  "x-frontend-integer-warning": "JSON integer 可能超過 JavaScript Number 安全整數範圍；交易 ID 和計數須 lossless parsing。不可改成 string wire format。"
 }
