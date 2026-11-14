@@ -41,7 +41,7 @@ func TestSealedDayAuditDistinguishesAbsenceAndMissing(t *testing.T){
  if got.Expected!=47520||got.Present!=4||got.Absent!=47516||got.GridComplete||got.ProductionReady||len(got.Streams)!=18||got.All4PairedMinutes["BTC"]!=1{t.Fatalf("%+v",got)}
  for _,s:=range got.Streams{
   if s.Kind==model.Spot&&s.Venue=="binance"&&s.Asset=="BTC"{
-   if s.PairedComplete750!=1||s.Absent!=1439||len(s.MissingIntervals)!=1||s.MissingIntervals[0].From!=start+60000||s.AvailabilityLagP95MS==nil||*s.AvailabilityLagP95MS!=1000{t.Fatal(s)}
+   if s.PairedTrustedBins["500_750"]!=1||s.PairedComplete750!=1||s.Absent!=1439||len(s.MissingIntervals)!=1||s.MissingIntervals[0].From!=start+60000||s.AvailabilityLagP95MS==nil||*s.AvailabilityLagP95MS!=1000{t.Fatal(s)}
   }
   if s.Kind==model.F1&&s.Asset=="BTC"&& (s.Status["missing"]!=1||s.Present!=1||s.Absent!=1439){t.Fatal(s)}
  }
@@ -54,4 +54,26 @@ func TestSealedDayAuditDistinguishesAbsenceAndMissing(t *testing.T){
  if e=db.Close();e!=nil{t.Fatal(e)}
  h,e=auditHash(ctx,path);if e!=nil{t.Fatal(e)}
  if _,e=AuditSealedDay(ctx,path,day,h,producer);e==nil{t.Fatal("accepted future leakage")}
+}
+
+func TestSealedDayAuditFullGridDoesNotMeanValidMarketData(t *testing.T){
+ ctx:=context.Background()
+ day:="2026-11-13"
+ path:=filepath.Join(t.TempDir(),day+".sqlite")
+ db,e:=SQLiteOpener(path,false);if e!=nil{t.Fatal(e)}
+ if _,e=db.Exec(contract.Schema);e!=nil{t.Fatal(e)}
+ producer:=strings.Repeat("c",40)
+ for k,v:=range map[string]string{"contract_id":model.Contract,"timezone":model.Timezone,"day":day,"data_origin":"live","archive_revision":"1","producer_commit":producer,"sealed_at":"1794585900000"}{
+  if _,e=db.Exec("INSERT INTO meta VALUES(?,?)",k,v);e!=nil{t.Fatal(e)}
+ }
+ for _,q:=range []string{
+  `WITH RECURSIVE ts(t) AS (VALUES(1794499200000) UNION ALL SELECT t+60000 FROM ts WHERE t+60000<1794585600000), assets(a) AS (VALUES('BTC'),('ETH'),('SOL')), venues(v) AS (VALUES('binance'),('coinbase'),('kraken'),('bitfinex')) INSERT INTO spot_depth(t,available_at,asset,venue,status,source) SELECT t,t,a,v,'missing','vm_vnext' FROM ts,assets,venues`,
+  `WITH RECURSIVE ts(t) AS (VALUES(1794499200000) UNION ALL SELECT t+10000 FROM ts WHERE t+10000<1794585600000), assets(a) AS (VALUES('BTC'),('ETH'),('SOL')) INSERT INTO futures_10s(t,available_at,asset,status,source) SELECT t,t+10000,a,'missing','vm_vnext' FROM ts,assets`,
+  `WITH RECURSIVE ts(t) AS (VALUES(1794499200000) UNION ALL SELECT t+60000 FROM ts WHERE t+60000<1794585600000), assets(a) AS (VALUES('BTC'),('ETH'),('SOL')) INSERT INTO futures_1m(t,available_at,asset,status,source) SELECT t,t+60000,a,'missing','vm_vnext' FROM ts,assets`,
+ }{if _,e=db.Exec(q);e!=nil{t.Fatal(e)}}
+ if e=db.Close();e!=nil{t.Fatal(e)}
+ h,e:=auditHash(ctx,path);if e!=nil{t.Fatal(e)}
+ got,e:=AuditSealedDay(ctx,path,day,h,producer);if e!=nil{t.Fatal(e)}
+ if !got.GridComplete||got.Present!=47520||got.Absent!=0||got.ProductionReady{t.Fatal("full grid != production ready",got)}
+ for _,s:=range got.Streams{if s.Status["missing"]!=s.Expected||s.Present!=s.Expected||s.PairedComplete750!=0{t.Fatal(s)}}
 }
