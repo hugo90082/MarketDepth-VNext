@@ -29,13 +29,13 @@ func(r *RecoveryReader) PutImmutable(context.Context,string,int64,string,io.Read
 }
 func(c *Client) recoveryParent(ctx context.Context,key string)(string,error){
  if !validKey(key)||!recoveryKey.MatchString(key){return "",errors.New("invalid recovery key")}
- root,e:=c.get(ctx,"root")
- if e!=nil||!identifier(root.ID)||root.MIME!=folderType||root.Trashed{return "",errors.New("cannot resolve recovery My Drive root")}
+ root,e:=c.findNamespaceRoot(ctx)
+ if e!=nil{return "",e}
+ if root==nil{return "",errors.New("recovery namespace root missing")}
  parent:=root.ID
  p:=strings.Split(key,"/")
- for i:=-1;i<len(p)-1;i++{
-  k,name:="root",c.namespace
-  if i>=0{k="dir/"+strings.Join(p[:i+1],"/");name=p[i]}
+ for i:=0;i<len(p)-1;i++{
+  k,name:="dir/"+strings.Join(p[:i+1],"/"),p[i]
   f,e:=c.list(ctx,parent,k);if e!=nil{return "",e}
   if f==nil||!identifier(f.ID){return "",errors.New("recovery folder missing")}
   want:=reservation{ID:f.ID,Key:k,Parent:parent,MIME:folderType}
