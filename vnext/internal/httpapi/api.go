@@ -18,6 +18,7 @@ import (
 type API struct {
 	Reader store.Reader
 	Live   bool
+ Candidate bool // authenticated offline candidate QA only
 	Auth   *Auth
 	Health func() map[string]any
 }
@@ -48,6 +49,7 @@ func (a API) ok(w http.ResponseWriter, data any, meta map[string]any) {
 	meta["contract_id"] = model.Contract
 	meta["timezone"] = model.Timezone
 	meta["mock"] = !a.Live
+ if a.Candidate {meta["candidate_only"]=true;meta["production_ready"]=false}
 	send(w, 200, map[string]any{"ok": true, "data": data, "meta": meta})
 }
 func (a API) page(w http.ResponseWriter, p store.Page, k model.Kind, from, to int64) {
@@ -86,7 +88,12 @@ func (a API) Handler() http.Handler {
 			fail(w, 503, "UNAVAILABLE", "API configuration incomplete")
 		})
 	}
-	// Keep fixture and live identities distinct; no accidental anonymous live mode.
+	// Candidate data can never be advertised as live or anonymous mock.
+ candidate, isCandidate := a.Reader.(interface{OfflineCandidate() bool})
+ if a.Candidate != (isCandidate && candidate.OfflineCandidate()) || a.Candidate && !a.Live {
+  return http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){fail(w,503,"UNAVAILABLE","candidate reader mode mismatch")})
+ }
+ // Keep fixture and live identities distinct; no accidental anonymous live mode.
 	if _, mock := a.Reader.(*store.Mock); a.Live == mock {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fail(w, 503, "UNAVAILABLE", "reader mode mismatch") })
 	}
@@ -102,6 +109,7 @@ func (a API) Handler() http.Handler {
 			if a.Health != nil {
 				h = a.Health()
 			}
+ if a.Candidate {h=map[string]any{"mode":"offline-candidate-qa","collector":"not_running","archive":"not_connected","production_ready":false,"candidate_only":true}}
 			a.ok(w, h, nil)
 			return
 		}
@@ -272,7 +280,8 @@ func (a API) Handler() http.Handler {
 		if a.Live {
 			mode = "live-local"
 		}
-		w.Header().Set("X-MarketDepth-Mode", mode)
+		if a.Candidate {mode="offline-candidate-qa"}
+ w.Header().Set("X-MarketDepth-Mode", mode)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -311,7 +320,8 @@ func (a API) export(w http.ResponseWriter, r *http.Request) {
 	if a.Live {
 		name = "marketdepth-history.jsonl.gz"
 	}
-	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+	if a.Candidate {name="marketdepth-candidate-only.jsonl.gz"}
+ w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
 	gz := gzip.NewWriter(w)
 	defer gz.Close()
 	enc := json.NewEncoder(gz)
@@ -345,5 +355,7 @@ func (a API) export(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	_ = enc.Encode(map[string]any{"type": "manifest", "complete": true, "mock": !a.Live, "contract_id": model.Contract, "row_counts": counts, "gaps": gaps})
+	manifest:=map[string]any{"type": "manifest", "complete": true, "mock": !a.Live, "contract_id": model.Contract, "row_counts": counts, "gaps": gaps}
+ if a.Candidate {manifest["candidate_only"]=true;manifest["production_ready"]=false}
+ _ = enc.Encode(manifest)
 }
