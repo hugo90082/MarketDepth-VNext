@@ -29,7 +29,7 @@ GitHub 指定 commit 4d030e3c4dda2c85e5404e96e10b7fd6abed7c9c：已經由連接�
 | CR-05 | 10s 亂序、重連、無成交與日封存 | event-time T 分桶，(T,aggID) 排序、asset+ID 去重；以可證明覆蓋及有界 lateness/修復窗口結算，不能僅憑 ID 跳號或無消息判定；重啟可重放並去重，不完整標 partial/missing；官方 1m 獨立。grace 初始至少 2m，實測再定；封存之後修復新 revision。 |
 | CR-06 | legacy off-grid、未知時間、重疊 | 新檔收到才驗映射；原始非對齊/非法資料 quarantine 並保留原始證據，禁止 round 或造10s。unknown available_at 保留 NULL/原始欄位，策略排除；不同來源各自保存、cutover 時刻前後明確選擇 canonical，混合日新 revision、衝突逐列 audit。不可把 1m legacy 標官方 closed。 |
 | CR-07 | 原 SQL 不驗證負值、狀態、非有限值、時間因果 | 以型別及 app validators + fixtures 驗證 finite、非負、BBO/OHLC、狀態/來源、day/t、null/0；新資料拒絕或 quarantine，不偷偷修舊值。 |
-| CR-08 | 多來源品質不一致、BBO/mid 語意 | Kraken grouped/Bitfinex P1/P2 每側來源、捕獲時間及參考 mid 留 quality_json；主 BBO 採明確 primary 並不假稱同一快照；沿用舊 zone 算法，與固定 commit 比對；ALL4 按完整 paired venue 集合，揭露成員變動，研究不將換員誤認為變化。 |
+| CR-08 | 多來源品質不一致、BBO/mid 語意 | Kraken grouped/Bitfinex P1/P2 每側來源、捕獲時間及參考 mid 留 quality_json；主 BBO 採明確 primary 並不假稱同一快照；保留既定 zone 算法及單位語意驗證；不再要求舊新版實測數值一致性比較；ALL4 按完整 paired venue 集合，揭露成員變動，研究不將換員誤認為變化。 |
 | CR-09 | 512MB 雙收集、備份及長匯出互搶 | 外部 build/fixture/CI 先測；新服務獨立路徑及 loopback，禁止未授權長期雙跑。資源壓測需跨至少兩日界，收集優先、限制並行及記憶體；若不可能安全驗證，先使用測試環境或取得短時測試批准。 |
 | CR-10 | C 尚無 API 最終 mock；登入和匯出邊界 | 先定 OpenAPI、JSON fixtures、nullable/status/gaps、cursor/reset、登入 cookie、CSRF、gzip JSONL 完整性（尾端 manifest/計數、截斷可偵測）、日期 revision。cache canonical key 不含 row revision（revision 用來判斷取代）。登入頁與必要公開靜態資產可匿名；私有內容須驗證。C 先交 proxy route inventory，A 再實作白名單。 |
 | CR-11 | OAuth、TLS、歷史尾端、Drive quota | 真帳號測試、憑證續期、空間、授權失效、完整復原、新舊末端資料核對皆為切換必備；不可預設免費額度或永續 token。 |
@@ -51,3 +51,6 @@ GitHub 指定 commit 4d030e3c4dda2c85e5404e96e10b7fd6abed7c9c：已經由連接�
 C 可自 Phase 1 前就盤點 V66，Phase 1 mock 交付後並行；B/D fixture 可先做，正式接口依賴 Phase 1。各 phase 逐項記證據，不以 mock 取代真實驗收。
 建議新程式放原 repo 的 vnext/ 子目錄以避免舊根 module/Dockerfile 被無意觸發；分支 vnext/backend、drive、frontend、legacy-import、integration 以共同 scaffold 起點。是否有自動部署 trigger 必須先核對，不直接更新 main。
 GitHub 連接工具可讀寫，但本地容器 DNS 不通；下一步先確認依賴取得/CI 與分支部署規則。無法證明安全時先本地 scaffold，待可重現 build 再提交。
+
+## 驗收範圍修訂（2026-11-15；優先於前文）
+2026-11-15 使用者決議：取消舊／新收集器同時窗深度金額逐筆偏差、相關性及聚合數值一致性比較作為 Phase 2/7 驗收門檻；不同捕獲時間及訂單簿覆蓋天然有差異。保留新版自身的18流到期主鍵完整性、逐交易所/商品/區間/側的實際非NULL覆蓋、status與失敗原因、交易對/現貨合約/單位/區間及時間對齊正確性、finite/nonnegative/NULL與0、observed與trusted區分、ALL4同側完整paired集合至少2家等既有資料品質規則。不得將present/missing占位列當有效行情或把observed750當trusted750；若有效覆蓋不足或出現異常，依證據個別處理，不設定任意新數值門檻。此決議只免除跨版本行情數值比較，不免除原始歷史映射逐列核對、備份復原逐列一致性、歷史與新資料時間重疊/缺口檢查、跨日資源/API/Drive/OAuth/前端/正式切換等既有門檻。現行24h測試不改binary、監控、資源及運行時間；待其真實結果完成最終Phase2/7資料品質驗收。
