@@ -406,7 +406,7 @@ func (d *Daily) DumpDayRows(ctx context.Context, k model.Kind, w io.Writer) erro
 // archival paths, even if a fixture file is renamed or its origin relabeled.
 func rejectFixtureMeta(ctx context.Context, q queryRower) error {
  var n int
- if e:=q.QueryRowContext(ctx,"SELECT count(*) FROM meta WHERE key='fixture_only'").Scan(&n);e!=nil{return e}
- if n!=0{return errors.New("fixture-only database refused by live storage")}
+ if e:=q.QueryRowContext(ctx,"SELECT count(*) FROM meta WHERE key IN ('fixture_only','candidate_only')").Scan(&n);e!=nil{return e}
+ if n!=0{return errors.New("fixture/candidate-only database refused by live storage")}
  return nil
 }
