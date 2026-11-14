@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+ "github.com/hugo90082/MarketDepth-VNext/vnext/internal/collector/binancewire"
 )
 
 const maxBridgeMessages = 4096
@@ -152,3 +154,17 @@ func parseBinanceLevels(rows [][]string, allowZero bool) ([]Level, error) {
 	}
 	return ls, nil
 }
+
+ // Decode the actual raw spot diff message, not a synthetic subset.
+ // E is an event timestamp, never the local causal admission timestamp.
+ func decodeBinanceDelta(raw []byte,asset string)(BinanceDelta,error){
+  var event,symbol string
+  var first,last uint64
+  var bids,asks [][]string
+  if e:=binancewire.Object(raw,map[string]any{"e":&event,"s":&symbol,"U":&first,"u":&last,"b":&bids,"a":&asks},nil);e!=nil{return BinanceDelta{},e}
+  if event!="depthUpdate"||symbol!=Symbol("binance",asset){return BinanceDelta{},errors.New("unexpected Binance message")}
+  b,e:=parseBinanceLevels(bids,true);if e!=nil{return BinanceDelta{},e}
+  a,e:=parseBinanceLevels(asks,true);if e!=nil{return BinanceDelta{},e}
+  d:=BinanceDelta{first,last,b,a}
+  return d,validDelta(d)
+ }
