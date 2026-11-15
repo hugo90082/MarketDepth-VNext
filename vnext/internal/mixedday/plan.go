@@ -166,7 +166,7 @@ func Plan(req Request, inputs []Input) (Report,[]byte,error) {
 		if len(in.JSONL)==0 || len(in.JSONL)>maxSource || totalBytes>maxSource*2 ||
 			!validHash(in.SHA256) || digest(in.JSONL)!=in.SHA256 ||
 			seen[in.SHA256]!="" || (in.Role!=Legacy && in.Role!=Live) ||
-			in.JSONL[len(in.JSONL)-1]!='\n' {
+			bytes.ContainsRune(in.JSONL,'\r') || in.JSONL[len(in.JSONL)-1]!='\n' {
 			return zero,nil,errors.New("invalid, duplicate, oversized or incomplete source")
 		}
 		seen[in.SHA256]=in.Role
