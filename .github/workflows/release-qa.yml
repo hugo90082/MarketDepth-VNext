@@ -36,6 +36,8 @@ jobs:
           python3 tests/legacy_inventory_test.py
           python3 tests/legacy_raw_stage_test.py
           python3 tools/original_evidence_bundle.py self-test
+          python3 tools/public_config_evidence.py --self-test
+          python3 tools/public_config_evidence.py > "$RUNNER_TEMP/public-config-evidence.json"
           python3 tests/resource_probe_test.py
           python3 tests/staging_preflight_test.py
           python3 tests/phase7_evidence_test.py
