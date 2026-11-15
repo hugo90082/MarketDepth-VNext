@@ -24,7 +24,7 @@ MD_SESSION_KEY_B64/MD_PASSWORD_BCRYPT 由受保護環境注入；不要貼進聊
 | 門檻 | 當前狀態 |
 |---|---|
 | R1 程式整合 | 分支整合/共用runtime/本機預檢完成；正式run、production namespace 的匯入與復原仍鎖定 |
-| R2 原始gzip/非秘密config | 兩份固定原始gzip的離線封存工具及五項合成自測完成；真資料回讀、最終尾端、非秘密設定及真Drive驗證仍待完成。詳 R2_ORIGINAL_EVIDENCE_QA.md；勿常駐VM |
+| R2 原始gzip/非秘密config | 兩份固定原始gzip離線封存工具及非秘密source設定產生器完成，合計八項合成自測通過；真資料回讀、最終尾端、正式runtime設定審核及真Drive驗證仍待完成。詳 R2_ORIGINAL_EVIDENCE_QA.md；勿常駐VM |
 | R3 混合日與切點 | 11/14、11/15保持隔離，正式尾端待實際cutover；同日revision/混合來源實作未完成 |
 | R4 Drive正式發布 | 已有離線coordinator/gate，仍需真實writer fence、production namespace及發布CLI、批准計畫 |
 | R5 V66 | 未取得最新C source/build/proxy/瀏覽器驗收 |
