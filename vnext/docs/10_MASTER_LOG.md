@@ -576,3 +576,8 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - R2 CI c3938d4a/run43669912704 success，真實gzip及遠端封存尚未完成。
 - R3 新增 internal/mixedday/plan.go、plan_test.go、cmd/mixed-day-plan/main.go、main_test.go。單日canonical JSONL SHA/模型/來源/grid/唯一key驗證、分鐘對齊cutover、明示兩個authority SHA、47520主鍵決策及所有來源證據、缺列/unsupported/status統計；不補值、不改row、不升格未知availability/coverage、不合成legacy F10。整列hash差異非金額比較。CLI新目錄排他寫及回讀，無SQLite/Drive/發布入口。R3_MIXED_DAY_QA.md（94a09ced）記錄工程候選及未完成門檻。
 - 初版CI43670239404失敗於F10分母斷言，兩分鐘×6×3=36而非18；實際程式正確，2ce8567e修正測試、98b61c6f加LF防護，CLI247c119b、測試ac5e00af；run43670256245/43670350673查詢時仍in_progress，未宣稱R3回歸通過。待可信來源export adapter、混合proof/實體SQLite封存、immutable revision/manifest/catalog/recovery/API端到端驗收及真cutover/placement。11/14–15共22500候選列、原五代、840尾端及第九次四代/停止後尾端保持隔離；未操作主機、真Drive或實盤。
+
+## 2026-11-15｜第九次停機後獨立復原回報與R3 CI
+- 依使用者轉交Codex結果截圖（完整Markdown及408筆原始資源取樣未交付主控，尚未獨立重驗）：九代18件原始備份通過SHA256/SQLite integrity；最新快照4970筆與停機原庫逐列一致，1781筆未上傳尾端補入隔離副本後6751筆全數一致；舊840筆尾端獨立核對。Drive原件狀態不變，先前已退役三代仍在垃圾桶，九代gzip/manifest在Sydney隔離目錄及本機各一份。不得視1781或840筆已上傳Drive；不得轉正、刪除、覆寫或清空垃圾桶。
+- 記憶體暖機後基線上移，最後半小時回落；停機前一取樣間隔主機available降51.65MiB而新版cgroup降3.40MiB，韌體中繼資料更新及換頁尖峰同期，缺逐程序取樣，不能確認持續洩漏或單一原因。第十次建議獨立1GB新版單跑、舊版保留原主機；如需同機長測雙跑則2GB優先，維持80MiB安全停止。這是候選方案，尚未批准購買、升級、啟動或改主機。第九次24h/跨日封存/原CR-09仍未通過，復原項依回報通過、待完整證據；第十次未啟動。
+- R3 修正後核心CI43670256245及含CLI測試CI43670350673 success；整合回歸43670460450 success（commit010622c2）。離線接合proposal測試已通過，真來源export、混合日封存與revision/recovery/API仍待實作及真實cutover。所有正式啟用/發布仍鎖定。本輪僅更新文件，未操作AWS、Drive或收集器。
