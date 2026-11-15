@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Eye, EyeOff, LoaderCircle } from 'lucide-react';
-import { AUTH_REQUIRED_EVENT } from './site-api';
+import { AUTH_REQUIRED_EVENT, SAVED_PASSWORD_KEY, trySilentLogin } from './site-api';
 import './auth.css';
 
 const MarketApp = lazy(() => import('./UnifiedApp').then(module => ({ default: module.UnifiedApp })));
@@ -33,21 +33,46 @@ function Login({ checking, notice, onLogin }: { checking: boolean; notice: strin
    if (response.status === 401) { setError('密碼錯誤，請再試一次。'); return; }
    if (!response.ok) throw new Error('AUTH_UNAVAILABLE');
    const value: unknown = await response.json(); if (!validSession(value) || !(value.authenticated ?? value.data?.authenticated)) throw new Error('AUTH_UNAVAILABLE');
+   try { localStorage.setItem(SAVED_PASSWORD_KEY, password); } catch {}
    setPassword(''); onLogin(value);
   } catch { setError('暫時無法登入，請稍後再試。'); }
   finally { setSubmitting(false); }
  }
- return <div className="auth-page"><section className="auth-card" aria-labelledby="login-title"><Brand/><h1 id="login-title">授權歷史讀取與行情保存</h1><p className="auth-description">存取 MarketDepth VNext 即時與封存歷史資料需要授權。請輸入共用密碼，授權固定維持七天。</p><form onSubmit={event => void submit(event)}><label htmlFor="site-password">密碼</label><div className="auth-password"><input id="site-password" name="password" type={shown ? 'text' : 'password'} autoComplete="current-password" autoFocus required maxLength={256} value={password} onChange={event => setPassword(event.target.value)} disabled={submitting}/><button type="button" aria-label={shown ? '隱藏密碼' : '顯示密碼'} aria-pressed={shown} onClick={() => setShown(value => !value)}>{shown ? <EyeOff size={20}/> : <Eye size={20}/>}</button></div>{(error || notice) && <p className="auth-message" role="alert">{error || notice}{remaining > 0 && <span> {remaining} 秒後可再試</span>}</p>}<button className="auth-submit" type="submit" disabled={checking || submitting || remaining > 0 || !password}>{submitting ? <><LoaderCircle className="spin" size={18}/>登入中</> : checking ? '確認登入中' : '登入'}</button></form></section></div>;
+ return <div className="auth-page"><section className="auth-card" aria-labelledby="login-title"><Brand/><h1 id="login-title">授權歷史讀取與行情保存</h1><p className="auth-description">存取 MarketDepth VNext 即時與封存歷史資料需要授權。請輸入共用密碼（驗證一次後此瀏覽器即永久記住）。</p><form onSubmit={event => void submit(event)}><label htmlFor="site-password">密碼</label><div className="auth-password"><input id="site-password" name="password" type={shown ? 'text' : 'password'} autoComplete="current-password" autoFocus required maxLength={256} value={password} onChange={event => setPassword(event.target.value)} disabled={submitting}/><button type="button" aria-label={shown ? '隱藏密碼' : '顯示密碼'} aria-pressed={shown} onClick={() => setShown(value => !value)}>{shown ? <EyeOff size={20}/> : <Eye size={20}/>}</button></div>{(error || notice) && <p className="auth-message" role="alert">{error || notice}{remaining > 0 && <span> {remaining} 秒後可再試</span>}</p>}<button className="auth-submit" type="submit" disabled={checking || submitting || remaining > 0 || !password}>{submitting ? <><LoaderCircle className="spin" size={18}/>登入中</> : checking ? '確認登入中' : '登入'}</button></form></section></div>;
 }
 
 export function AuthGate() {
  const [open,setOpen]=useState(location.pathname==='/login'),[checking,setChecking]=useState(false),[deferred,setDeferred]=useState(false);
  const channel=useRef<BroadcastChannel|null>(null);
  const check=useCallback(async()=>{
-  setChecking(true);try{const r=await fetch('/api/auth/session',{credentials:'same-origin',cache:'no-store'});const value=await r.json();if(validSession(value)&&(value.authenticated??value.data?.authenticated)){setOpen(false);window.dispatchEvent(new Event('marketdepth-auth-resumed'));}}catch{}finally{setChecking(false);}
+  setChecking(true);
+  try{
+   const r=await fetch('/api/auth/session',{credentials:'same-origin',cache:'no-store'});
+   const value=await r.json();
+   if(validSession(value)&&(value.authenticated??value.data?.authenticated)){
+    setOpen(false);
+    setDeferred(false);
+    window.dispatchEvent(new Event('marketdepth-auth-resumed'));
+    return;
+   }
+   if(await trySilentLogin()){
+    setOpen(false);
+    setDeferred(false);
+    window.dispatchEvent(new Event('marketdepth-auth-resumed'));
+   }
+  }catch{}finally{setChecking(false);}
  },[]);
  useEffect(()=>{
-  const required=()=>{setOpen(true);void check();};
+  const required=async()=>{
+   if(await trySilentLogin()){
+    setOpen(false);
+    setDeferred(false);
+    window.dispatchEvent(new Event('marketdepth-auth-resumed'));
+    return;
+   }
+   setOpen(true);
+   void check();
+  };
   channel.current=typeof BroadcastChannel==='undefined'?null:new BroadcastChannel('marketdepth-auth');channel.current?.addEventListener('message',()=>void check());
   window.addEventListener(AUTH_REQUIRED_EVENT,required);return()=>{window.removeEventListener(AUTH_REQUIRED_EVENT,required);channel.current?.close();};
  },[check]);
