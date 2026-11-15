@@ -346,7 +346,8 @@ export function useMarketEngine(asset:Asset,hours:number,interval:Interval=60000
        if(healNow-prevTry<300_000)continue;
        if((spotBuckets.get(b)??0)>=15&&(candleBuckets.get(b)??0)>=15)continue;
        const prev=missingSpans.at(-1);
-       if(prev&&prev.to===b&&prev.to-prev.from<6*3600_000)prev.to=b+BLOCK_MS;
+       const sameTaipeiDay=prev&&Math.floor((prev.from+8*3600_000)/86_400_000)===Math.floor((b+8*3600_000)/86_400_000);
+       if(prev&&sameTaipeiDay&&prev.to===b&&prev.to-prev.from<6*3600_000)prev.to=b+BLOCK_MS;
        else if(missingSpans.length<2)missingSpans.push({from:b,to:b+BLOCK_MS});
       }
       for(const span of missingSpans){

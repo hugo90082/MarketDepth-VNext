@@ -1,5 +1,5 @@
 import {ASSETS, type Asset} from '../../shared/model';
-import {HOUR, MINUTE, NOTIONAL, priceFeatures, strategyDepth, type PriceBar} from '../../shared/strategy-v37';
+import {HOUR, MINUTE, NOTIONAL, priceFeatures, strategyDepth, type ClosedEpisode, type PriceBar} from '../../shared/strategy-v37';
 import {advanceLedger, createLedger, LANES, laneRanges, type LaneInput, type Ledger, type Notice} from '../../shared/strategy-v37-ledger';
 import type {StoredRow} from '../../shared/contract';
 import {createBrowserAlertSoundPlayer, type AlertSoundPlayer} from '../monitor/alert-sound';
@@ -15,7 +15,8 @@ import {
  type VNextFutures1mRow,
  type VNextSpotRow,
 } from '../vnext-adapter';
-import {claimSound, commitLedger, readLedger, recentNotices, resetLedger} from './store';
+import {taipeiSpanStart, updateMarksFromPrices} from './replay-helpers';
+import {claimSound, commitLedger, MAX_NOTICES, readLedger, recentNotices, resetLedger} from './store';
 
 export type ResetHorizon = 'all' | number;
 type View = {
@@ -48,6 +49,7 @@ type Block = {rows: StoredRow[]; prices: [Asset, PriceBar[]][]};
 const cache = new Map<number, Promise<Block>>();
 const remoteBlocks = new Map<number, Block>();
 const remoteFetchedSpans = new Set<number>();
+const remoteFetchedF1Spans = new Set<number>();
 const remoteInflight = new Map<number, Promise<void>>();
 type ArchiveInfo = {fetchedAt: number; days: VNextDay[]; sealedBefore: number; earliestSpotTs: number | null; earliestF1Ts: number | null};
 let archiveCache: ArchiveInfo = {fetchedAt: 0, days: [], sealedBefore: -Infinity, earliestSpotTs: null, earliestF1Ts: null};
@@ -56,15 +58,20 @@ let archivePromise: Promise<ArchiveInfo> | null = null;
 function setRemoteBlock(base: number, block: Block) {
  if (remoteBlocks.has(base)) remoteBlocks.delete(base);
  remoteBlocks.set(base, block);
- while (remoteBlocks.size > 260) {
+ while (remoteBlocks.size > 400) {
   remoteBlocks.delete(remoteBlocks.keys().next().value!);
  }
 }
 
-async function discoverArchive(force = false): Promise<ArchiveInfo> {
+async function discoverArchive(force = false, needFirstSpot = true): Promise<ArchiveInfo> {
  const now = Date.now();
- if (!force && archiveCache.fetchedAt > 0 && now - archiveCache.fetchedAt < 5 * MINUTE) return archiveCache;
- if (!force && archivePromise) return archivePromise;
+ if (!force && archiveCache.fetchedAt > 0 && now - archiveCache.fetchedAt < 5 * MINUTE && (!needFirstSpot || archiveCache.earliestSpotTs !== null)) {
+  return archiveCache;
+ }
+ if (!force && archivePromise) {
+  const existing = await archivePromise;
+  if (!needFirstSpot || existing.earliestSpotTs !== null) return existing;
+ }
  archivePromise = (async () => {
   const days = await fetchVNextDays();
   let sealedBefore = -Infinity;
@@ -76,7 +83,7 @@ async function discoverArchive(force = false): Promise<ArchiveInfo> {
    if (earliestF1Ts === null || d.from < earliestF1Ts) earliestF1Ts = d.from;
   }
   let earliestSpotTs = force ? null : archiveCache.earliestSpotTs;
-  if (earliestSpotTs === null && days.length) {
+  if (needFirstSpot && earliestSpotTs === null && days.length) {
    earliestSpotTs = await fetchVNextFirstSpotTs(days);
   }
   archiveCache = {fetchedAt: Date.now(), days, sealedBefore, earliestSpotTs, earliestF1Ts};
@@ -123,14 +130,19 @@ function blockCompleteForV37(block: Block, needSpot: boolean): boolean {
 
 async function ensureRemoteSpan(wStart: number, target: number, needSpot: boolean) {
  if (remoteFetchedSpans.has(wStart)) return;
- const existing = remoteInflight.get(wStart);
- if (existing) {await existing; return;}
+ if (!needSpot && remoteFetchedF1Spans.has(wStart)) return;
+ while (remoteInflight.has(wStart)) {
+  await remoteInflight.get(wStart);
+  if (remoteFetchedSpans.has(wStart)) return;
+  if (!needSpot && remoteFetchedF1Spans.has(wStart)) return;
+ }
  const job = (async () => {
   const wEnd = Math.min(target + MINUTE, wStart + REMOTE_SPAN);
   if (wEnd <= wStart) return;
+  const needF1 = !remoteFetchedF1Spans.has(wStart);
   const [spotRaw, f1Raw] = await Promise.all([
    needSpot ? fetchVNextHistoryKind<VNextSpotRow>('spot_depth', wStart, wEnd, {venue: 'binance'}) : Promise.resolve([] as VNextSpotRow[]),
-   fetchVNextHistoryKind<VNextFutures1mRow>('futures_1m', wStart, wEnd),
+   needF1 ? fetchVNextHistoryKind<VNextFutures1mRow>('futures_1m', wStart, wEnd) : Promise.resolve([] as VNextFutures1mRow[]),
   ]);
   const storedRows = groupSpotRowsToStoredRows(spotRaw);
   const candles = mapFutures1mToStoredCandles(f1Raw);
@@ -159,8 +171,9 @@ async function ensureRemoteSpan(wStart: number, target: number, needSpot: boolea
    const nextBlock: Block = {rows: rowsByBase.get(b) ?? prev?.rows ?? [], prices: byAsset ? nextPrices : (prev?.prices ?? ASSETS.map(a => [a, []]))};
    setRemoteBlock(b, prev ? mergeBlock(nextBlock, prev) : nextBlock);
   }
-  if (needSpot && wStart + REMOTE_SPAN <= Date.now() - 20 * MINUTE) {
-   remoteFetchedSpans.add(wStart);
+  if (wStart + REMOTE_SPAN <= Date.now() - 20 * MINUTE) {
+   remoteFetchedF1Spans.add(wStart);
+   if (needSpot) remoteFetchedSpans.add(wStart);
   }
  })();
  remoteInflight.set(wStart, job);
@@ -193,8 +206,12 @@ function readBlock(base: number) {
 
 async function marketData(ledger: Ledger, target: number) {
  const bases = new Set<number>();
- for (const range of [...LANES.flatMap(definition => laneRanges(ledger.lanes[definition.key], ledger.from, target)),
-  {from:target - 30 * MINUTE, to:target}]) {
+ const minThrough = LANES.reduce((m, d) => Math.min(m, ledger.lanes[d.key].through ?? ledger.from), target);
+ const ranges = LANES.flatMap(definition => laneRanges(ledger.lanes[definition.key], ledger.from, target));
+ if (target - minThrough <= 6 * HOUR) {
+  ranges.push({from:target - 30 * MINUTE, to:target});
+ }
+ for (const range of ranges) {
   for (let base = Math.floor(range.from / BLOCK) * BLOCK; base <= range.to; base += BLOCK) bases.add(base);
  }
  const ordered = [...bases].sort((a, b) => a - b);
@@ -204,15 +221,16 @@ async function marketData(ledger: Ledger, target: number) {
   const batch = await Promise.all(slice.map(readBlock));
   for (let i = 0; i < slice.length; i++) localBlocks.set(slice[i], batch[i]);
  }
- // Fetch missing ranges on-demand from VNext backend (supports full history beyond 7d without bloating IndexedDB).
+ // Fetch missing ranges on-demand from VNext backend aligned to Asia/Taipei days so one request never spans 2 sealed archives.
  const missingSpans = new Map<number, boolean>();
  for (const base of ordered) {
   if (base > target) continue;
   const needSpot = base + BLOCK > ledger.from;
   const merged = mergeBlock(localBlocks.get(base)!, remoteBlocks.get(base));
   if (!blockCompleteForV37(merged, needSpot)) {
-   const wStart = Math.floor(base / REMOTE_SPAN) * REMOTE_SPAN;
-   if (!remoteFetchedSpans.has(wStart)) {
+   const wStart = taipeiSpanStart(base, REMOTE_SPAN);
+   const fetched = needSpot ? remoteFetchedSpans.has(wStart) : (remoteFetchedSpans.has(wStart) || remoteFetchedF1Spans.has(wStart));
+   if (!fetched) {
     missingSpans.set(wStart, (missingSpans.get(wStart) ?? false) || needSpot);
    }
   }
@@ -238,14 +256,7 @@ async function marketData(ledger: Ledger, target: number) {
   const {asset, zone} = definition;
   return [definition.key, {bar:t => prices[asset].get(t), point:t => strategyDepth(rows.get(t), asset, zone), features:features[asset]}];
  }));
- for (const asset of ASSETS) {
-  let latest: PriceBar | undefined;
-  for (const bar of prices[asset].values()) if (!latest || bar.t > latest.t) latest = bar;
-  const previous = ledger.marks[asset];
-  if (latest && (!previous || latest.t >= previous.at)) ledger.marks[asset] = {at:latest.t, price:latest.c, fresh:latest.t === target};
-  else if (previous) ledger.marks[asset] = {...previous, fresh:false};
- }
- return {input, advanceCap};
+ return {input, advanceCap, prices};
 }
 
 function schedule(delay = 700) {
@@ -293,37 +304,75 @@ async function run() {
  let retryDelay = 20;
  try {
   const target = Math.floor(Date.now() / MINUTE) * MINUTE - MINUTE;
+  const stored = await readLedger();
+  if (!current()) return;
   let archive: ArchiveInfo | null = null;
-  try {archive = await discoverArchive();} catch (err) {
-   const storedCheck = await readLedger();
-   if (!storedCheck && err instanceof Error && /401|UNAUTHORIZED/i.test(err.message)) {
+  try {archive = await discoverArchive(false, !stored);} catch (err) {
+   if (!stored && err instanceof Error && /401|UNAUTHORIZED/i.test(err.message)) {
     return;
    }
   }
   if (!current()) return;
-  const stored = await readLedger();
-  const initialFrom = !stored && archive ? (resolveEarliestStart(archive, target) ?? target - 8 * HOUR) : target - 8 * HOUR;
-  const ledger = stored ?? createLedger(target, initialFrom);
-  const before = JSON.stringify(ledger);
-  const {input, advanceCap} = await marketData(ledger, target);
-  if (!current()) return;
-  if (!stored && advanceCap < ledger.from) {
+  if (!stored && !archive) {
    more = true;
    retryDelay = 2500;
    return;
   }
+  const initialFrom = !stored ? (resolveEarliestStart(archive!, target) ?? target - 8 * HOUR) : target - 8 * HOUR;
+  const ledger = stored ?? createLedger(target, initialFrom);
+  const before = JSON.stringify(ledger);
   const sealedBefore = archive?.sealedBefore ?? -Infinity;
-  const stepTarget = Math.min(target, advanceCap);
-  const result = advanceLedger(ledger, input, stepTarget, sealedBefore);
-  const blocked = advanceCap < target;
-  more = result.more || blocked;
-  if (blocked && !result.more) retryDelay = 2500;
+
+  const recordMap = new Map<string, ClosedEpisode>();
+  const removeSet = new Set<string>();
+  const allNotices: Notice[] = [];
+  let blocked = false;
+  let stepMore = false;
+  let latestPrices: Record<Asset, Map<number, PriceBar>> | null = null;
+  let lastStepTarget = target;
+
+  for (let step = 0; step < 6; step++) {
+   const {input, advanceCap, prices} = await marketData(ledger, target);
+   if (!current()) return;
+   latestPrices = prices;
+   if (!stored && step === 0 && advanceCap < ledger.from) {
+    more = true;
+    retryDelay = 2500;
+    return;
+   }
+   const stepTarget = Math.min(target, advanceCap);
+   lastStepTarget = stepTarget;
+   const result = advanceLedger(ledger, input, stepTarget, sealedBefore);
+   for (const id of result.remove) {
+    recordMap.delete(id);
+    removeSet.add(id);
+   }
+   for (const rec of result.records) {
+    recordMap.set(rec.id, rec);
+   }
+   allNotices.push(...result.notices);
+   blocked = advanceCap < target;
+   stepMore = result.more;
+   if (!stepMore || blocked) break;
+  }
+
+  if (latestPrices) {
+   const maxLaneThrough = LANES.reduce((m, d) => Math.max(m, ledger.lanes[d.key].through ?? -Infinity), -Infinity);
+   const markCeiling = !stepMore && !blocked ? target : (maxLaneThrough > -Infinity ? maxLaneThrough : Math.min(lastStepTarget, ledger.from));
+   updateMarksFromPrices(ledger, latestPrices, markCeiling, target);
+  }
+
+  more = stepMore || blocked;
+  if (blocked && !stepMore) retryDelay = 2500;
   if (view.catchingUp !== more) publish({catchingUp: more});
-  if (stored && before === JSON.stringify(ledger) && !result.records.length && !result.remove.length && !result.notices.length) {
+  const records = [...recordMap.values()];
+  const remove = [...removeSet];
+  const notices = allNotices.length > MAX_NOTICES ? allNotices.slice(-MAX_NOTICES) : allNotices;
+  if (stored && before === JSON.stringify(ledger) && !records.length && !remove.length && !notices.length) {
    if (view.error) publish({error:''});
    return;
   }
-  const inserted = await commitLedger(ledger, result.records, result.remove, result.notices, stamp!.epoch, current);
+  const inserted = await commitLedger(ledger, records, remove, notices, stamp!.epoch, current);
   if (inserted === null) {more = true; return;}
   if (current()) marketRuntime.publish({type:'strategy-update', owner:stamp!.id, epoch:stamp!.epoch, notices:inserted});
  } catch {

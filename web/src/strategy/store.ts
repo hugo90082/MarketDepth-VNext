@@ -6,7 +6,7 @@ export const MAX_NOTICES = 150;
 let opening: Promise<IDBDatabase> | undefined;
 function open() {
  return opening ??= new Promise<IDBDatabase>((resolve, reject) => {
-  const request = indexedDB.open('marketdepth-strategy-v37-1m', 4);
+  const request = indexedDB.open('marketdepth-strategy-v37-1m', 5);
   request.onupgradeneeded = event => {
    const db = request.result;
    if (event.oldVersion < 1) {
@@ -14,7 +14,7 @@ function open() {
     db.createObjectStore('history', {keyPath:'id'}).createIndex('strategy-time', ['strategyId', 'closedAt', 'id']);
     db.createObjectStore('notices', {keyPath:'id'}).createIndex('time', 'at');
     db.createObjectStore('sound');
-   } else if (event.oldVersion < 4) {
+   } else if (event.oldVersion < 5) {
     const tx = request.transaction!;
     tx.objectStore('ledger').clear();
     tx.objectStore('history').clear();

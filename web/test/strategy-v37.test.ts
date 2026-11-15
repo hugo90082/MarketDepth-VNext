@@ -6,6 +6,7 @@ import {advanceStrategy, emptyStrategy, HOUR, MINUTE, priceFeatures, remaining, 
 import {advanceLedger, createLedger, LANES, portfolioNets, summarizeAsset, type LaneInput, type Notice} from '../shared/strategy-v37-ledger';
 import {CONTRACT, emptyRow} from '../shared/contract';
 import {claimSound, commitLedger, MAX_NOTICES, readHistory, readLedger, recentNotices, resetLedger} from '../src/strategy/store';
+import {taipeiSpanStart, updateMarksFromPrices} from '../src/strategy/replay-helpers';
 import {fetchVNextFirstSpotTs} from '../src/vnext-adapter';
 
 const T = 20 * HOUR;
@@ -304,4 +305,53 @@ test('fetchVNextFirstSpotTs skips zero-spot days, retries 503, and fails instead
  } finally {
   globalThis.fetch = realFetch;
  }
+});
+
+test('taipeiSpanStart aligns 6h remote spans to Asia/Taipei days and never crosses midnight', () => {
+ const SPAN = 6 * HOUR;
+ const dayOfTaipei = (ms: number) => Math.floor((ms + 8 * HOUR) / (24 * HOUR));
+ // 2026-11-11 19:59:00 Asia/Taipei = 2026-11-11T11:59:00Z
+ const before20 = Date.UTC(2026, 10, 11, 11, 59, 0);
+ // 2026-11-11 20:00:00 Asia/Taipei = 2026-11-11T12:00:00Z
+ const at20 = Date.UTC(2026, 10, 11, 12, 0, 0);
+ // 2026-11-11 23:45:00 Asia/Taipei = 2026-11-11T15:45:00Z
+ const beforeMidnight = Date.UTC(2026, 10, 11, 15, 45, 0);
+ // 2026-11-12 00:00:00 Asia/Taipei = 2026-11-11T16:00:00Z
+ const atMidnight = Date.UTC(2026, 10, 11, 16, 0, 0);
+
+ const spanBefore20 = taipeiSpanStart(before20, SPAN);
+ assert.equal(spanBefore20, Date.UTC(2026, 10, 11, 10, 0, 0)); // 18:00 Taipei
+ const spanAt20 = taipeiSpanStart(at20, SPAN);
+ assert.equal(spanAt20, spanBefore20); // Still 18:00..24:00 Taipei (same day!)
+ const spanBeforeMid = taipeiSpanStart(beforeMidnight, SPAN);
+ assert.equal(spanBeforeMid, spanBefore20);
+ assert.equal(dayOfTaipei(spanBeforeMid), dayOfTaipei(spanBeforeMid + SPAN - MINUTE));
+
+ const spanAtMid = taipeiSpanStart(atMidnight, SPAN);
+ assert.equal(spanAtMid, atMidnight); // 00:00..06:00 Taipei on 2026-11-12
+ assert.equal(dayOfTaipei(spanAtMid), dayOfTaipei(spanBeforeMid) + 1);
+ assert.equal(dayOfTaipei(spanAtMid), dayOfTaipei(spanAtMid + SPAN - MINUTE));
+});
+
+test('updateMarksFromPrices caps mark price at replay cursor until caught up to target', () => {
+ const ledger = createLedger(T + 100 * HOUR, T);
+ const replayAt = T + 4 * HOUR;
+ const target = T + 96 * HOUR;
+ const prices = {
+  BTC: new Map<number, PriceBar>([[replayAt, bar(replayAt, 80000)], [target, bar(target, 64732.2)]]),
+  ETH: new Map<number, PriceBar>([[replayAt, bar(replayAt, 2600)], [target, bar(target, 1950)]]),
+  SOL: new Map<number, PriceBar>([[replayAt, bar(replayAt, 150)], [target, bar(target, 105)]]),
+ };
+
+ // Mid-replay: ceiling at 4h cursor ignores 96h target bar.
+ updateMarksFromPrices(ledger, prices, replayAt, target);
+ assert.equal(ledger.marks.BTC?.at, replayAt);
+ assert.equal(ledger.marks.BTC?.price, 80000);
+ assert.equal(ledger.marks.BTC?.fresh, false);
+
+ // Caught up: ceiling at target marks to live bar with fresh=true.
+ updateMarksFromPrices(ledger, prices, target, target);
+ assert.equal(ledger.marks.BTC?.at, target);
+ assert.equal(ledger.marks.BTC?.price, 64732.2);
+ assert.equal(ledger.marks.BTC?.fresh, true);
 });
