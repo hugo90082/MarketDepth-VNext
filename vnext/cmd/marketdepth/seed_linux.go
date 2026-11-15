@@ -376,7 +376,7 @@ func loadBinanceF1mDays(ctx context.Context, daysCSV string, byDay map[string][]
 	return nil
 }
 
-func loadV66JSONL(path string, byDay map[string][]model.Row) error {
+func loadV66JSONL(path string, minDay string, byDay map[string][]model.Row) error {
 	f, e := os.Open(path)
 	if e != nil {
 		return e
@@ -398,8 +398,12 @@ func loadV66JSONL(path string, byDay map[string][]model.Row) error {
 		}
 		var typ struct {
 			Type string `json:"type"`
+			T    int64  `json:"t"`
 		}
 		if json.Unmarshal(raw, &typ) != nil {
+			continue
+		}
+		if typ.T > 0 && minDay != "" && model.Day(typ.T) < minDay {
 			continue
 		}
 		switch typ.Type {
@@ -562,8 +566,8 @@ func seedProduction(ctx context.Context, root string, initRoot bool, vnextSQLite
 		}
 	}
 	if v66JSONL != "" {
-		log.Printf("seed: loading V66 local history export %s", v66JSONL)
-		if e := loadV66JSONL(v66JSONL, byDay); e != nil {
+		log.Printf("seed: loading V66 local history export %s (from 2026-11-08)", v66JSONL)
+		if e := loadV66JSONL(v66JSONL, "2026-11-08", byDay); e != nil {
 			return fmt.Errorf("load v66 jsonl: %w", e)
 		}
 	}

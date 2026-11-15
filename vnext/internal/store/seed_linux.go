@@ -117,28 +117,49 @@ func (j *Journal) SeedDay(ctx context.Context, day string, rows []model.Row) (in
 		}
 		items = append(items, seedItem{r, args, h})
 	}
+	var existingCount int
+	for _, k := range []model.Kind{model.Spot, model.F10, model.F1} {
+		var c int
+		if err := d.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+string(k)).Scan(&c); err == nil {
+			existingCount += c
+		}
+	}
+	_, _ = d.db.ExecContext(ctx, "PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-16000;")
+	defer func() { _, _ = d.db.ExecContext(ctx, "PRAGMA synchronous=FULL;") }()
+
 	tx, e := d.db.BeginTx(ctx, nil)
 	if e != nil {
 		return 0, e
 	}
 	defer tx.Rollback()
+	stmts := make(map[model.Kind]*sql.Stmt, 3)
+	for _, k := range []model.Kind{model.Spot, model.F10, model.F1} {
+		st, err := tx.PrepareContext(ctx, insertSQL(k))
+		if err != nil {
+			return 0, err
+		}
+		defer st.Close()
+		stmts[k] = st
+	}
 	inserted := make([]seedItem, 0, len(items))
 	for _, it := range items {
 		r := it.row
 		k := r.Kind()
-		got, err := readRow(ctx, tx, k, r.Key())
-		if err == nil {
-			gh, err := journalHash(got)
-			if err != nil {
+		if existingCount > 0 {
+			got, err := readRow(ctx, tx, k, r.Key())
+			if err == nil {
+				gh, err := journalHash(got)
+				if err != nil {
+					return 0, err
+				}
+				inserted = append(inserted, seedItem{got, nil, gh})
+				continue
+			}
+			if !errors.Is(err, sql.ErrNoRows) {
 				return 0, err
 			}
-			inserted = append(inserted, seedItem{got, nil, gh})
-			continue
 		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			return 0, err
-		}
-		if _, err = tx.ExecContext(ctx, insertSQL(k), it.args...); err != nil {
+		if _, err := stmts[k].ExecContext(ctx, it.args...); err != nil {
 			return 0, err
 		}
 		inserted = append(inserted, it)
@@ -149,6 +170,8 @@ func (j *Journal) SeedDay(ctx context.Context, day string, rows []model.Row) (in
 	var busy, logFrames, checkpointed int
 	_ = d.db.QueryRowContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)").Scan(&busy, &logFrames, &checkpointed)
 
+	_, _ = j.db.ExecContext(ctx, "PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-16000;")
+	defer func() { _, _ = j.db.ExecContext(ctx, "PRAGMA synchronous=FULL;") }()
 	ctxTx, e := j.db.BeginTx(ctx, nil)
 	if e != nil {
 		return 0, e

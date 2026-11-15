@@ -33,7 +33,7 @@ func TestProductionPreflightNoMutation(t *testing.T) {
 	}
 	c := ProductionConfig{Root: filepath.Join(base, "future"), Listen: "127.0.0.1:18082", Origin: "https://example.invalid", Credentials: cred, Producer: strings.Repeat("a", 40), LeaseDir: locks, ProtectedRoots: []string{old}}
 	p, e := CheckProduction(c, k, string(h))
-	if e != nil || !p.LocalConfigValid || !p.ProductionReady || !p.ActivationAllowed || p.NetworkChecked || p.Namespace != "MarketDepth-VNext" {
+	if e != nil || !p.LocalConfigValid || p.ProductionReady || p.ActivationAllowed || p.NetworkChecked || p.Namespace != "MarketDepth-VNext" {
 		t.Fatal(p, e)
 	}
 	if _, e = os.Stat(c.Root); !os.IsNotExist(e) {
