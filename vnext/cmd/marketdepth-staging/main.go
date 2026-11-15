@@ -23,6 +23,7 @@ import (
 
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/archive"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/archive/drive"
+ "github.com/hugo90082/MarketDepth-VNext/vnext/internal/lease"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/collector/futures"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/collector/spot"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/httpapi"
@@ -437,6 +438,7 @@ func main() {
 	init := flag.Bool("init-staging", false, "create new staging directory; never existing data")
 	credentials := flag.String("drive-credentials", "", "optional absolute private OAuth JSON outside data root; staging namespace only")
 	producer := flag.String("producer-commit", "", "exact Git commit for archive provenance")
+ leaseDir := flag.String("drive-lease-dir", "", "shared private namespace lock directory; required for future Drive writer/recovery")
 	allowLoss:=flag.Bool("allow-capacity-loss",false,"isolated staging only: explicitly permit permanent loss of eligible unbacked old days under pressure")
  recoverCatalog:=flag.Bool("recover-catalog",false,"read-only Drive recovery into a new isolated root; never start collection")
  resumeRecovered:=flag.Bool("resume-recovered",false,"explicitly resume a completed recovery root; requires old writer stopped and nonoverlapping day")
@@ -444,6 +446,10 @@ func main() {
  flag.Parse()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+ if *credentials!="" {
+  if *leaseDir=="" {log.Fatal("Drive requires shared --drive-lease-dir; stop all older writers first")}
+  guard,e:=lease.AcquireNamespace(*leaseDir);if e!=nil{log.Fatal(e)};defer guard.Close()
+ }else if *leaseDir!=""{log.Fatal("namespace lease requires Drive credentials")}
 	if *recoverCatalog{
   if !*init||*allowLoss||*resumeRecovered||*preserveActive{log.Fatal("recovery requires --init-staging without resume or forced loss")}
   if e:=runRecovery(ctx,*root,*credentials,*producer);e!=nil{log.Fatal(e)}
