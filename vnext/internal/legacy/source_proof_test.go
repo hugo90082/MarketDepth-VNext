@@ -10,7 +10,7 @@ func proofFixture()LegacyDayProof{
  h:=func(s string)string{return strings.Repeat(s,64)}
  return LegacyDayProof{Version:"legacy-day-proof-v1",Day:"2026-11-10",
  CutoverMS:time.Date(2026,11,11,0,0,0,0,time.FixedZone("UTC+8",8*3600)).UnixMilli(),
- Sources:[]SourceProof{{h("a"),h("b"),h("c"),h("d"),"synthetic-proof-format",3}},
+ Sources:[]SourceProof{{CompressedSHA256:h("a"),UncompressedSHA256:h("b"),MappingSHA256:h("c"),AuditSHA256:h("d"),Adapter:"synthetic-proof-format",MappedOccurrences:3}},
  CanonicalRowsSHA256:h("e"),PlacementReportSHA256:h("f"),UniqueSpot:1,UniqueFutures1m:1,DuplicateOccurrences:1,UnknownAvailability:2}
 }
 func TestLegacyDayProof(t *testing.T){
