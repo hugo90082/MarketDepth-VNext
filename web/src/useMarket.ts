@@ -1,7 +1,7 @@
 import type {BookConnection} from './runtime/books';
 import {marketRuntime} from './runtime/client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ASSETS, validateRows, type Asset, type HistoryPayload,type Venue } from '../shared/model';
+import { ASSETS, VENUES, validateRows, type Asset, type HistoryPayload,type Venue } from '../shared/model';
 import { CONTRACT, aggregateCandles, mergeRecentGap, type Span, type Interval, type StoredRow, type StoredCandle } from '../shared/contract';
 import { retryAfterMs } from '../shared/retry';
 import { validCandle } from '../shared/chart-data';
@@ -279,12 +279,21 @@ export function useMarketEngine(asset:Asset,hours:number,interval:Interval=60000
    }finally{starting=false;}
   }
 
-  let nextRecentVNextSync=0;
+  let nextRecentVNextSync=0,nextGapHealAt=0,nextVNextVersionAt=0,lastHealHours=0,vnextVersion=1;
+  const repairedBucketAt=new Map<number,number>();
   async function syncRecentVNext(){
    if(stopped||authPaused||Date.now()<nextRecentVNextSync)return;
    nextRecentVNextSync=Date.now()+15000;
    try{
-    const to=Math.ceil(Date.now()/60000)*60000;
+    const now=Date.now();
+    if(now>=nextVNextVersionAt){
+     nextVNextVersionAt=now+300_000;
+     try{
+      const days=await fetchVNextDays('2026-01-01','2026-12-31',signal());
+      if(days.length>vnextVersion)vnextVersion=days.length;
+     }catch{}
+    }
+    const to=Math.ceil(now/60000)*60000;
     const from=to-15*60000;
     const [spotRows,f1mRows]=await Promise.all([
      fetchVNextHistoryKind<VNextSpotRow>('spot_depth',from,to,signal()),
@@ -292,10 +301,72 @@ export function useMarketEngine(asset:Asset,hours:number,interval:Interval=60000
     ]);
     if(stopped)return;
     const grouped=groupSpotRowsToStoredRows(spotRows);
-    const canonical=validateRows(grouped).map(r=>({...r,source:'railway' as const,format:CONTRACT.datasetFormat}));
+    const canonical=validateRows(grouped).map(r=>({...r,source:'railway' as const,format:CONTRACT.datasetFormat,finalVersion:vnextVersion}));
     const candles=mapFutures1mToStoredCandles(f1mRows);
+    let savedAny=false;
     if(canonical.length||candles.length){
      await storage.save(canonical,candles);
+     savedAny=true;
+    }
+    const viewHours=Math.min(24,Math.max(1,current.current.hours));
+    if(!stopped&&!authPaused&&(Date.now()>=nextGapHealAt||viewHours>lastHealHours)){
+     nextGapHealAt=Date.now()+60_000;
+     lastHealHours=viewHours;
+     const scanTo=Math.floor(from/BLOCK_MS)*BLOCK_MS;
+     const scanFrom=Math.floor((to-viewHours*3600_000)/BLOCK_MS)*BLOCK_MS;
+     if(scanTo>scanFrom){
+      const viewAsset=current.current.asset;
+      const ai=Math.max(0,ASSETS.indexOf(viewAsset));
+      const viewVenue=current.current.view.venue;
+      const vi=viewVenue==='all4'?-1:VENUES.indexOf(viewVenue);
+      const [localRows,localCandles]=await Promise.all([
+       storage.loadRows(scanFrom,scanTo-1),
+       storage.loadCandles(viewAsset,scanFrom,scanTo-1),
+      ]);
+      const spotBuckets=new Map<number,number>();
+      for(const r of localRows){
+       if(r.cadence!==60000)continue;
+       const ok=vi<0
+        ?VENUES.every((_,idx)=>r.d[idx]?.[ai]?.some(([bid,ask])=>bid!==null&&ask!==null))
+        :r.d[vi]?.[ai]?.some(([bid,ask])=>bid!==null&&ask!==null);
+       if(!ok)continue;
+       const base=Math.floor(r.t/BLOCK_MS)*BLOCK_MS;
+       spotBuckets.set(base,(spotBuckets.get(base)??0)+1);
+      }
+      const candleBuckets=new Map<number,number>();
+      for(const c of localCandles){
+       if(c.interval!==60000||!c.closed||!c.complete)continue;
+       const base=Math.floor(c.t/BLOCK_MS)*BLOCK_MS;
+       candleBuckets.set(base,(candleBuckets.get(base)??0)+1);
+      }
+      const healNow=Date.now();
+      const missingSpans:{from:number;to:number}[]=[];
+      for(let b=scanFrom;b<scanTo;b+=BLOCK_MS){
+       const prevTry=repairedBucketAt.get(b)??0;
+       if(healNow-prevTry<300_000)continue;
+       if((spotBuckets.get(b)??0)>=15&&(candleBuckets.get(b)??0)>=15)continue;
+       const prev=missingSpans.at(-1);
+       if(prev&&prev.to===b&&prev.to-prev.from<6*3600_000)prev.to=b+BLOCK_MS;
+       else if(missingSpans.length<2)missingSpans.push({from:b,to:b+BLOCK_MS});
+      }
+      for(const span of missingSpans){
+       if(stopped||authPaused)break;
+       for(let b=span.from;b<span.to;b+=BLOCK_MS)repairedBucketAt.set(b,healNow);
+       const [gapSpot,gapF1m]=await Promise.all([
+        fetchVNextHistoryKind<VNextSpotRow>('spot_depth',span.from,span.to,signal()),
+        fetchVNextHistoryKind<VNextFutures1mRow>('futures_1m',span.from,span.to,signal()),
+       ]);
+       if(stopped)return;
+       const gapRows=validateRows(groupSpotRowsToStoredRows(gapSpot)).map(r=>({...r,source:'railway' as const,format:CONTRACT.datasetFormat,finalVersion:vnextVersion}));
+       const gapCandles=mapFutures1mToStoredCandles(gapF1m);
+       if(gapRows.length||gapCandles.length){
+        await storage.save(gapRows,gapCandles);
+        savedAny=true;
+       }
+      }
+     }
+    }
+    if(savedAny){
      dataRevision++;
      channel?.postMessage({type:'changed'});
     }

@@ -6,6 +6,7 @@ import {advanceStrategy, emptyStrategy, HOUR, MINUTE, priceFeatures, remaining, 
 import {advanceLedger, createLedger, LANES, portfolioNets, summarizeAsset, type LaneInput, type Notice} from '../shared/strategy-v37-ledger';
 import {CONTRACT, emptyRow} from '../shared/contract';
 import {claimSound, commitLedger, MAX_NOTICES, readHistory, readLedger, recentNotices, resetLedger} from '../src/strategy/store';
+import {fetchVNextFirstSpotTs} from '../src/vnext-adapter';
 
 const T = 20 * HOUR;
 const long = STRATEGIES.find(s => s.asset === 'BTC' && s.side === 1 && s.add === 'A3')!;
@@ -273,4 +274,34 @@ test('commitLedger trims stored notices to MAX_NOTICES (150), removing the oldes
  assert.equal(stored.length, 150);
  assert.equal(stored[0].fillAt, T + 159 * MINUTE);
  assert.equal(stored[stored.length - 1].fillAt, T + 10 * MINUTE);
+});
+
+test('fetchVNextFirstSpotTs skips zero-spot days, retries 503, and fails instead of skipping HTTP errors', async () => {
+ const realFetch = globalThis.fetch;
+ const calls: string[] = [];
+ let attempt = 0;
+ globalThis.fetch = (async (input: RequestInfo | URL) => {
+  calls.push(String(input));
+  attempt++;
+  if (attempt === 1) return new Response(JSON.stringify({ok: false}), {status: 503, headers: {'retry-after': '1'}});
+  return new Response(JSON.stringify({ok: true, data: [{t: 1790400000000}]}), {status: 200});
+ }) as typeof fetch;
+ try {
+  const first = await fetchVNextFirstSpotTs([
+   {day: '2026-09-25', state: 'sealed_remote', revision: 1, from: 1790265600000, to: 1790352000000, counts: {spot_depth: 0}},
+   {day: '2026-09-26', state: 'sealed_remote', revision: 1, from: 1790352000000, to: 1790438400000, counts: {spot_depth: 3516}},
+   {day: '2026-10-06', state: 'sealed_remote', revision: 1, from: 1791216000000, to: 1791302400000, counts: {spot_depth: 17280}},
+  ]);
+  assert.equal(first, 1790400000000);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every(url => url.includes('from=1790352000000')));
+
+  globalThis.fetch = (async () => new Response(JSON.stringify({ok: false}), {status: 500})) as typeof fetch;
+  await assert.rejects(() => fetchVNextFirstSpotTs([
+   {day: '2026-09-26', state: 'sealed_remote', revision: 1, from: 1790352000000, to: 1790438400000, counts: {spot_depth: 3516}},
+   {day: '2026-10-06', state: 'sealed_remote', revision: 1, from: 1791216000000, to: 1791302400000, counts: {spot_depth: 17280}},
+  ]), /HTTP 500/);
+ } finally {
+  globalThis.fetch = realFetch;
+ }
 });

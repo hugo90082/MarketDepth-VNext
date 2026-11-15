@@ -217,11 +217,14 @@ async function marketData(ledger: Ledger, target: number) {
    }
   }
  }
+ let advanceCap = target;
  for (const [wStart, needSpot] of [...missingSpans.entries()].sort((a, b) => a[0] - b[0])) {
   try {
    await ensureRemoteSpan(wStart, target, needSpot);
   } catch {
-   // Remote unavailable or rate-limited; proceed cleanly with whatever local data is present.
+   // Never advance sealed history past an unfetched remote span on transient errors.
+   advanceCap = Math.min(advanceCap, wStart - MINUTE);
+   break;
   }
  }
  const rows = new Map<number, StoredRow>(), prices = {BTC:new Map(), ETH:new Map(), SOL:new Map()} as Record<Asset, Map<number, PriceBar>>;
@@ -242,7 +245,7 @@ async function marketData(ledger: Ledger, target: number) {
   if (latest && (!previous || latest.t >= previous.at)) ledger.marks[asset] = {at:latest.t, price:latest.c, fresh:latest.t === target};
   else if (previous) ledger.marks[asset] = {...previous, fresh:false};
  }
- return input;
+ return {input, advanceCap};
 }
 
 function schedule(delay = 700) {
@@ -287,6 +290,7 @@ async function run() {
  running = true;
  dirty = false;
  let more = false;
+ let retryDelay = 20;
  try {
   const target = Math.floor(Date.now() / MINUTE) * MINUTE - MINUTE;
   let archive: ArchiveInfo | null = null;
@@ -301,11 +305,19 @@ async function run() {
   const initialFrom = !stored && archive ? (resolveEarliestStart(archive, target) ?? target - 8 * HOUR) : target - 8 * HOUR;
   const ledger = stored ?? createLedger(target, initialFrom);
   const before = JSON.stringify(ledger);
-  const input = await marketData(ledger, target);
+  const {input, advanceCap} = await marketData(ledger, target);
   if (!current()) return;
+  if (!stored && advanceCap < ledger.from) {
+   more = true;
+   retryDelay = 2500;
+   return;
+  }
   const sealedBefore = archive?.sealedBefore ?? -Infinity;
-  const result = advanceLedger(ledger, input, target, sealedBefore);
-  more = result.more;
+  const stepTarget = Math.min(target, advanceCap);
+  const result = advanceLedger(ledger, input, stepTarget, sealedBefore);
+  const blocked = advanceCap < target;
+  more = result.more || blocked;
+  if (blocked && !result.more) retryDelay = 2500;
   if (view.catchingUp !== more) publish({catchingUp: more});
   if (stored && before === JSON.stringify(ledger) && !result.records.length && !result.remove.length && !result.notices.length) {
    if (view.error) publish({error:''});
@@ -319,7 +331,7 @@ async function run() {
  } finally {
   running = false;
   if (active && view.catchingUp !== more) publish({catchingUp: more});
-  if (more || dirty) schedule(more ? 20 : 700);
+  if (more || dirty) schedule(more ? retryDelay : 700);
  }
 }
 

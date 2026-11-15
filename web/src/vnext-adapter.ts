@@ -3,7 +3,7 @@ import { CONTRACT, type StoredCandle, type StoredRow } from '../shared/contract'
 import { MARKET_BLOCK_MS, emptyMarketBlock, marketContent, marketHash, type MarketBlock } from '../shared/market-history';
 import { siteFetch } from './site-api';
 
-const base = (import.meta.env.VITE_BFF_URL || '').replace(/\/$/, '');
+const base = (import.meta.env?.VITE_BFF_URL || '').replace(/\/$/, '');
 
 export type VNextSpotRow = {
   t: number;
@@ -62,11 +62,21 @@ async function serializedV2Fetch(path: string, signal?: AbortSignal): Promise<Re
   apiLock = new Promise<void>(r => { release = r; });
   await prev.catch(() => {});
   try {
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const r = await siteFetch(base + path, { signal: signal ?? AbortSignal.timeout(15000) });
-      if (r.status === 429 && attempt < 3) {
-        const waitSec = Math.max(1, Number(r.headers.get('retry-after')) || 2);
-        await new Promise(res => setTimeout(res, waitSec * 1000));
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const r = await siteFetch(base + path, { signal: signal ?? AbortSignal.timeout(30000) });
+      if ((r.status === 429 || r.status === 503) && attempt < 4) {
+        const waitSec = Math.max(1, Number(r.headers.get('retry-after')) || (attempt + 1) * 2);
+        await new Promise<void>((res, rej) => {
+          const timer = setTimeout(() => {
+            signal?.removeEventListener('abort', onAbort);
+            res();
+          }, waitSec * 1000);
+          const onAbort = () => {
+            clearTimeout(timer);
+            rej(new Error('ABORTED'));
+          };
+          if (signal) signal.addEventListener('abort', onAbort, { once: true });
+        });
         continue;
       }
       return r;
@@ -100,12 +110,14 @@ export async function fetchVNextDays(
 }
 
 export async function fetchVNextFirstSpotTs(days: VNextDay[], signal?: AbortSignal): Promise<number | null> {
-  const ordered = [...days].filter(d => d.state !== 'missing').sort((a, b) => a.from - b.from);
+  const ordered = [...days]
+    .filter(d => d.state !== 'missing' && (d.counts?.spot_depth ?? 1) > 0)
+    .sort((a, b) => a.from - b.from);
   for (const d of ordered) {
     if (signal?.aborted) throw new Error('ABORTED');
     const q = `/api/v2/history?kind=spot_depth&venue=binance&from=${d.from}&to=${d.to}&limit=1`;
     const r = await serializedV2Fetch(q, signal);
-    if (!r.ok) continue;
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const body = await r.json() as { ok: boolean; data?: VNextSpotRow[] };
     const first = body.data?.[0];
     if (first && Number.isSafeInteger(first.t)) return first.t;
