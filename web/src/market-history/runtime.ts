@@ -5,6 +5,7 @@ import { AUTH_REQUIRED_EVENT } from '../site-api';
 import { MARKET_BLOCK_MS, MARKET_BATCH_MS, marketHash, type MarketBlock } from '../../shared/market-history';
 import { blockCoverage, sumCoverage, type Coverage, type MarketSource } from '../../shared/market-sync';
 import type { Asset } from '../../shared/model';
+import { TAIPEI_DAY_MS, taipeiDayIndex, taipeiSpanStart } from '../strategy/replay-helpers';
 import { buildVNextMarketBlocks, fetchVNextDays } from '../vnext-adapter';
 
 type CloudSummary = { oldest: number | null; newest: number | null; blocks: number; version: number };
@@ -33,7 +34,7 @@ type Pull = {
   initial: boolean;
   total?: number;
   stats?: Record<string, Coverage>;
-  statsSource?: 'vnext-v2';
+  statsSource?: 'vnext-v2' | 'vnext-v3';
 };
 
 const VNEXT_SOURCE: MarketSource = {
@@ -121,7 +122,7 @@ async function pullWindow(f: storage.CollectorFence) {
   const windowFrom = Math.floor((now - hours * 3600000) / MARKET_BLOCK_MS) * MARKET_BLOCK_MS;
   const windowTo = Math.floor(now / MARKET_BLOCK_MS) * MARKET_BLOCK_MS + MARKET_BLOCK_MS;
 
-  if (!p || p.hours !== hours || p.statsSource !== 'vnext-v2' || p.from !== windowFrom) {
+  if (!p || p.hours !== hours || p.statsSource !== 'vnext-v3') {
     const bases: number[] = [];
     for (let b = windowFrom; b < windowTo; b += MARKET_BLOCK_MS) {
       bases.push(b);
@@ -137,8 +138,20 @@ async function pullWindow(f: storage.CollectorFence) {
       initial: true,
       total: bases.length,
       stats: p?.stats ?? {},
-      statsSource: 'vnext-v2',
+      statsSource: 'vnext-v3',
     };
+  } else {
+    // Preserve unpulled historical bases when the 15-minute window advances.
+    const existing = new Set(p.bases);
+    const prepended: number[] = [];
+    for (let b = Math.max(windowFrom, p.to); b < windowTo; b += MARKET_BLOCK_MS) {
+      if (!existing.has(b)) prepended.push(b);
+    }
+    prepended.reverse();
+    p.bases = [...prepended, ...p.bases.filter(b => b >= windowFrom && b < windowTo)];
+    p.from = windowFrom;
+    p.to = windowTo;
+    p.total = Math.max(p.total ?? 0, Math.round((windowTo - windowFrom) / MARKET_BLOCK_MS));
   }
 
   p.stats ??= {};
@@ -150,21 +163,25 @@ async function pullWindow(f: storage.CollectorFence) {
   const stats = p.stats;
   const latestBase = Math.floor(now / MARKET_BLOCK_MS) * MARKET_BLOCK_MS;
   const prevBase = latestBase - MARKET_BLOCK_MS;
+  const todayStartTaipei = taipeiSpanStart(now, TAIPEI_DAY_MS);
 
-  // Skip already-cached historical blocks (never skip the latest two 15m blocks)
-  while (p.bases.length > 0 && valid()) {
-    const candidate = p.bases[0];
-    const isRecentBlock = candidate >= prevBase;
-    const coverage = await storage.getMeta<{ version: number; coverage: Coverage }>('market-history-coverage:' + candidate);
-    const seen = await storage.getMeta<{ version: number; hash: string }>('market-history-seen:' + candidate);
-    const head = await storage.marketHistoryHead(candidate);
-    if (!isRecentBlock && coverage && seen && head) {
-      stats[candidate] = coverage.coverage;
-      p.bases.shift();
-      continue;
+  async function skipCached() {
+    while (p!.bases.length > 0 && valid()) {
+      const candidate = p!.bases[0];
+      const isRecentBlock = candidate >= prevBase;
+      const coverage = await storage.getMeta<{ version: number; coverage: Coverage }>('market-history-coverage:' + candidate);
+      const seen = await storage.getMeta<{ version: number; hash: string }>('market-history-seen:' + candidate);
+      const head = await storage.marketHistoryHead(candidate);
+      if (!isRecentBlock && coverage && seen && head) {
+        stats[candidate] = coverage.coverage;
+        p!.bases.shift();
+        continue;
+      }
+      break;
     }
-    break;
   }
+
+  await skipCached();
 
   // When initial backfill finishes, always refresh the latest two 15m blocks from VNext
   if (p.bases.length === 0 && valid()) {
@@ -172,13 +189,23 @@ async function pullWindow(f: storage.CollectorFence) {
     if (prevBase >= p.from) p.bases.push(prevBase);
   }
 
-  if (p.bases.length > 0 && valid()) {
-    // Fetch a contiguous batch of up to 8 blocks (2 hours) in one /api/v2/history call
+  // Drain up to 4 batches within one Asia/Taipei day so Drive's single-day read cache stays hot without timing out across midnight.
+  let targetDay: number | null = null;
+  for (let dayBatches = 0; dayBatches < 4 && p.bases.length > 0 && valid(); dayBatches++) {
+    if (dayBatches > 0) await skipCached();
+    if (p.bases.length === 0 || !valid()) break;
     const firstBase = p.bases[0];
+    const firstDay = taipeiDayIndex(firstBase);
+    if (targetDay !== null && firstDay !== targetDay) break;
+    targetDay = firstDay;
+
+    const maxBatch = firstBase < todayStartTaipei ? 24 : 8;
     const batchBases = [firstBase];
-    for (let i = 1; i < p.bases.length && batchBases.length < 8; i++) {
-      if (Math.abs(p.bases[i] - batchBases[batchBases.length - 1]) === MARKET_BLOCK_MS) {
-        batchBases.push(p.bases[i]);
+    for (let i = 1; i < p.bases.length && batchBases.length < maxBatch; i++) {
+      const nextBase = p.bases[i];
+      if (taipeiDayIndex(nextBase) !== firstDay) break;
+      if (Math.abs(nextBase - batchBases[batchBases.length - 1]) === MARKET_BLOCK_MS) {
+        batchBases.push(nextBase);
       } else {
         break;
       }

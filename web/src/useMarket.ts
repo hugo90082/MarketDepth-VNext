@@ -21,6 +21,7 @@ import {
  type VNextSpotRow,
  type VNextFutures1mRow,
 } from './vnext-adapter';
+import { splitTaipeiSpans } from './strategy/replay-helpers';
 
 type Backfill=Awaited<ReturnType<typeof historyView>>;
 type Coverage=Partial<Record<Asset,{bidBps:number;askBps:number;at:number;snapshotAt?:number;observedBidBps?:number;observedAskBps?:number;coverageMode?:'sequenced-diff'}|null>>;
@@ -97,11 +98,12 @@ export function useMarketEngine(asset:Asset,hours:number,interval:Interval=60000
   async function readLocal(){
    if(reading)return reading;
    const end=Date.now(),{assets:selected,hours:h,revision,interval:chosen,view:selection,viewKey:readView}=current.current;
-   const key=`${readView}:${Math.floor(end/60000)}:${dataRevision}`;if(key===lastRead)return;
+   const readRevision=dataRevision;
+   const key=`${readView}:${Math.floor(end/60000)}:${readRevision}`;if(key===lastRead)return;
    reading=(async()=>{const [r,c,b,proof]=await Promise.all([storage.loadRowsView(end-h*3600000,end,chosen,{...selection,assets:selected}),Promise.all(selected.map(a=>storage.loadCandlesView(a,Math.floor((end-h*3600000)/chosen)*chosen,end,chosen))),storage.getMeta<number>('bytes'),storage.verifiedBlocks()]);
     if(stopped||revision!==current.current.revision||readView!==current.current.viewKey)return;
     lastRead=key;setRows(r);setCandles(c.flat());setBytes(b??0);setVerifiedBlocks(proof);setNow(end);setBusy(false);if(storage.storageNotice())setStorageError(storage.storageNotice());
-   })();try{await reading;}finally{reading=null;if(!stopped&&(revision!==current.current.revision||readView!==current.current.viewKey))void readLocal().catch(storageFail);}
+   })();try{await reading;}finally{reading=null;if(!stopped&&(revision!==current.current.revision||readView!==current.current.viewKey||readRevision!==dataRevision))void readLocal().catch(storageFail);}
   }
   async function fillPrices(h:number){
    h=localMaintenance.requestedHours();if(!h)return;
@@ -131,7 +133,7 @@ export function useMarketEngine(asset:Asset,hours:number,interval:Interval=60000
    const nowMs=Date.now();
    const eligibleTo=Math.floor(nowMs/BLOCK_MS)*BLOCK_MS;
    const from=Math.floor((eligibleTo-h*3600000)/BLOCK_MS)*BLOCK_MS;
-   const dayStarts=days.map(d=>parseDayStartMs(d.day)).filter(t=>t>0).sort((a,b)=>a-b);
+   const dayStarts=days.map(d=>d.from||parseDayStartMs(d.day)).filter(t=>t>0).sort((a,b)=>a-b);
    const oldestAvailableTsMs=dayStarts.length?dayStarts[0]:from;
    const indexedFrom=Math.min(from,oldestAvailableTsMs);
    const chunks:IndexedChunk[]=[];
@@ -183,10 +185,7 @@ export function useMarketEngine(asset:Asset,hours:number,interval:Interval=60000
     const startFrom=Math.max(status.from,status.oldestAvailableTsMs??status.from);
     const endTo=status.eligibleTo;
     let recovered=0,backendMissing=0;
-    const slices:{from:number;to:number}[]=[];
-    for(let cursor=startFrom;cursor<endTo;cursor+=MANUAL_SLICE_MS){
-     slices.push({from:cursor,to:Math.min(endTo,cursor+MANUAL_SLICE_MS)});
-    }
+    const slices=splitTaipeiSpans(startFrom,endTo,MANUAL_SLICE_MS);
     for(let i=0;i<slices.length;i++){
      if(stopped)return;
      const slice=slices[i];

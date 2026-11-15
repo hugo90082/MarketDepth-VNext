@@ -6,7 +6,7 @@ import {advanceStrategy, emptyStrategy, HOUR, MINUTE, priceFeatures, remaining, 
 import {advanceLedger, createLedger, LANES, portfolioNets, summarizeAsset, type LaneInput, type Notice} from '../shared/strategy-v37-ledger';
 import {CONTRACT, emptyRow} from '../shared/contract';
 import {claimSound, commitLedger, MAX_NOTICES, readHistory, readLedger, recentNotices, resetLedger} from '../src/strategy/store';
-import {taipeiSpanStart, updateMarksFromPrices} from '../src/strategy/replay-helpers';
+import {splitTaipeiSpans, taipeiDayIndex, taipeiSpanStart, updateMarksFromPrices} from '../src/strategy/replay-helpers';
 import {fetchVNextFirstSpotTs} from '../src/vnext-adapter';
 
 const T = 20 * HOUR;
@@ -354,4 +354,18 @@ test('updateMarksFromPrices caps mark price at replay cursor until caught up to 
  assert.equal(ledger.marks.BTC?.at, target);
  assert.equal(ledger.marks.BTC?.price, 64732.2);
  assert.equal(ledger.marks.BTC?.fresh, true);
+});
+
+test('splitTaipeiSpans splits multi-day ranges at 00:00 Asia/Taipei without crossing midnight', () => {
+ const from = Date.UTC(2026, 10, 11, 14, 15, 0); // 2026-11-11 22:15 Asia/Taipei
+ const to = Date.UTC(2026, 10, 14, 18, 30, 0);   // 2026-11-15 02:30 Asia/Taipei
+ const spans = splitTaipeiSpans(from, to, 6 * HOUR);
+ assert.equal(spans[0].from, from);
+ assert.equal(spans.at(-1)?.to, to);
+ for (let i = 0; i < spans.length; i++) {
+  assert.ok(spans[i].to > spans[i].from);
+  assert.ok(spans[i].to - spans[i].from <= 6 * HOUR);
+  assert.equal(taipeiDayIndex(spans[i].from), taipeiDayIndex(spans[i].to - MINUTE));
+  if (i > 0) assert.equal(spans[i].from, spans[i - 1].to);
+ }
 });
