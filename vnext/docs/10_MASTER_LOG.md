@@ -570,3 +570,9 @@ SQLite 3.46.1 quick_check ok/user_version=1；重複及 off-grid 被拒，負數
 - 新增 tools/original_evidence_bundle.py e804690282c53bf938a9fe0656f1e167c993ac0a，本機 blob 24563227e2042a52ad4c622202e0d4237af8ba37 與 GitHub 一致；五項合成 self-test 全通過（0.019s）。固定兩原始gzip hash、串流原bytes複製、完整gzip回讀、manifest digest、拒絕覆寫及異常。CI新增測試07056bc4，結果尚未取得。R2_ORIGINAL_EVIDENCE_QA.md 93b9e077：獨立 evidence namespace候選，不進日庫inventory；真原始檔/最終尾端/非秘密設定schema/真Drive獨占發布及遠端回讀未完成。不在512MiB VM操作。原兩版本、原五代與840筆尾端不動；11/14–15仍held。正式run及發布繼續鎖定，未操作AWS、Drive、長測、正式主分支。
 
 - R2補充：public_config_evidence.py commit79f7882f66bfb0e01aa8c8067d96fbf7e8aca714、blob a61a0462b8a5bbd3a09eae878ea61777f87355ba 與本機一致；3項合成測試全通過（0.005s）。固定6個已審 source blob及實際HEAD/工作樹驗證、輸出非秘密來源規格與hash，拒絕來源drift/任意設定/錯commit/symlink，不讀.env及OAuth等。CI 8a6e7bc5 加真checkout檢查，結果尚未取得；文件74311869。僅 source baseline，不是正式 runtime 設定證據或正式上線批准。R2 真gzip、尾端、runtime allowlist、真Drive仍未完成。
+
+## 2026-11-15｜R3 混合日接合離線提案與第九次長測狀態
+- 第九次24h依使用者回報提前停止，已交Codex分析；未取得原始監控/first_target/PID/尾端證據，不算24h/完整曆日/兩日界通過，不重啟或自行延長。R6待報告。
+- R2 CI c3938d4a/run43669912704 success，真實gzip及遠端封存尚未完成。
+- R3 新增 internal/mixedday/plan.go、plan_test.go、cmd/mixed-day-plan/main.go、main_test.go。單日canonical JSONL SHA/模型/來源/grid/唯一key驗證、分鐘對齊cutover、明示兩個authority SHA、47520主鍵決策及所有來源證據、缺列/unsupported/status統計；不補值、不改row、不升格未知availability/coverage、不合成legacy F10。整列hash差異非金額比較。CLI新目錄排他寫及回讀，無SQLite/Drive/發布入口。R3_MIXED_DAY_QA.md（94a09ced）記錄工程候選及未完成門檻。
+- 初版CI43670239404失敗於F10分母斷言，兩分鐘×6×3=36而非18；實際程式正確，2ce8567e修正測試、98b61c6f加LF防護，CLI247c119b、測試ac5e00af；run43670256245/43670350673查詢時仍in_progress，未宣稱R3回歸通過。待可信來源export adapter、混合proof/實體SQLite封存、immutable revision/manifest/catalog/recovery/API端到端驗收及真cutover/placement。11/14–15共22500候選列、原五代、840尾端及第九次四代/停止後尾端保持隔離；未操作主機、真Drive或實盤。
