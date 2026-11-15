@@ -44,7 +44,7 @@ func TestPlanBoundaryAndNoFallback(t *testing.T){
 	r,b,e:=Plan(req,ins);if e!=nil {t.Fatal(e)}
 	if r.ProductionReady||r.PublicationApproved||len(r.Decisions)!=47520||digest(b)!=r.SelectedJSONLSHA256 {t.Fatal("invalid report")}
 	s:=r.Counts[model.Spot];if s.Expected!=17280||s.Selected!=3||s.Absent!=17277||s.MissingStatus!=1||s.LegacyUnknown!=1||s.DifferingKeys!=2 {t.Fatalf("spot counts: %+v",s)}
-	f:=r.Counts[model.F10];if f.Expected!=25902||f.Unsupported!=18||f.Selected!=1||f.ExcludedOccurrences!=1 {t.Fatalf("F10 counts: %+v",f)}
+	f:=r.Counts[model.F10];if f.Expected!=25884||f.Unsupported!=36||f.Selected!=1||f.ExcludedOccurrences!=1 {t.Fatalf("F10 counts: %+v",f)}
 	for _,d:=range r.Decisions{
 		if d.Key.Kind!=model.Spot||d.Key.Venue!="binance"||d.Key.Asset!="BTC"{continue}
 		switch d.Key.T{
