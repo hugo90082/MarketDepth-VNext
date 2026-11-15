@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import 'fake-indexeddb/auto';
-import {advanceStrategy, emptyStrategy, HOUR, MINUTE, priceFeatures, remaining, STRATEGIES,
+import {advanceStrategy, emptyStrategy, HOUR, MINUTE, priceFeatures, remaining, STRATEGIES, strategyDepth,
  type DepthPoint, type PriceBar, type Strategy, type StrategyState} from '../shared/strategy-v37';
-import {advanceLedger, createLedger, LANES, portfolioNets, type LaneInput} from '../shared/strategy-v37-ledger';
+import {advanceLedger, createLedger, LANES, portfolioNets, summarizeAsset, type LaneInput} from '../shared/strategy-v37-ledger';
+import {CONTRACT, emptyRow} from '../shared/contract';
 import {claimSound, commitLedger, readHistory, readLedger} from '../src/strategy/store';
 
 const T = 20 * HOUR;
@@ -114,8 +115,9 @@ test('depth-gap price exit is provisional, then replay atomically replaces the s
  const recovered = advanceLedger(loaded, inputs(false, 90), T);
  assert.equal(recovered.records[0].reason, 'reverse');
  assert.equal(recovered.records[0].provisional, false);
- assert.equal(recovered.notices[0].kind, 'replay');
- assert.equal(recovered.notices[0].kind === 'replay' && recovered.notices[0].corrected, 1);
+ assert.equal(recovered.notices[0].kind, 'fill');
+ assert.equal(recovered.notices[0].action, 'reverse');
+ assert.equal(recovered.notices[0].provisional, false);
  await commitLedger(loaded, recovered.records, recovered.remove, recovered.notices, 101, () => true);
  assert.equal(await commitLedger(stale, [], [], [], 100, () => true), null);
  const history = (await readHistory(long.id)).rows;
@@ -128,7 +130,7 @@ test('depth-gap price exit is provisional, then replay atomically replaces the s
  assert.deepEqual((await Promise.all([claimSound('same-minute'), claimSound('same-minute')])).sort(), [false, true]);
 });
 
-test('opposite closures in the same minute both settle, but net zero does not notify', () => {
+test('opposite closures in the same minute both settle and both emit fill notices', () => {
  const {ledger, lane, index} = setup();
  const indexShort = LANES.find(lane => lane.key === laneKey)!.strategies.indexOf(short);
  lane.states[index] = started(long);
@@ -138,7 +140,8 @@ test('opposite closures in the same minute both settle, but net zero does not no
  }
  const result = advanceLedger(ledger, inputs(), T);
  assert.equal(result.records.length, 2);
- assert.equal(result.notices.length, 0);
+ assert.equal(result.notices.length, 2);
+ assert.ok(result.notices.every(notice => notice.kind === 'fill' && notice.action === 'reverse'));
  assert.equal(portfolioNets(ledger).BTC, 0);
 });
 
@@ -161,9 +164,63 @@ test('a long recovery retains provisional history until replay has reached the o
  assert.equal(lane.review.length, 1);
  const completion = advanceLedger(ledger, series(false), target);
  assert.deepEqual(completion.remove, [provisional!.id]);
- assert.equal(completion.notices.length, 1);
- const [summary] = completion.notices;
- assert.equal(summary.kind, 'replay');
- assert.equal(summary.kind === 'replay' && summary.corrected, 0);
+ assert.equal(completion.more, false);
+ assert.ok(completion.notices.some(notice =>
+  notice.kind === 'fill' && notice.action === 'stop' && notice.provisional === false && notice.fillAt === stopAt));
  assert.equal(completion.records.find(record => record.id === provisional!.id)?.provisional, false);
+});
+
+test('live 1m browser/recent/railway rows share unified depth source, while legacy-30s still isolates', () => {
+ type DepthRow = NonNullable<Parameters<typeof strategyDepth>[0]>;
+ const makeRow = (source: DepthRow['source'], feed?: 'vnext-1m' | 'legacy-30s'): DepthRow => {
+  const row = emptyRow(T);
+  for (let v = 0; v < row.d.length; v += 1) {
+   for (let z = 0; z < row.d[v][0].length; z += 1) row.d[v][0][z] = [6, 4];
+  }
+  return {
+   ...row,
+   cadence: MINUTE,
+   source,
+   format: CONTRACT.datasetFormat,
+   ...(feed ? {
+    quality: {
+     version: 'FORMAL_AVAILABLE_V2',
+     books: [[{
+      capturedAt: T + MINUTE,
+      feed,
+      bidBps: 750,
+      askBps: 750,
+      complete: [true, true, true, true, true],
+      mode: 'ws',
+     }]],
+    },
+   } : {}),
+  };
+ };
+ assert.equal(strategyDepth(makeRow('browser', 'vnext-1m'), 'BTC', 0)?.source, 'vnext-1m');
+ assert.equal(strategyDepth(makeRow('recent'), 'BTC', 0)?.source, 'vnext-1m');
+ assert.equal(strategyDepth(makeRow('railway'), 'BTC', 0)?.source, 'vnext-1m');
+ assert.notEqual(strategyDepth(makeRow('browser', 'legacy-30s'), 'BTC', 0)?.source, 'vnext-1m');
+});
+
+test('idle minutes with no fills emit zero notices and summarizeAsset splits realized vs unrealized PnL', () => {
+ const {ledger, lane, index} = setup();
+ lane.states[index] = started(long);
+ const upInputs = new Map<string, LaneInput>(LANES.map(definition => [definition.key, {
+  bar: t => t === T ? bar(t, 105, 105, 105) : undefined,
+  point: t => point(t, .40),
+  features: () => null,
+ }]));
+ const result = advanceLedger(ledger, upInputs, T);
+ ledger.marks.BTC = {at: T, price: 105, fresh: true};
+ assert.equal(result.notices.length, 0);
+ const summary = summarizeAsset('BTC', ledger);
+ near(summary.realized, -0.4);
+ const {unrealized, total} = summary;
+ assert.ok(unrealized !== null);
+ near(unrealized, 49.6);
+ assert.ok(total !== null);
+ near(total, summary.realized + unrealized);
+ assert.equal(summary.longNotional, 1000);
+ assert.equal(summary.shortNotional, 0);
 });

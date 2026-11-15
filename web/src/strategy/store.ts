@@ -1,16 +1,24 @@
 import type {ClosedEpisode} from '../../shared/strategy-v37';
-import type {Ledger, Notice} from '../../shared/strategy-v37-ledger';
+import {createLedger, type Ledger, type Notice} from '../../shared/strategy-v37-ledger';
 
 let opening: Promise<IDBDatabase> | undefined;
 function open() {
  return opening ??= new Promise<IDBDatabase>((resolve, reject) => {
-  const request = indexedDB.open('marketdepth-strategy-v37-1m', 1);
-  request.onupgradeneeded = () => {
+  const request = indexedDB.open('marketdepth-strategy-v37-1m', 2);
+  request.onupgradeneeded = event => {
    const db = request.result;
-   db.createObjectStore('ledger');
-   db.createObjectStore('history', {keyPath:'id'}).createIndex('strategy-time', ['strategyId', 'closedAt', 'id']);
-   db.createObjectStore('notices', {keyPath:'id'}).createIndex('time', 'at');
-   db.createObjectStore('sound');
+   if (event.oldVersion < 1) {
+    db.createObjectStore('ledger');
+    db.createObjectStore('history', {keyPath:'id'}).createIndex('strategy-time', ['strategyId', 'closedAt', 'id']);
+    db.createObjectStore('notices', {keyPath:'id'}).createIndex('time', 'at');
+    db.createObjectStore('sound');
+   } else if (event.oldVersion < 2) {
+    const tx = request.transaction!;
+    tx.objectStore('ledger').clear();
+    tx.objectStore('history').clear();
+    tx.objectStore('notices').clear();
+    tx.objectStore('sound').clear();
+   }
   };
   request.onsuccess = () => {
    request.result.onversionchange = () => {request.result.close(); opening = undefined;};
@@ -81,6 +89,29 @@ export async function commitLedger(ledger: Ledger, records: ClosedEpisode[], rem
  return inserted;
 }
 
+export async function resetLedger(target: number, from: number, term: number, current: () => boolean): Promise<Ledger | null> {
+ const db = await open();
+ if (!current()) return null;
+ const tx = db.transaction(['ledger', 'history', 'notices', 'sound'], 'readwrite'), done = finished(tx);
+ const store = tx.objectStore('ledger');
+ const existing = await result<Ledger | undefined>(store.get('current'));
+ const previousTerm = await result<number | undefined>(store.get('term'));
+ if (!current() || (previousTerm ?? 0) > term) {
+  tx.abort();
+  await done.catch(() => {});
+  return null;
+ }
+ tx.objectStore('history').clear();
+ tx.objectStore('notices').clear();
+ tx.objectStore('sound').clear();
+ const fresh = createLedger(target, from);
+ fresh.revision = (existing?.revision ?? 0) + 1;
+ store.put(term, 'term');
+ store.put(fresh, 'current');
+ await done;
+ return fresh;
+}
+
 export type HistoryCursor = [strategyId: string, closedAt: number, id: string];
 export async function readHistory(strategyId: string, before?: HistoryCursor) {
  const db = await open();
@@ -111,8 +142,8 @@ export async function recentNotices() {
   request.onerror = () => reject(request.error);
   request.onsuccess = () => {
    const cursor = request.result;
-   if (!cursor || notices.length === 20) {resolve(notices); return;}
-   notices.push(cursor.value);
+   if (!cursor || notices.length === 100) {resolve(notices); return;}
+   if (cursor.value?.kind === 'fill') notices.push(cursor.value);
    cursor.continue();
   };
  });

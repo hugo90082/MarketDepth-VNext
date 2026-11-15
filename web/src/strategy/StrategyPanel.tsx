@@ -1,27 +1,28 @@
-import {Fragment, useEffect, useRef, useState, useSyncExternalStore} from 'react';
+import {useEffect, useMemo, useRef, useState, useSyncExternalStore} from 'react';
 import {ASSETS, type Asset} from '../../shared/model';
-import {floating, NOTIONAL, remaining, type ClosedEpisode, type Fill, type Strategy} from '../../shared/strategy-v37';
-import {LANES, portfolioNets, shownStates, type Ledger, type Notice} from '../../shared/strategy-v37-ledger';
+import {floating, HOUR, NOTIONAL, remaining, type ClosedEpisode, type Fill, type Strategy} from '../../shared/strategy-v37';
+import {LANES, shownStates, summarizeAsset, type AssetPnlSummary, type Lane, type LaneDefinition, type Ledger, type Notice} from '../../shared/strategy-v37-ledger';
+import {marketRuntime} from '../runtime/client';
 import {dateTime} from '../format';
 import {strategyRuntime} from './runtime';
 import {readHistory, type HistoryCursor} from './store';
 import './strategy.css';
 
 const money = new Intl.NumberFormat('zh-TW', {minimumFractionDigits:2, maximumFractionDigits:2});
+const priceFmt = new Intl.NumberFormat('zh-TW', {minimumFractionDigits:2, maximumFractionDigits:2});
 const units = new Intl.NumberFormat('zh-TW', {maximumFractionDigits:3});
 const actions: Record<Fill['kind'], string> = {entry:'進場', add:'加碼', trim:'回零減碼 75%', reverse:'反向全平', stop:'停損', expiry:'到期'};
 const timestamp = (at: number) => dateTime(at);
-const sideName = (strategy: Strategy) => strategy.side === 1 ? '多方' : '空方';
-const tone = (value: number | null) => value === null || value === 0 ? '' : value > 0 ? 'v37-positive' : 'v37-negative';
+const sideName = (side: 1 | -1) => side === 1 ? '多方' : '空方';
+const tone = (value: number | null) => value === null || Math.abs(value) < 1e-9 ? '' : value > 0 ? 'v37-positive' : 'v37-negative';
 const signed = (value: number | null, scale: number) => value === null ? '—' : (value > 0 ? '+' : '') + money.format(value * scale);
+
 function netText(amount: number) {
  if (!amount) return '零部位';
  return (amount > 0 ? '淨多 ' : '淨空 ') + units.format(Math.abs(amount) / NOTIONAL) + 'N';
 }
-function noticeText(notice: Notice) {
- if (notice.kind === 'move') return `${notice.asset} ${netText(notice.before)} → ${netText(notice.after)}${notice.provisional ? ' · 待回補對帳' : ''}`;
- const totals = ASSETS.map(asset => asset + ' ' + netText(notice.after[asset])).join('／');
- return `回算摘要 · ${totals} · ${notice.closed} 個結束回合${notice.corrected ? `，修正 ${notice.corrected} 筆` : ''}`;
+function netBadgeClass(amount: number) {
+ return amount > 0 ? 'v37-net-long' : amount < 0 ? 'v37-net-short' : 'v37-net-flat';
 }
 
 function useStrategy() {
@@ -31,8 +32,13 @@ function useStrategy() {
 export function StrategyToasts() {
  const {toast} = useStrategy();
  if (!toast.length) return null;
- return <div className="v37-toast" role="status">{toast.map(notice =>
-  <div key={notice.id}><b>V37 虛擬策略</b><span>{noticeText(notice)}</span></div>)}</div>;
+ return <div className="v37-toast" role="status">{toast.map(notice => {
+  const isLong = notice.side === 1;
+  return <div key={notice.id} className={isLong ? 'v37-toast-long' : 'v37-toast-short'}>
+   <div><b>V37 {notice.asset} {sideName(notice.side)} · {actions[notice.action]}</b></div>
+   <div><span>{notice.zone} bps（{notice.threshold.toFixed(2)} · {notice.entryRule}/{notice.addRule}）· {units.format(notice.amount / NOTIONAL)}N @ {priceFmt.format(notice.price)}</span></div>
+  </div>;
+ })}</div>;
 }
 
 function SoundControl() {
@@ -46,54 +52,112 @@ function NotionalControl({notional}: {notional: number}) {
  const [draft, setDraft] = useState(String(notional));
  useEffect(() => setDraft(String(notional)), [notional]);
  return <label className="v37-n" title="每 1N 的美元金額，調整後等比例換算目前與歷史盈虧">
-  <span>N</span><input type="number" step="any" inputMode="decimal" value={draft}
+  <span>1N</span><input type="number" step="any" inputMode="decimal" value={draft}
    onChange={event => setDraft(event.currentTarget.value)}
    onBlur={event => setDraft(String(strategyRuntime.setNotional(event.currentTarget.valueAsNumber)))}
    onKeyDown={event => {if (event.key === 'Enter') event.currentTarget.blur();}}/>
  </label>;
 }
 
-function summaryPnl(asset: Asset, ledger: Ledger) {
- const mark = ledger.marks[asset];
- let totalKnown = !ledger.replay, confirmed = 0, current = 0;
- for (const definition of LANES.filter(lane => lane.asset === asset)) {
-  const lane = ledger.lanes[definition.key];
-  if (lane.through === null || lane.gap || lane.review.length) totalKnown = false;
-  for (const [index, state] of lane.states.entries()) {
-   confirmed += state.closedPnl;
-   if (!state.episode) continue;
-   if (!mark?.fresh || lane.through !== mark.at) {totalKnown = false; continue;}
-   current += state.episode.cash + floating(state.episode, definition.strategies[index].side, mark.price);
-  }
- }
- return {value:totalKnown ? confirmed + current : confirmed, totalKnown};
+function ResetControl({resetting}: {resetting: boolean}) {
+ const [hours, setHours] = useState<number>(8);
+ const isLeader = marketRuntime.isLeader();
+ return <div className="v37-reset-group" title="重設觀測起算時間與清空現有策略帳本並重新演算（歷史區間需起算點前 15 小時連續 K 線暖機）">
+  <select className="v37-select" aria-label="選擇重設起算點" value={hours} onChange={e => setHours(Number(e.currentTarget.value))}>
+   <option value={0}>從現在起算</option>
+   <option value={8}>最近 8 小時</option>
+   <option value={24}>最近 24 小時</option>
+   <option value={72}>最近 3 天</option>
+   <option value={168}>最近 7 天</option>
+  </select>
+  <button type="button" className="v37-button" disabled={resetting || !isLeader}
+   title={!isLeader ? '請在主控分頁操作重設' : '依所選起算點清除並重算所有策略'}
+   onClick={() => {void strategyRuntime.reset(hours);}}>
+   {resetting ? '重算中…' : '重設起算'}
+  </button>
+ </div>;
 }
 
-function Summary({asset, ledger, scale, integrated}: {asset: Asset; ledger: Ledger | null; scale: number; integrated: boolean}) {
- const definitions = LANES.filter(lane => lane.asset === asset);
- const lanes = ledger ? definitions.map(definition => ledger.lanes[definition.key]) : [];
- const started = lanes.filter(lane => lane.through !== null);
- const available = started.filter(lane => !lane.gap).length;
- const gaps = started.flatMap(lane => lane.gap ? [{gap:lane.gap, lane}] : []);
- const oldest = gaps.sort((a, b) => a.gap.at - b.gap.at)[0];
- const confirmed = started.length ? Math.min(...started.map(lane => lane.through!)) : null;
- const net = ledger ? portfolioNets(ledger)[asset] : 0;
- const pnl = integrated && ledger && started.length ? summaryPnl(asset, ledger) : null;
- const status = oldest ? `等待${oldest.gap.reason === 'price' ? '價格' : '深度'} ${timestamp(oldest.gap.at)} · 待回補對帳` :
-  ledger?.replay ? '正在回算已保存行情' : available < 5 ? '等待完整小時價格與連續深度' : integrated ? null : '每分鐘檢查出場';
+function TimelineBar({ledger, summaries}: {ledger: Ledger | null; summaries: AssetPnlSummary[]}) {
+ const readyTimes = summaries.map(s => s.firstReadyAt).filter((x): x is number => x !== null);
+ const firstReadyAt = readyTimes.length ? Math.min(...readyTimes) : (ledger?.firstReadyAt ?? null);
+ const confirmedTimes = summaries.map(s => s.confirmedThrough).filter((x): x is number => x !== null);
+ const confirmedThrough = confirmedTimes.length ? Math.min(...confirmedTimes) : null;
+ const availableLanes = summaries.reduce((s, x) => s + x.availableLanes, 0);
+ const longCount = summaries.reduce((s, x) => s + x.longCount, 0);
+ const shortCount = summaries.reduce((s, x) => s + x.shortCount, 0);
+ return <div className="v37-timeline-bar">
+  <div className="v37-timeline-item"><span>起算基準</span><b>{ledger ? timestamp(ledger.from) : '初始化中'}</b></div>
+  <div className="v37-timeline-item"><span>首筆就緒</span><b>{firstReadyAt ? timestamp(firstReadyAt) : '暖機中（需起算前 15h K 線）'}</b></div>
+  <div className="v37-timeline-item"><span>確認至</span><b>{confirmedThrough ? timestamp(confirmedThrough) : '等待資料'}</b></div>
+  <div className="v37-timeline-item"><span>連線區間</span><b>{availableLanes} / 15 區</b></div>
+  <div className="v37-timeline-item"><span>持倉統計</span><b>多 {longCount} / 空 {shortCount} 支</b></div>
+ </div>;
+}
+
+function PortfolioStrip({summaries, scale}: {summaries: AssetPnlSummary[]; scale: number}) {
+ const started = summaries.some(s => s.startedLanes > 0);
+ const longTotal = summaries.reduce((s, x) => s + x.longNotional, 0);
+ const shortTotal = summaries.reduce((s, x) => s + x.shortNotional, 0);
+ const netGross = summaries.reduce((s, x) => s + Math.abs(x.net), 0);
+ const realized = summaries.reduce((s, x) => s + x.realized, 0);
+ const hasUnrealized = summaries.some(s => s.unrealized !== null);
+ const unrealized = hasUnrealized ? summaries.reduce((s, x) => s + (x.unrealized ?? 0), 0) : null;
+ const total = started ? realized + (unrealized ?? 0) : null;
+ return <div className="v37-portfolio-strip" aria-label="全商品策略組合彙總">
+  <div className="v37-stat-box"><span>虛擬多方總名目</span><strong className="v37-long-text">{money.format(longTotal * scale)} USD</strong></div>
+  <div className="v37-stat-box"><span>虛擬空方總名目</span><strong className="v37-short-text">{money.format(shortTotal * scale)} USD</strong></div>
+  <div className="v37-stat-box"><span>抵銷後淨毛曝險</span><strong>{money.format(netGross * scale)} USD</strong></div>
+  <div className="v37-stat-box"><span>總已實現盈虧</span><strong className={tone(started ? realized : null)}>{signed(started ? realized : null, scale)} USD</strong></div>
+  <div className="v37-stat-box" title="未平倉持倉依最新合約標記價估算，已扣除預估平倉 4 bps 費用"><span>總未實現盈虧</span><strong className={tone(unrealized)}>{signed(unrealized, scale)} USD</strong></div>
+  <div className="v37-stat-box"><span>組合總盈虧</span><strong className={tone(total)}>{signed(total, scale)} USD</strong></div>
+ </div>;
+}
+
+function SummaryCard({summary, scale, replaying}: {summary: AssetPnlSummary; scale: number; replaying: boolean}) {
+ const ready = summary.startedLanes > 0;
+ const status = summary.oldestGap
+  ? `等待${summary.oldestGap.reason === 'price' ? '價格' : '深度'} ${timestamp(summary.oldestGap.at)} · 待回補`
+  : replaying
+   ? '正在回算已保存行情…'
+   : summary.availableLanes < 5
+    ? '暖機中（需起算前 15h K 線與 15m 連續深度）'
+    : null;
  return <div className="v37-summary">
-  <div className="v37-summary-title"><b>{asset}</b><span>{available}／5 區已接續</span></div>
-  <div className="v37-net-row">
-   <div className={'v37-net ' + tone(net)}>{started.length ? netText(net) : '暖機中'}</div>
-   {integrated && <div className="v37-pnl" title={pnl?.totalKnown ?
-    '所有策略的歷史已結算、目前已入帳與浮動盈虧合計' : '尚未能計算總盈虧，僅顯示已確認的結束回合'}>
-    <span>{pnl && !pnl.totalKnown ? '已結算盈虧' : '總盈虧'}</span>
-    <strong className={tone(pnl?.value ?? null)}>{signed(pnl?.value ?? null, scale)}{pnl ? ' USD' : ''}</strong>
-   </div>}
+  <div className="v37-summary-title">
+   <b>{summary.asset}</b>
+   <span className={'v37-net-badge ' + netBadgeClass(summary.net)}>{ready ? netText(summary.net) : '暖機中'}</span>
+   <span>{summary.availableLanes}／5 區</span>
+  </div>
+  <div className="v37-side-split">
+   <div className="v37-box-long">
+    <span>虛擬多方 ({summary.longCount} 支)</span>
+    <strong>+{units.format(summary.longNotional / NOTIONAL)}N</strong>
+    <small>{money.format(summary.longNotional * scale)} USD</small>
+   </div>
+   <div className="v37-box-short">
+    <span>虛擬空方 ({summary.shortCount} 支)</span>
+    <strong>-{units.format(summary.shortNotional / NOTIONAL)}N</strong>
+    <small>{money.format(summary.shortNotional * scale)} USD</small>
+   </div>
+  </div>
+  <div className="v37-pnl-grid">
+   <div className="v37-pnl-cell" title="已結束回合淨利加上持倉中減碼與手續費入帳">
+    <span>已實現</span>
+    <strong className={tone(ready ? summary.realized : null)}>{signed(ready ? summary.realized : null, scale)}</strong>
+   </div>
+   <div className="v37-pnl-cell" title={summary.markAt ? `依 ${timestamp(summary.markAt)} 價格 ${priceFmt.format(summary.markPrice ?? 0)} 計算（含預估平倉費）` : '等待標記價'}>
+    <span>未實現{summary.markAt && !summary.markFresh ? '*' : ''}</span>
+    <strong className={tone(summary.unrealized)}>{signed(summary.unrealized, scale)}</strong>
+   </div>
+   <div className="v37-pnl-cell" title="已實現＋未實現總盈虧">
+    <span>總盈虧</span>
+    <strong className={tone(summary.total)}>{signed(summary.total, scale)}</strong>
+   </div>
   </div>
   <div className="v37-summary-meta">
-   {started.length > 0 && <strong>{money.format(Math.abs(net) * scale)} USD</strong>}
-   {confirmed !== null && <span>確認至 {timestamp(confirmed)}</span>}
+   <span>{summary.firstReadyAt ? `首筆就緒 ${timestamp(summary.firstReadyAt)}` : '尚未就緒'}</span>
+   <span>{summary.markAt ? `標記 ${timestamp(summary.markAt)}` : ''}</span>
   </div>
   {status && <p>{status}</p>}
  </div>;
@@ -101,10 +165,10 @@ function Summary({asset, ledger, scale, integrated}: {asset: Asset; ledger: Ledg
 
 function FillTable({fills, scale}: {fills: Fill[]; scale: number}) {
  return <div className="v37-scroll"><table className="v37-table v37-fills">
-  <thead><tr>{['時間','動作','份額','代理價','名目 USD','費用 USD','入帳 USD'].map(text => <th key={text} scope="col">{text}</th>)}</tr></thead>
+  <thead><tr>{['成交時間','動作','份額','代理價','名目 USD','費用 USD','入帳 USD'].map(text => <th key={text} scope="col">{text}</th>)}</tr></thead>
   <tbody>{fills.map((fill, index) => <tr key={index}>
    <td>{timestamp(fill.at)}</td><td>{actions[fill.kind]}</td><td>{fill.lot}</td>
-   <td>{money.format(fill.price)}</td><td>{money.format(fill.amount * scale)}</td><td>{money.format(fill.fee * scale)}</td>
+   <td>{priceFmt.format(fill.price)}</td><td>{money.format(fill.amount * scale)}</td><td>{money.format(fill.fee * scale)}</td>
    <td className={tone(fill.cash)}>{signed(fill.cash, scale)}</td>
   </tr>)}</tbody>
  </table></div>;
@@ -131,91 +195,260 @@ function RoundHistory({strategy, version, scale}: {strategy: Strategy; version: 
   });
  }
  useEffect(() => {load(); return () => {request.current++;};}, [strategy.id, version]);
- return <div className="v37-history">
-  <h4>歷史回合</h4>
-  {error ? <button className="v37-button" onClick={() => load()}>歷史讀取失敗，重試</button> : null}
-  {!rounds.length && <p>{loading ? '讀取本機歷史…' : '尚無結束回合'}</p>}
+ return <div>
+  <h4>歷史已結束回合</h4>
+  {error ? <button className="v37-button" type="button" onClick={() => load()}>歷史讀取失敗，重試</button> : null}
+  {!rounds.length && <p>{loading ? '讀取本機歷史…' : '尚無已結束回合'}</p>}
   {rounds.map(round => <details key={round.id} className="v37-round">
-   <summary><span>{timestamp(round.startedAt)} → {timestamp(round.closedAt)}</span>
-    <span>{actions[round.reason]}{round.provisional ? ' · 待回補對帳' : ''}</span>
-    <b className={tone(round.cash)}>{signed(round.cash, scale)} USD</b></summary>
+   <summary>
+    <span>{timestamp(round.startedAt)} → {timestamp(round.closedAt)}</span>
+    <span>{actions[round.reason]}{round.provisional ? ' · 待回補對帳' : ''}（{round.fills.length} 筆）</span>
+    <b className={tone(round.cash)}>{signed(round.cash, scale)} USD</b>
+   </summary>
    <FillTable fills={round.fills} scale={scale}/>
   </details>)}
   {cursor && <button type="button" className="v37-button" disabled={loading} onClick={() => load(cursor)}>{loading ? '讀取中…' : '載入較舊回合'}</button>}
  </div>;
 }
 
-function Details({asset, ledger, notional}: {asset: Asset; ledger: Ledger | null; notional: number}) {
- const scale = notional / NOTIONAL;
- const [selected, setSelected] = useState<string | null>(null);
- const detailHeading = useRef<HTMLHeadingElement>(null);
- const detailTrigger = useRef<HTMLButtonElement>(null);
+function StrategyCard({strategy, lane, index, markPrice, historyVersion, scale}: {
+ strategy: Strategy;
+ lane: Lane | undefined;
+ index: number;
+ markPrice: number | null;
+ historyVersion: number;
+ scale: number;
+}) {
+ const [expanded, setExpanded] = useState(false);
+ const state = lane ? shownStates(lane)[index] : undefined;
+ const confirmed = lane?.states[index];
+ const current = state?.episode ?? null;
+ const rem = remaining(current);
+ const isOpen = rem > 0;
+ const isStopped = !!state?.stopped && !isOpen;
+ const closedPnl = confirmed?.closedPnl ?? 0;
+ const closedCount = confirmed?.closedCount ?? 0;
+ const realized = closedPnl + (current?.cash ?? 0);
+ const unrealized = current && markPrice !== null ? floating(current, strategy.side, markPrice) : (isOpen ? null : (lane?.through != null ? 0 : null));
+ const total = lane?.through != null ? (unrealized !== null ? realized + unrealized : realized) : null;
+ const pendingAct = state?.pending[0];
+ const statusPill = isOpen
+  ? <span className={strategy.side === 1 ? 'v37-pill v37-pill-long' : 'v37-pill v37-pill-short'}>
+     持倉 {units.format(rem / NOTIONAL)}N{current?.trimmed ? ' (已減碼)' : ''}
+    </span>
+  : isStopped
+   ? <span className="v37-pill v37-pill-warn">停損冷卻</span>
+   : <span className="v37-pill v37-pill-idle">空倉</span>;
+
+ return <details className={`v37-strat-card ${strategy.side === 1 ? 'v37-card-long' : 'v37-card-short'}${isOpen ? ' is-open' : ''}`}
+  onToggle={e => setExpanded(e.currentTarget.open)}>
+  <summary className="v37-strat-summary">
+   <div className="v37-strat-head">
+    <div className="v37-strat-id">
+     <span className={strategy.side === 1 ? 'v37-pill v37-pill-long' : 'v37-pill v37-pill-short'}>{sideName(strategy.side)}</span>
+     <code>{strategy.threshold.toFixed(2)}</code>
+     <span>{strategy.entry}/{strategy.add}（上限 {strategy.maxLots}N）</span>
+    </div>
+    {statusPill}
+   </div>
+   <div className="v37-strat-metrics">
+    <div><span>已實現 USD</span><b className={tone(lane?.through != null ? realized : null)}>{signed(lane?.through != null ? realized : null, scale)}</b></div>
+    <div><span>未實現 USD</span><b className={tone(unrealized)}>{signed(unrealized, scale)}</b></div>
+    <div><span>總計 USD</span><b className={tone(total)}>{signed(total, scale)}</b></div>
+    <div><span>結束回合</span><b>{lane?.through != null ? closedCount : '—'}</b></div>
+   </div>
+  </summary>
+  {expanded && <div className="v37-strat-body">
+   <div className="v37-meta">
+    <span>策略代號：{strategy.id}</span>
+    {pendingAct && <span>排程下根開盤：{actions[pendingAct.kind]} @ {timestamp(pendingAct.at)}</span>}
+   </div>
+   <h4>目前回合進出場明細{current ? `（起算 ${timestamp(current.startedAt)} · 本回已入帳 ${signed(current.cash, scale)} USD）` : ''}</h4>
+   {current ? <FillTable fills={current.fills} scale={scale}/> : <p>目前空倉{isStopped ? '（觸及停損，等待後續 15m 訊號歸零解鎖）' : ''}</p>}
+   <RoundHistory key={strategy.id} strategy={strategy} version={historyVersion} scale={scale}/>
+  </div>}
+ </details>;
+}
+
+type StrategyFilter = 'all' | 'active' | 'traded' | 'long' | 'short';
+
+function ZoneGroup({
+ def, lane, markPrice, historyVersions, scale, filter, compact,
+}: {
+ def: LaneDefinition;
+ lane: Lane | undefined;
+ markPrice: number | null;
+ historyVersions: Record<string, number>;
+ scale: number;
+ filter: StrategyFilter;
+ compact?: boolean;
+}) {
+ const states = lane ? shownStates(lane) : null;
+ const confirmed = lane?.states;
+ const zoneLimit = def.key.split(':')[1];
+ const thresholds = useMemo(() => [...new Set(def.strategies.map(item => item.threshold))].sort((a, b) => a - b), [def.strategies]);
+
+ let zoneOpen = 0, zoneTotalPnl = 0;
+ const matchingThresholds = thresholds.filter(threshold => def.strategies.some((s, idx) => {
+  if (s.threshold !== threshold) return false;
+  const st = states?.[idx], cf = confirmed?.[idx];
+  const hasOpen = !!(st?.episode && remaining(st.episode) > 0);
+  const hasTrades = (st?.episode?.fills.length ?? 0) > 0 || (cf?.closedCount ?? 0) > 0;
+  if (filter === 'active') return hasOpen;
+  if (filter === 'traded') return hasTrades;
+  if (filter === 'long') return s.side === 1;
+  if (filter === 'short') return s.side === -1;
+  return true;
+ }));
+
+ for (let i = 0; i < def.strategies.length; i++) {
+  const s = def.strategies[i], st = states?.[i], cf = confirmed?.[i];
+  if (st?.episode && remaining(st.episode) > 0) zoneOpen++;
+  zoneTotalPnl += (cf?.closedPnl ?? 0) + (st?.episode?.cash ?? 0);
+  if (st?.episode && markPrice !== null) zoneTotalPnl += floating(st.episode, s.side, markPrice);
+ }
+
+ const [open, setOpen] = useState(!compact || zoneOpen > 0);
  useEffect(() => {
-  if (selected) detailHeading.current?.focus();
- }, [selected]);
- const definitions = LANES.filter(lane => lane.asset === asset);
- const mark = ledger?.marks[asset];
- const columns = ['剩餘 N／明細', '已入帳 USD', '浮動 USD', '歷史累計 USD', '回合'];
- const selectedLane = definitions.find(definition => definition.strategies.some(strategy => strategy.id === selected));
- const selectedStrategy = selectedLane?.strategies.find(strategy => strategy.id === selected);
- const selectedIndex = selectedStrategy ? selectedLane!.strategies.indexOf(selectedStrategy) : -1;
- const episode = selectedLane && ledger ? shownStates(ledger.lanes[selectedLane.key])[selectedIndex]?.episode : null;
- return <div className="v37-detail">
-  <div className="v37-meta"><span>1N＝{notional.toLocaleString('zh-TW', {maximumSignificantDigits:21})} USD · 代理成交 · 單邊費用 4 bps</span>
-   <span>有效價格 {mark ? timestamp(mark.at) : '—'}{mark && !mark.fresh ? ' · 等待價格' : ''}</span></div>
-  <div className="v37-scroll">
-   <table className="v37-table v37-strategies" aria-label={asset + ' 逐策略盈虧'}>
-    <thead><tr><th rowSpan={2} scope="col">深度 bps</th><th rowSpan={2} scope="col">門檻</th>
-     <th colSpan={5} scope="colgroup">多方</th><th colSpan={5} scope="colgroup">空方</th></tr>
-     <tr>{[1,-1].flatMap(side => columns.map(label => <th key={side + label} scope="col">{label}</th>))}</tr></thead>
-    {definitions.map(definition => {
-     const lane = ledger?.lanes[definition.key];
-     const thresholds = [...new Set(definition.strategies.map(item => item.threshold))].sort((a,b) => a-b);
-     return <tbody key={definition.key}>{thresholds.map((threshold, row) => <tr key={threshold}>
-      {row === 0 && <th rowSpan={thresholds.length} scope="rowgroup">0–{definition.key.split(':')[1]}
-       {lane?.quality && lane.quality !== 'complete' && <small>{lane.quality === 'partial' ? '部分覆蓋' : '品質未知'}</small>}
-       {lane?.gap && <small>等待回補</small>}</th>}
-      <th scope="row">{threshold.toFixed(2)}</th>
-      {[1,-1].map(side => {
-       const index = definition.strategies.findIndex(strategy => strategy.side === side && strategy.threshold === threshold);
-       const strategy = definition.strategies[index];
-       if (!strategy) return <td key={side} colSpan={5}>—</td>;
-       const state = lane && shownStates(lane)[index], confirmed = lane?.states[index];
-       const current = state?.episode ?? null;
-       const unrealized = current && mark?.fresh && (!lane?.gap || lane.gap.through >= mark.at) ? floating(current, strategy.side, mark.price) : null;
-       const active = selected === strategy.id;
-       return <Fragment key={strategy.id}>
-        <td className="v37-direction-start"><button className="v37-strategy-link" type="button" aria-pressed={active}
-         aria-label={`${asset} ${sideName(strategy)} ${strategy.zone} bps 門檻 ${threshold.toFixed(2)} 明細`}
-         title={`${strategy.entry}／${strategy.add}`} onClick={event => {
-          detailTrigger.current = event.currentTarget;
-          setSelected(active ? null : strategy.id);
-         }}>
-          {lane?.through != null ? units.format(remaining(current) / NOTIONAL) : '—'}
-         </button></td>
-        <td className={tone(current?.cash ?? null)}>{signed(current?.cash ?? null, scale)}</td>
-        <td className={tone(unrealized)}>{signed(unrealized, scale)}</td>
-        <td className={tone(confirmed?.closedPnl ?? null)}>{signed(lane?.through != null ? confirmed?.closedPnl ?? 0 : null, scale)}</td>
-        <td>{lane?.through != null ? confirmed?.closedCount ?? 0 : '—'}</td>
-       </Fragment>;
-      })}
-     </tr>)}</tbody>;
-    })}
-   </table>
+  if (filter !== 'all' || zoneOpen > 0) setOpen(true);
+ }, [filter, zoneOpen]);
+
+ if (!matchingThresholds.length) return null;
+
+ return <details className="v37-zone-group" open={open} onToggle={e => setOpen(e.currentTarget.open)}>
+  <summary className="v37-zone-summary">
+   <div className="v37-zone-title">
+    <strong>0–{zoneLimit} bps</strong>
+    <span>{def.strategies.length} 支策略</span>
+    {lane?.quality && lane.quality !== 'complete' && <span className="v37-pill v37-pill-warn">{lane.quality === 'partial' ? '部分覆蓋' : '品質未知'}</span>}
+    {lane?.gap && <span className="v37-pill v37-pill-warn">等待回補</span>}
+   </div>
+   <div className="v37-zone-stats">
+    <span>持倉 {zoneOpen}</span>
+    <b className={tone(lane?.through != null ? zoneTotalPnl : null)}>{signed(lane?.through != null ? zoneTotalPnl : null, scale)} USD</b>
+   </div>
+  </summary>
+  <div className="v37-pair-grid">
+   {matchingThresholds.map(threshold => {
+    const longIdx = def.strategies.findIndex(s => s.side === 1 && s.threshold === threshold);
+    const shortIdx = def.strategies.findIndex(s => s.side === -1 && s.threshold === threshold);
+    const showLong = longIdx >= 0 && filter !== 'short' && (
+     filter === 'all' || filter === 'long' ||
+     (filter === 'active' && !!(states?.[longIdx]?.episode && remaining(states[longIdx].episode) > 0)) ||
+     (filter === 'traded' && ((states?.[longIdx]?.episode?.fills.length ?? 0) > 0 || (confirmed?.[longIdx]?.closedCount ?? 0) > 0))
+    );
+    const showShort = shortIdx >= 0 && filter !== 'long' && (
+     filter === 'all' || filter === 'short' ||
+     (filter === 'active' && !!(states?.[shortIdx]?.episode && remaining(states[shortIdx].episode) > 0)) ||
+     (filter === 'traded' && ((states?.[shortIdx]?.episode?.fills.length ?? 0) > 0 || (confirmed?.[shortIdx]?.closedCount ?? 0) > 0))
+    );
+    return <div key={threshold} className="v37-pair-row">
+     {showLong && <StrategyCard strategy={def.strategies[longIdx]} lane={lane} index={longIdx}
+      markPrice={markPrice} historyVersion={historyVersions[def.strategies[longIdx].id] ?? 0} scale={scale}/>}
+     {showShort && <StrategyCard strategy={def.strategies[shortIdx]} lane={lane} index={shortIdx}
+      markPrice={markPrice} historyVersion={historyVersions[def.strategies[shortIdx].id] ?? 0} scale={scale}/>}
+    </div>;
+   })}
   </div>
-  {selectedStrategy && <section className="v37-selected" aria-label="策略回合明細">
-   <header><h3 ref={detailHeading} tabIndex={-1}>{asset} {sideName(selectedStrategy)} · {selectedStrategy.zone} bps · {selectedStrategy.threshold.toFixed(2)}</h3>
-    <span>{selectedStrategy.entry}／{selectedStrategy.add}</span><button type="button" className="v37-button"
-     onClick={() => {setSelected(null); detailTrigger.current?.focus();}}>關閉明細</button></header>
-   <h4>目前回合</h4>
-   {episode ? <FillTable fills={episode.fills} scale={scale}/> : <p>目前空倉</p>}
-   <RoundHistory key={selectedStrategy.id} strategy={selectedStrategy} version={ledger?.historyVersions[selectedStrategy.id] ?? 0} scale={scale}/>
-  </section>}
+ </details>;
+}
+
+function Details({asset, ledger, notional, compact}: {asset: Asset; ledger: Ledger | null; notional: number; compact?: boolean}) {
+ const scale = notional / NOTIONAL;
+ const [filter, setFilter] = useState<StrategyFilter>('all');
+ const definitions = useMemo(() => LANES.filter(lane => lane.asset === asset), [asset]);
+ const mark = ledger?.marks[asset];
+
+ const counts = useMemo(() => {
+  let total = 0, active = 0, traded = 0, long = 0, short = 0;
+  for (const def of definitions) {
+   const lane = ledger?.lanes[def.key];
+   const states = lane ? shownStates(lane) : null;
+   for (let i = 0; i < def.strategies.length; i++) {
+    const s = def.strategies[i];
+    total++;
+    if (s.side === 1) long++; else short++;
+    const st = states?.[i], cf = lane?.states[i];
+    if (st?.episode && remaining(st.episode) > 0) active++;
+    if ((st?.episode?.fills.length ?? 0) > 0 || (cf?.closedCount ?? 0) > 0) traded++;
+   }
+  }
+  return {total, active, traded, long, short};
+ }, [definitions, ledger]);
+
+ const filters: {key: StrategyFilter; label: string}[] = [
+  {key:'all', label:`全部 (${counts.total})`},
+  {key:'active', label:`持倉中 (${counts.active})`},
+  {key:'traded', label:`有進出場 (${counts.traded})`},
+  {key:'long', label:`多方 (${counts.long})`},
+  {key:'short', label:`空方 (${counts.short})`},
+ ];
+
+ return <div className="v37-detail">
+  <div className="v37-meta">
+   <span>1N＝{notional.toLocaleString('zh-TW', {maximumSignificantDigits:21})} USD · 代理成交 · 單邊費用 4 bps</span>
+   <span>有效標記價 {mark ? `${priceFmt.format(mark.price)} (${timestamp(mark.at)})` : '—'}{mark && !mark.fresh ? ' · 待更新' : ''}</span>
+  </div>
+  <div className="v37-toolbar">
+   <div className="v37-filter-group" role="group" aria-label="策略篩選">
+    {filters.map(f => <button key={f.key} type="button" className="v37-button" aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}>{f.label}</button>)}
+   </div>
+  </div>
+  <div className="v37-zones-list">
+   {definitions.map((def: LaneDefinition) => <ZoneGroup key={def.key} def={def} lane={ledger?.lanes[def.key]}
+    markPrice={mark?.price ?? null} historyVersions={ledger?.historyVersions ?? {}} scale={scale} filter={filter} compact={compact}/>)}
+   {filter === 'active' && counts.active === 0 && <p className="v37-message">目前沒有持倉中的策略，點擊上方「全部」查看全部 {counts.total} 支策略。</p>}
+   {filter === 'traded' && counts.traded === 0 && <p className="v37-message">本觀測區間尚無已執行的進出場紀錄。</p>}
+  </div>
  </div>;
 }
 
+type NoticeFilter = 'all' | 'open' | 'close';
+
+function NoticeLog({notices, asset, scale}: {notices: Notice[]; asset?: Asset; scale: number}) {
+ const [filter, setFilter] = useState<NoticeFilter>('all');
+ const byAsset = notices.filter(notice => !asset || notice.asset === asset);
+ const filtered = byAsset.filter(notice => {
+  if (filter === 'open') return notice.action === 'entry' || notice.action === 'add';
+  if (filter === 'close') return notice.action !== 'entry' && notice.action !== 'add';
+  return true;
+ });
+ return <details className="v37-notices">
+  <summary>
+   <span>提醒紀錄（僅實際進出場觸發）</span>
+   <span>{byAsset.length ? `${byAsset.length} 筆成交` : '尚無成交'}</span>
+  </summary>
+  {byAsset.length > 0 && <div className="v37-notice-filters" role="group" aria-label="提醒篩選">
+   <button type="button" className="v37-button" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>全部 ({byAsset.length})</button>
+   <button type="button" className="v37-button" aria-pressed={filter === 'open'} onClick={() => setFilter('open')}>進場／加碼</button>
+   <button type="button" className="v37-button" aria-pressed={filter === 'close'} onClick={() => setFilter('close')}>出場／停損</button>
+  </div>}
+  <ul>{filtered.map(notice => {
+   const isLong = notice.side === 1;
+   const isClose = notice.action !== 'entry' && notice.action !== 'add';
+   return <li key={notice.id} className={isLong ? 'v37-notice-long' : 'v37-notice-short'}>
+    <div className="v37-notice-top">
+     <time>{timestamp(notice.fillAt)}</time>
+     <span className={isLong ? 'v37-pill v37-pill-long' : 'v37-pill v37-pill-short'}>{notice.asset} {sideName(notice.side)}</span>
+     <span className={notice.action === 'stop' ? 'v37-pill v37-pill-warn' : 'v37-pill v37-pill-act'}>{actions[notice.action]}</span>
+     <strong>{notice.zone} bps · {notice.threshold.toFixed(2)} ({notice.entryRule}/{notice.addRule})</strong>
+     {notice.provisional && <span className="v37-pill v37-pill-warn">待回補對帳</span>}
+    </div>
+    <div className="v37-notice-sub">
+     <span>{units.format(notice.amount / NOTIONAL)}N @ {priceFmt.format(notice.price)}（手續費 {money.format(notice.fee * scale)} USD）</span>
+     <span>
+      {isClose && <><b className={tone(notice.cash)}>{signed(notice.cash, scale)} USD</b> · </>}
+      淨額 {netText(notice.netBefore)} → {netText(notice.netAfter)}
+     </span>
+    </div>
+   </li>;
+  })}</ul>
+  {!filtered.length && <p className="v37-message">尚無進出場提醒，實際進場、加碼、減碼或出場時才會記錄並提醒。</p>}
+ </details>;
+}
+
 export function StrategyPanel({asset}: {asset?: Asset}) {
- const {ledger, notices, error, capable, notional} = useStrategy();
+ const {ledger, notices, error, capable, notional, resetting} = useStrategy();
  const [selectedAsset, select] = useState<Asset>('BTC');
  const [open, setOpen] = useState(false);
  const dialog = useRef<HTMLDialogElement>(null);
@@ -226,33 +459,52 @@ export function StrategyPanel({asset}: {asset?: Asset}) {
   if (!open && node?.open) node.close();
  }, [open]);
  const close = () => {setOpen(false); trigger.current?.focus();};
- const filteredNotices = notices.filter(notice => !asset || notice.kind === 'replay' || notice.asset === asset);
- const noticeLog = <details className="v37-notices"><summary>提醒紀錄</summary>
-  <ul>{filteredNotices.map(notice =>
-   <li key={notice.id}><time>{timestamp(notice.at)}</time> {noticeText(notice)}
-    {notice.kind === 'replay' && <small>{timestamp(notice.from)} → {timestamp(notice.through)}</small>}</li>)}</ul>
-  {!filteredNotices.length && <p>尚無提醒</p>}
- </details>;
+ const scale = notional / NOTIONAL;
+ const summaries = useMemo(() => ASSETS.map(a => summarizeAsset(a, ledger)), [ledger]);
+ const currentSummary = asset ? summaries.find(s => s.asset === asset)! : null;
+
  return <section className={'v37-panel' + (asset ? ' v37-sidebar' : '')} aria-label="V37 策略觀測">
-  <header className="v37-heading"><div><h2>V37 策略觀測</h2><span>虛擬部位</span></div>
-   <div className="v37-controls"><NotionalControl notional={notional}/><SoundControl/></div>
+  <header className="v37-heading">
+   <div><h2>V37 策略觀測</h2><span>108 支策略 · 1m 出場</span></div>
+   <div className="v37-controls">
+    <NotionalControl notional={notional}/>
+    <SoundControl/>
+    <ResetControl resetting={resetting}/>
+   </div>
   </header>
   {error && <p role="status" className="v37-message">{error}</p>}
   {capable === false && <p role="status" className="v37-message">請重新整理目前負責收集行情的分頁，以啟用策略。</p>}
-  <div className="v37-summaries">{(asset ? [asset] : ASSETS).map(item =>
-   <Summary key={item} asset={item} ledger={ledger} scale={notional / NOTIONAL} integrated={!asset}/>)}</div>
+  <TimelineBar ledger={ledger} summaries={summaries}/>
+  {!asset && <PortfolioStrip summaries={summaries} scale={scale}/>}
+  <div className="v37-summaries">
+   {(asset ? [currentSummary!] : summaries).map(s => <SummaryCard key={s.asset} summary={s} scale={scale} replaying={!!ledger?.replay}/>)}
+  </div>
+  <NoticeLog notices={notices} asset={asset} scale={scale}/>
   {asset ? <>
-   <button ref={trigger} type="button" className="v37-button v37-open" onClick={() => setOpen(true)}>查看 {asset} 策略與歷史</button>
+   <div className="v37-sidebar-actions">
+    <button ref={trigger} type="button" className="v37-button" onClick={() => setOpen(true)}>放大檢視全部策略與總覽</button>
+   </div>
+   <Details key={asset} asset={asset} ledger={ledger} notional={notional} compact/>
    <dialog ref={dialog} className="v37-dialog" aria-label={asset + ' 策略盈虧與歷史'} onClose={close}>
-    <header className="v37-heading"><div><h2>{asset} 策略盈虧與歷史</h2></div>
-     <button className="v37-button" type="button" onClick={close}>關閉</button></header>
-    {open && <Details key={asset} asset={asset} ledger={ledger} notional={notional}/>}
+    <header className="v37-heading">
+     <div><h2>V37 全覽 · {asset} 策略盈虧與進出場明細</h2></div>
+     <button className="v37-button" type="button" onClick={close}>關閉</button>
+    </header>
+    {open && <>
+     <TimelineBar ledger={ledger} summaries={summaries}/>
+     <PortfolioStrip summaries={summaries} scale={scale}/>
+     <div className="v37-tabs" role="group" aria-label="策略商品" style={{padding:'6px 8px 0'}}>
+      {ASSETS.map(item => <button className="v37-button" key={item} type="button"
+       aria-pressed={selectedAsset === item} onClick={() => select(item)}>{item}</button>)}
+     </div>
+     <Details key={selectedAsset} asset={selectedAsset} ledger={ledger} notional={notional}/>
+    </>}
    </dialog>
-   {noticeLog}
   </> : <>
-   {noticeLog}
-   <div className="v37-tabs" role="group" aria-label="策略商品">{ASSETS.map(item => <button className="v37-button" key={item}
-    type="button" aria-pressed={selectedAsset === item} onClick={() => select(item)}>{item}</button>)}</div>
+   <div className="v37-tabs" role="group" aria-label="策略商品" style={{padding:'6px 8px 0'}}>
+    {ASSETS.map(item => <button className="v37-button" key={item} type="button"
+     aria-pressed={selectedAsset === item} onClick={() => select(item)}>{item}</button>)}
+   </div>
    <Details key={selectedAsset} asset={selectedAsset} ledger={ledger} notional={notional}/>
   </>}
  </section>;

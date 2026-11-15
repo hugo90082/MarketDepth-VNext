@@ -1,14 +1,14 @@
 import {ASSETS, type Asset} from '../../shared/model';
-import {MINUTE, NOTIONAL, priceFeatures, strategyDepth, type PriceBar} from '../../shared/strategy-v37';
+import {HOUR, MINUTE, NOTIONAL, priceFeatures, strategyDepth, type PriceBar} from '../../shared/strategy-v37';
 import {advanceLedger, createLedger, LANES, laneRanges, type LaneInput, type Ledger, type Notice} from '../../shared/strategy-v37-ledger';
 import type {StoredRow} from '../../shared/contract';
 import {createBrowserAlertSoundPlayer, type AlertSoundPlayer} from '../monitor/alert-sound';
 import {marketRuntime} from '../runtime/client';
 import {loadCandles, loadRows, onMarketBlockSaved} from '../storage';
-import {claimSound, commitLedger, readLedger, recentNotices} from './store';
+import {claimSound, commitLedger, readLedger, recentNotices, resetLedger} from './store';
 
-type View = {ledger: Ledger | null; notices: Notice[]; toast: Notice[]; error: string; sound: boolean; primed: boolean; capable: boolean | null; notional: number};
-let view: View = {ledger:null, notices:[], toast:[], error:'', sound:false, primed:false, capable:null, notional:NOTIONAL};
+type View = {ledger: Ledger | null; notices: Notice[]; toast: Notice[]; error: string; sound: boolean; primed: boolean; capable: boolean | null; notional: number; resetting: boolean};
+let view: View = {ledger:null, notices:[], toast:[], error:'', sound:false, primed:false, capable:null, notional:NOTIONAL, resetting:false};
 const listeners = new Set<() => void>();
 const SOUND_KEY = 'marketdepth-strategy-v37-sound';
 const NOTIONAL_KEY = 'marketdepth-strategy-v37-n';
@@ -88,7 +88,7 @@ async function reload(notices: Notice[] = []) {
 }
 
 function announce(notices: Notice[]) {
- const unread = notices.filter(notice => Date.now() - notice.at <= 2 * MINUTE);
+ const unread = notices.filter(notice => !notice.historical && Date.now() - notice.at <= 3 * MINUTE);
  if (!unread.length) return;
  clearTimeout(toastTimer);
  publish({toast:unread});
@@ -97,7 +97,9 @@ function announce(notices: Notice[]) {
  for (const notice of unread) {
   void claimSound(notice.id).then(claimed => {
    if (!claimed || !active || !view.sound || !view.primed || !playing) return;
-   const direction = notice.kind === 'move' && notice.after < notice.before ? 'direction-sell' : 'direction-buy';
+   const isOpen = notice.action === 'entry' || notice.action === 'add';
+   const buySide = (notice.side === 1 && isOpen) || (notice.side === -1 && !isOpen);
+   const direction = buySide ? 'direction-buy' : 'direction-sell';
    return playing.enqueue(notice.id, [direction]);
   }).catch(() => {});
  }
@@ -226,5 +228,28 @@ export const strategyRuntime = {
   if (!enabled) {playing?.stopAll(); return;}
   await enableAudio();
   if (view.primed) await playing?.preview('direction-buy');
+ },
+ async reset(hoursBack: number) {
+  const stamp = marketRuntime.collectorStamp();
+  const current = () => active && marketRuntime.isCollector(stamp);
+  if (!current()) return false;
+  publish({resetting:true, error:''});
+  try {
+   while (running) await new Promise(resolve => setTimeout(resolve, 60));
+   if (!current()) return false;
+   const target = Math.floor(Date.now() / MINUTE) * MINUTE - MINUTE;
+   const from = hoursBack <= 0 ? target : target - hoursBack * HOUR;
+   const fresh = await resetLedger(target, from, stamp!.epoch, current);
+   if (!fresh || !current()) return false;
+   publish({ledger:fresh, notices:[], toast:[]});
+   marketRuntime.publish({type:'strategy-update', owner:stamp!.id, epoch:stamp!.epoch, notices:[]});
+   schedule(10);
+   return true;
+  } catch {
+   fail();
+   return false;
+  } finally {
+   if (active) publish({resetting:false});
+  }
  },
 };

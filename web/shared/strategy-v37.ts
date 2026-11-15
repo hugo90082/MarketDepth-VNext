@@ -43,10 +43,11 @@ export function strategyDepth(row: StoredRow | undefined, asset: Asset, zone: nu
  if (!row || row.cadence !== MINUTE) return null;
  const pair = depth(row, asset, 'binance', Array.from({length: zone + 1}, (_, index) => index));
  if (pair.bid === null || pair.ask === null || pair.bid <= 0 || pair.ask <= 0 || pair.ratio === null) return null;
- const quality = row.quality?.books[0]?.[ASSETS.indexOf(asset)];
+ const quality = row.quality?.books?.[0]?.[ASSETS.indexOf(asset)];
+ const live1m = (row.source === 'browser' || row.source === 'recent' || row.source === 'railway') && quality?.feed !== 'legacy-30s';
  return {
   ratio: pair.ratio,
-  source: [row.source, quality?.mode ?? 'unknown', quality?.feed ?? 'unknown'].join(':'),
+  source: live1m ? 'vnext-1m' : [row.source, quality?.mode ?? 'unknown', quality?.feed ?? 'unknown'].join(':'),
   availableAt: Math.max(row.t, row.a, quality?.capturedAt ?? 0),
   quality: quality ? quality.complete[zone] ? 'complete' : 'partial' : 'unknown',
  };
