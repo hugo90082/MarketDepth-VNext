@@ -1,0 +1,11 @@
+import {UsdmCollector} from '../src/runtime/usdm';
+import {ProfileManager} from '../src/runtime/profiles';
+import {writeFile} from 'node:fs/promises';
+const samples:any[]=[],frames=new Map<string,any>(),started=Date.now(),cpu=process.cpuUsage();let messages=0;
+const profiles=new ProfileManager(frame=>{messages++;frames.set(frame.asset,frame);});
+const collector=new UsdmCollector({report:s=>console.log(JSON.stringify({status:s}))});
+collector.start();
+const pulse=setInterval(()=>{for(const asset of ['BTC','ETH','SOL'] as const){const frame=frames.get(asset),mid=frame?.sources[0]?.mid??(asset==='BTC'?83000:asset==='ETH'?3200:150);profiles.setDemands(['BTC','ETH','SOL'].map(a=>({id:a,revision:1,asset:a as 'BTC'|'ETH'|'SOL',market:'usdm' as const,mode:'binance' as const,low:(a===asset?mid:(a==='BTC'?83000:a==='ETH'?3200:150))*.97,high:(a===asset?mid:(a==='BTC'?83000:a==='ETH'?3200:150))*1.03,height:600})));break;}profiles.pulse();},1000);
+const watch=setInterval(()=>{const record={at:Date.now(),elapsed:Date.now()-started,books:collector.diagnostics(),profiles:profiles.diagnostics(),messages,heapMB:process.memoryUsage().heapUsed/1024**2,cpu:process.cpuUsage(cpu)};samples.push(record);console.log(JSON.stringify(record));void writeFile('work/usdm-live.json',JSON.stringify(samples,null,2));},30000);
+const end=setTimeout(()=>{clearInterval(pulse);clearInterval(watch);collector.stop();profiles.stop();console.log('LIVE_QA_COMPLETE');},31*60000);
+process.once('SIGINT',()=>{clearInterval(pulse);clearInterval(watch);clearTimeout(end);collector.stop();profiles.stop();process.exit(0);});

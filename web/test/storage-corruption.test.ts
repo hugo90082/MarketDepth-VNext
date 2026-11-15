@@ -1,0 +1,22 @@
+import 'fake-indexeddb/auto';
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import * as storage from '../src/storage';
+import {CONTRACT} from '../shared/contract';
+import {row as legacyRow} from './helpers';
+const row=(t?:number)=>({...legacyRow(t),cadence:60000 as const});
+Object.defineProperty(globalThis,'localStorage',{value:{removeItem(){}}});
+test('malformed old cache cannot crash consumers or erase valid adjacent history',async()=>{
+ await storage.initStorage();const t=Math.floor(row().t/900000)*900000;
+ await storage.save([{...row(t),source:'railway',format:CONTRACT.datasetFormat}]);
+ const db=await new Promise<IDBDatabase>((resolve,reject)=>{const r=indexedDB.open('marketdepth-cache',5);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+ const tx=db.transaction('blocks','readwrite');
+ tx.objectStore('blocks').put({id:`row:${t+900000}`,base:t+900000,revision:1,bytes:20,raw:[[0,t,[],0,null,null]]});
+ tx.objectStore('blocks').put({id:`row:${t+1800000}`,base:t+1800000,revision:1,bytes:3,gzip:new Uint8Array([1,2,3])});
+ tx.objectStore('blocks').put({id:`candle:BTC:60000:${t}`,base:t,revision:1,bytes:20,raw:[[0,100,101,99,NaN,1,0,0,null]]});
+ await new Promise<void>((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});db.close();
+ assert.equal((await storage.loadRows(t,t+1800000)).length,1);
+ assert.equal((await storage.loadCandles('BTC',t,t+900000)).length,0);
+ assert.match(storage.storageNotice(),/3 個/);
+ await storage.initStorage();assert.equal((await storage.loadRows(t,t))[0].source,'railway');
+});

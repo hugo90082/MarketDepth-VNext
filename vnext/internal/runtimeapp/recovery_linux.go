@@ -38,8 +38,8 @@ func durableRecoveryMarker(root string) error {
 // the fixed staging namespace and never starts HTTP, collector or archive
 // publishing. A failed build remains marked and cannot be auto-started.
 func runRecovery(ctx context.Context, profile runtimeprofile.Profile, root, credentials, producer string) error {
-	if profile != runtimeprofile.Staging {
-		return errors.New("production recovery disabled pending release gates")
+	if !profile.Valid() {
+		return errors.New("invalid runtime profile")
 	}
 	if credentials == "" {
 		return errors.New("recovery requires external private OAuth credentials")
@@ -112,4 +112,11 @@ func RecoverStaging(ctx context.Context, root, credentials, producer, leaseDir s
 		return errors.New("recovery requires external private OAuth credentials")
 	}
 	return withStagingLease(root, credentials, leaseDir, func() error { return runRecovery(ctx, runtimeprofile.Staging, root, credentials, producer) })
+}
+
+func RecoverProduction(ctx context.Context, root, credentials, producer, leaseDir string) error {
+	if credentials == "" {
+		return errors.New("recovery requires external private OAuth credentials")
+	}
+	return withProfileLease(runtimeprofile.Production, root, credentials, leaseDir, func() error { return runRecovery(ctx, runtimeprofile.Production, root, credentials, producer) })
 }

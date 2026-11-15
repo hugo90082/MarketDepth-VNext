@@ -135,14 +135,14 @@ func (h *health) archiveUpdate(state string) {
 func (h *health) read() map[string]any {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return map[string]any{"mode": h.profile.Mode(), "last_spot_committed_t": h.lastSpot, "last_futures_committed_t": h.lastFutures, "archive": h.archiveState, "last_archive_verified_at": h.lastArchive, "production_ready": false, "capacity": h.capacityState, "capacity_used_bytes": h.capacityUsed, "filesystem_free_bytes": h.capacityFree}
+	return map[string]any{"mode": h.profile.Mode(), "last_spot_committed_t": h.lastSpot, "last_futures_committed_t": h.lastFutures, "archive": h.archiveState, "last_archive_verified_at": h.lastArchive, "production_ready": h.profile == runtimeprofile.Production, "capacity": h.capacityState, "capacity_used_bytes": h.capacityUsed, "filesystem_free_bytes": h.capacityFree}
 }
 
 // Credentials must remain outside the market-data tree and never be copied
-// into the archive. The isolated binary cannot select a production namespace.
+// into the archive.
 func configuredDrive(profile runtimeprofile.Profile, root, credentials, producer string) (*drive.Client, error) {
-	if profile != runtimeprofile.Staging {
-		return nil, errors.New("production Drive activation disabled pending release gates")
+	if !profile.Valid() {
+		return nil, errors.New("invalid runtime profile")
 	}
 	if !filepath.IsAbs(credentials) || filepath.Clean(credentials) != credentials || len(producer) != 40 || strings.Trim(producer, "0123456789abcdef") != "" {
 		return nil, errors.New("absolute private credential file and exact producer commit required")
@@ -212,6 +212,7 @@ func archiveLoop(ctx context.Context, w *store.ArchiveWorker, reader *store.Arch
 			h.archiveUpdate(state)
 			if state != "idle" {
 				log.Printf("archive: %s", state)
+				wait = 2 * time.Second
 			}
 		}
 		if e := service.WaitUntil(ctx, time.Now().Add(wait)); e != nil {
@@ -265,8 +266,12 @@ func capacityLoop(ctx context.Context, w *store.ArchiveWorker, r *store.ArchiveR
 	}
 }
 func run(ctx context.Context, profile runtimeprofile.Profile, root, addr, origin string, init bool, credentials, producer string, allowLoss, resumeRecovered, preserveActive bool) error {
-	if profile != runtimeprofile.Staging {
-		return errors.New("production activation disabled pending release gates")
+	return runWithWeb(ctx, profile, root, addr, origin, "", init, credentials, producer, allowLoss, resumeRecovered, preserveActive)
+}
+
+func runWithWeb(ctx context.Context, profile runtimeprofile.Profile, root, addr, origin, webDir string, init bool, credentials, producer string, allowLoss, resumeRecovered, preserveActive bool) error {
+	if !profile.Valid() {
+		return errors.New("invalid runtime profile")
 	}
 	if preserveActive && (credentials == "" || allowLoss || resumeRecovered) {
 		return errors.New("preserve-active-backups requires isolated Drive without forced loss or recovered resume")
@@ -412,7 +417,7 @@ func run(ctx context.Context, profile runtimeprofile.Profile, root, addr, origin
 		return e
 	}
 
-	srv := &http.Server{Handler: httpapi.API{Reader: reader, Live: true, Auth: auth, Health: h.read}.Handler(), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 125 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
+	srv := &http.Server{Handler: httpapi.API{Reader: reader, Live: true, Auth: auth, Health: h.read, WebDir: webDir}.Handler(), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 125 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
 	// Bind before starting any feeds, so a conflicting port cannot leave partial workers.
 	ln, e := net.Listen("tcp", addr)
 	if e != nil {
@@ -505,13 +510,11 @@ func run(ctx context.Context, profile runtimeprofile.Profile, root, addr, origin
 	if backup != nil {
 		workers = append(workers, func(ctx context.Context) error { return archiveLoop(ctx, backup, archiveReader, h) }, func(ctx context.Context) error { return capacityLoop(ctx, backup, archiveReader, gate, h, allowLoss) })
 	}
-	log.Printf("isolated staging only; first target %d; Drive enabled=%t; forced loss explicitly enabled=%t", first, backup != nil, allowLoss)
+	log.Printf("runtime profile=%s; first target %d; Drive enabled=%t; forced loss explicitly enabled=%t", profile.Mode(), first, backup != nil, allowLoss)
 	return service.RunGroup(ctx, workers...)
 }
 
-// withStagingLease keeps the shared namespace lock for the whole run or recovery.
-// Local flock does not prove other hosts or old binaries are stopped.
-func withStagingLease(root, credentials, leaseDir string, fn func() error) (err error) {
+func withProfileLease(profile runtimeprofile.Profile, root, credentials, leaseDir string, fn func() error) (err error) {
 	if credentials == "" {
 		if leaseDir != "" {
 			return errors.New("namespace lease requires Drive credentials")
@@ -521,7 +524,7 @@ func withStagingLease(root, credentials, leaseDir string, fn func() error) (err 
 	if !absoluteSafe(root) || !existingCanonical(filepath.Dir(root)) || !existingCanonical(leaseDir) || overlaps(root, leaseDir) || overlaps(credentials, leaseDir) {
 		return errors.New("shared private namespace lease must be outside data and credential paths")
 	}
-	guard, e := lease.AcquireProfileNamespace(leaseDir, runtimeprofile.Staging)
+	guard, e := lease.AcquireProfileNamespace(leaseDir, profile)
 	if e != nil {
 		return e
 	}
@@ -529,9 +532,44 @@ func withStagingLease(root, credentials, leaseDir string, fn func() error) (err 
 	return fn()
 }
 
-// RunStaging preserves the existing isolated collector behavior. Production is not enabled by this function.
+// withStagingLease keeps the shared namespace lock for the whole run or recovery.
+// Local flock does not prove other hosts or old binaries are stopped.
+func withStagingLease(root, credentials, leaseDir string, fn func() error) error {
+	return withProfileLease(runtimeprofile.Staging, root, credentials, leaseDir, fn)
+}
+
+// RunStaging preserves the existing isolated collector behavior.
 func RunStaging(ctx context.Context, root, addr, origin string, init bool, credentials, producer, leaseDir string, allowLoss, resumeRecovered, preserveActive bool) error {
 	return withStagingLease(root, credentials, leaseDir, func() error {
 		return run(ctx, runtimeprofile.Staging, root, addr, origin, init, credentials, producer, allowLoss, resumeRecovered, preserveActive)
 	})
+}
+
+// RunProduction runs the live production collector, HTTP API, web UI, and Google Drive archive worker.
+func RunProduction(ctx context.Context, root, addr, origin, webDir string, init bool, credentials, producer, leaseDir string, allowLoss, resumeRecovered bool) error {
+	return withProfileLease(runtimeprofile.Production, root, credentials, leaseDir, func() error {
+		return runWithWeb(ctx, runtimeprofile.Production, root, addr, origin, webDir, init, credentials, producer, allowLoss, resumeRecovered, false)
+	})
+}
+
+// OpenProductionSeed opens or initializes a production root for bulk historical seeding before live start.
+func OpenProductionSeed(ctx context.Context, root string, init bool) (*store.Manager, *store.Journal, error) {
+	if e := prepare(runtimeprofile.Production, root, init); e != nil {
+		return nil, nil, e
+	}
+	m, e := store.NewManager(root, store.SQLiteOpener)
+	if e != nil {
+		return nil, nil, e
+	}
+	j, e := m.OpenCatalog(ctx)
+	if e != nil {
+		_ = m.Close()
+		return nil, nil, e
+	}
+	if e = j.Recover(ctx); e != nil {
+		_ = j.Close()
+		_ = m.Close()
+		return nil, nil, e
+	}
+	return m, j, nil
 }

@@ -1,0 +1,12 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '@fontsource/noto-sans-tc/400.css';
+import '@fontsource/noto-sans-tc/500.css';
+import '@fontsource/noto-sans-tc/600.css';
+import '@fontsource/noto-sans-tc/700.css';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
+import './styles.css';
+import { AuthGate } from './AuthGate';
+import { ErrorBoundary } from './ErrorBoundary';
+createRoot(document.getElementById('root')!).render(<React.StrictMode><ErrorBoundary><AuthGate /></ErrorBoundary></React.StrictMode>);

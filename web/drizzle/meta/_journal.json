@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1790353891809,
+      "tag": "0000_late_electro",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791791144563,
+      "tag": "0001_misty_rick_jones",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791801808593,
+      "tag": "0002_typical_spirit",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791866088602,
+      "tag": "0003_heavy_spencer_smythe",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791879882136,
+      "tag": "0004_special_mikhail_rasputin",
+      "breakpoints": true
+    }
+  ]
+}

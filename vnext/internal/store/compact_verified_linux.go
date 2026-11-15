@@ -140,6 +140,18 @@ func(r *ArchiveReader) CompactVerifiedDay(ctx context.Context,day string)error{
  return nil
 }
 
+// CatalogFreePages returns the current freelist_count when auto_vacuum is INCREMENTAL.
+func(r *ArchiveReader) CatalogFreePages(ctx context.Context)(int,error){
+ j:=r.j
+ j.mu.Lock();defer j.mu.Unlock()
+ if e:=j.ready(ctx);e!=nil{return 0,e}
+ var mode,free int
+ if e:=j.db.QueryRowContext(ctx,"PRAGMA auto_vacuum").Scan(&mode);e!=nil{return 0,e}
+ if mode!=2{return 0,nil}
+ if e:=j.db.QueryRowContext(ctx,"PRAGMA freelist_count").Scan(&free);e!=nil{return 0,e}
+ return free,nil
+}
+
 // VacuumCatalogCycle returns freed pages to the filesystem on incremental
 // catalogs, one bounded job. Older mode=none catalogs reuse freelist pages
 // without allocating a full duplicate database. No unbudgeted full VACUUM.

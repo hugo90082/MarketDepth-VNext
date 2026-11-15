@@ -1,0 +1,20 @@
+import 'fake-indexeddb/auto';
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {initStorage,save,loadRows} from '../src/storage';
+import {CONTRACT,type StoredRow} from '../shared/contract';
+import {row as legacyRow} from './helpers';
+const row=(t?:number)=>({...legacyRow(t),cadence:60000 as const});
+import {researchBook} from '../shared/research-book';
+import {createRawBook} from '../src/monitor/depth-engine/order-book';
+Object.defineProperty(globalThis,'localStorage',{value:{removeItem(){}}});
+test('compressed local quality survives reload; sealed historical replacement removes browser provenance including null',async()=>{
+ await initStorage();const fixture=row(),computed=researchBook(createRawBook({bids:[[99,1],[95,2]],asks:[[101,2],[105,1]],pair:'BTCUSD',quote:'USD',feed:'test',capturedAt:fixture.t}));
+ const local:StoredRow={...fixture,source:'browser',format:CONTRACT.datasetFormat,quality:{version:'FORMAL_AVAILABLE_V1',books:Array.from({length:4},()=>Array.from({length:3},()=>computed.quality))}};
+ await save([local]);await initStorage();assert.deepEqual((await loadRows(fixture.t,fixture.t))[0].quality,local.quality);
+ const upgraded:StoredRow={...local,t:fixture.t+60000,quality:{version:'FORMAL_AVAILABLE_V2',books:local.quality!.books.map(assets=>assets.map(book=>book?{...book,lastMessageAt:fixture.t-100,snapshotAt:fixture.t-1000,coverageMode:'sequenced-diff' as const,observedBidBps:800,observedAskBps:900}:null))}};
+ await save([upgraded]);await initStorage();assert.deepEqual((await loadRows(upgraded.t,upgraded.t))[0].quality,upgraded.quality);
+ const sealed:StoredRow={...row(fixture.t),source:'railway',format:CONTRACT.datasetFormat};sealed.d[0][0][0]=[null,0];await save([sealed]);await save([local]);
+ const loaded=(await loadRows(fixture.t,fixture.t))[0];assert.equal(loaded.quality,undefined);assert.deepEqual(loaded.d[0][0][0],[null,0]);
+ const damaged:StoredRow={...local,t:fixture.t+120000,quality:{version:'FORMAL_AVAILABLE_V1',books:[null] as any}};await save([damaged]);assert.equal((await loadRows(damaged.t,damaged.t))[0].quality,undefined,'invalid optional quality is dropped without losing original numbers');
+});

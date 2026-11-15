@@ -10,17 +10,19 @@ import (
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/store"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type API struct {
-	Reader store.Reader
-	Live   bool
- Candidate bool // authenticated offline candidate QA only
-	Auth   *Auth
-	Health func() map[string]any
+	Reader    store.Reader
+	Live      bool
+	Candidate bool // authenticated offline candidate QA only
+	Auth      *Auth
+	Health    func() map[string]any
+	WebDir    string
 }
 
 func send(w http.ResponseWriter, status int, v any) {
@@ -253,6 +255,22 @@ func (a API) Handler() http.Handler {
 		mux.HandleFunc("POST "+p, func(w http.ResponseWriter, r *http.Request) {
 			fail(w, 501, "MOCK_NOT_IMPLEMENTED", "production authentication is Phase 3")
 		})
+	}
+	mon := newProxyMonitor()
+	mux.HandleFunc("GET /api/exchange-proxy", mon.ServeExchangeProxy)
+	mux.HandleFunc("GET /api/coinbase-stream", mon.ServeCoinbaseStream)
+	if a.WebDir != "" {
+		fs := http.FileServer(http.Dir(a.WebDir))
+		indexPath := filepath.Join(a.WebDir, "index.html")
+		serveIndex := func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+			http.ServeFile(w, r, indexPath)
+		}
+		mux.HandleFunc("GET /{$}", serveIndex)
+		mux.HandleFunc("GET /monitor", serveIndex)
+		mux.HandleFunc("GET /login", serveIndex)
+		mux.HandleFunc("GET /index.html", serveIndex)
+		mux.Handle("GET /", fs)
 	}
 	// Bound all catalog-locking read routes together, not just history. A burst
 	// of authenticated sync/latest/days requests must not spawn unlimited waiters.

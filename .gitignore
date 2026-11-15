@@ -1,0 +1,13 @@
+# Secrets and credentials
+*.pem
+*.key
+*.env
+*.env.*
+!*.env.example
+*oauth*.json
+*credentials*.json
+
+# Build outputs
+vnext/bin/
+web/node_modules/
+web/dist/

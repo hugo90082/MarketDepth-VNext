@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CoinGlass 指標提醒</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>CoinGlass 指標提醒</h1>
+    <button id="open-side" class="icon-button" type="button" title="在側邊欄開啟" aria-label="在側邊欄開啟">側欄</button>
+  </header>
+  <p id="side-panel-error" class="top-error" role="alert" hidden></p>
+
+  <main>
+    <section class="card status-card">
+      <div class="status-heading">
+        <span id="health-dot" class="dot neutral"></span>
+        <div><strong id="health-label">尚未監控</strong><small id="health-detail">請先釘選 CoinGlass 頁面</small></div>
+      </div>
+      <div class="button-row">
+        <button id="pin-page" class="primary" type="button">釘選目前頁面</button>
+        <button id="scan-now" type="button" title="重新辨識圖表與指標，並用最新數值執行一次提醒判斷">立即掃描</button>
+        <button id="toggle-pause" type="button">暫停監控</button>
+      </div>
+      <div class="onboarding" aria-label="使用狀態">
+        <span id="check-pin">釘選頁面</span>
+        <button id="toggle-notifications" class="notification-toggle is-off" type="button" aria-pressed="false">🔕 通知已關閉</button>
+        <button id="test-sound" type="button">聲音試聽</button>
+      </div>
+      <p id="audio-status" class="audio-status" role="status" aria-live="polite">尚未完成聲音試聽</p>
+    </section>
+
+    <section class="card history-card"><div class="section-heading"><h2>提醒紀錄</h2><button id="clear-history" class="danger" type="button">清除</button></div><div id="history-list" class="history empty">尚無提醒</div></section>
+
+    <section class="card rule-editor">
+      <div class="section-heading"><h2 id="editor-title">新增提醒規則</h2><b id="rule-count">0 / 200</b></div>
+      <label for="target-select">主要指標</label>
+      <select id="target-select"></select>
+      <p id="target-value" class="target-value">請先掃描指標數值</p>
+
+      <section id="depth-editor" class="mode-editor" hidden>
+        <div class="special-heading"><strong>聚合現貨深度專用提醒</strong><span>使用 DepthWatch 三段政策</span></div>
+        <label for="depth-label">深度標籤</label>
+        <select id="depth-label">
+          <option value="0.25">0.25%</option><option value="0.5">0.5%</option><option value="0.75">0.75%</option>
+          <option value="1">1%</option><option value="2">2%</option><option value="3">3%</option>
+          <option value="5">5%</option><option value="10">10%</option>
+        </select>
+        <label class="toggle-row"><input id="split-sides" type="checkbox"><span>買盤／賣盤分開設定</span></label>
+
+        <div id="shared-levels" class="level-panel">
+          <strong>三段門檻</strong>
+          <div class="level-grid compact">
+            <label>第一段<input id="shared-level-1" type="number" min="0.001" max="0.7" step="0.01"></label>
+            <label>第二段<input id="shared-level-2" type="number" min="0.001" max="0.7" step="0.01"></label>
+            <label>第三段<input id="shared-level-3" type="number" min="0.001" max="0.7" step="0.01"></label>
+          </div>
+        </div>
+        <div id="split-levels" class="split-levels" hidden>
+          <div class="level-panel sell-panel"><strong>賣盤門檻</strong><div class="level-grid compact">
+            <label>第一段<input id="sell-level-1" type="number" min="0.001" max="0.7" step="0.01"></label>
+            <label>第二段<input id="sell-level-2" type="number" min="0.001" max="0.7" step="0.01"></label>
+            <label>第三段<input id="sell-level-3" type="number" min="0.001" max="0.7" step="0.01"></label>
+          </div></div>
+          <div class="level-panel buy-panel"><strong>買盤門檻</strong><div class="level-grid compact">
+            <label>第一段<input id="buy-level-1" type="number" min="0.001" max="0.7" step="0.01"></label>
+            <label>第二段<input id="buy-level-2" type="number" min="0.001" max="0.7" step="0.01"></label>
+            <label>第三段<input id="buy-level-3" type="number" min="0.001" max="0.7" step="0.01"></label>
+          </div></div>
+        </div>
+        <div class="option-grid">
+          <label class="toggle-row"><input id="depth-sound-enabled" type="checkbox" checked><span>聲音提醒</span></label>
+          <label class="toggle-row"><input id="depth-notification-enabled" type="checkbox" checked><span>系統通知</span></label>
+        </div>
+      </section>
+
+      <section id="generic-editor" class="mode-editor">
+        <div class="special-heading"><strong>一般指標提醒</strong><span>每條規則選擇一個條件</span></div>
+        <div class="generic-grid">
+          <label for="generic-kind">條件<select id="generic-kind">
+            <option value="above">高於或等於</option><option value="below">低於或等於</option>
+            <option value="cross-up">上穿</option><option value="cross-down">下穿</option>
+          </select></label>
+          <label for="generic-threshold">門檻（必填）<input id="generic-threshold" inputmode="decimal" autocomplete="off" placeholder="請輸入數值" aria-describedby="form-error"></label>
+        </div>
+        <label class="toggle-row"><input id="generic-sound-enabled" type="checkbox" checked><span>聲音提醒</span></label>
+      </section>
+
+      <fieldset id="compatible-targets"><legend>同時套用到其他商品</legend><p>只顯示相容的同一指標輸出。</p></fieldset>
+      <p id="form-error" class="error" role="alert"></p>
+      <div class="button-row end"><button id="cancel-edit" type="button" hidden>取消修改</button><button id="save-rule" class="primary" type="button">建立規則</button></div>
+    </section>
+
+    <section class="card"><div class="section-heading"><h2>提醒規則</h2></div><div id="rules-list" class="list empty">尚無規則</div></section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

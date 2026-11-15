@@ -1,0 +1,21 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {build} from 'esbuild';import {runInNewContext} from 'node:vm';
+import {defaultIndicators} from '../shared/technical-indicators';
+test('display calculation reuses its worker and tail state, fences stale terms, and pauses in background',async()=>{
+ const pending:{message:any;resolve:(r:any)=>void}[]=[],listeners:Function[]=[],posted:any[]=[],results:any[]=[],visibility:Record<string,Function>={};let stamp={id:'leader',epoch:1},created=0,worker:any;
+ const runtime={collectorStamp:()=>stamp,indicatorCapability:()=>true,subscribe:(f:Function)=>listeners.push(f)};
+ const request=(message:any)=>message.type==='indicator-history-cancel'?Promise.resolve({ok:true}):new Promise(resolve=>pending.push({message,resolve}));
+ const output=await build({entryPoints:['src/indicators/client.ts'],bundle:true,write:false,format:'cjs',platform:'node',logLevel:'silent',plugins:[{name:'runtime-boundary',setup(b){b.onResolve({filter:/runtime\/client$/},()=>({path:'runtime',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export const marketRuntime=H.runtime,requestMarket=H.request;'}));}}]});
+ const document={hidden:false,addEventListener:(k:string,f:Function)=>visibility[k]=f},module={exports:{} as any};
+ runInNewContext(output.outputFiles[0].text,{H:{runtime,request},module,exports:module.exports,document,URL:class{},Worker:class{onmessage:any;constructor(){worker=this;created++;}postMessage(m:any){posted.push(m);}terminate(){}},setTimeout:()=>1,clearTimeout(){}});
+ const c=module.exports.indicatorClient,settings=defaultIndicators(),bar=(t:number,close=100)=>({t,o:close,h:close,l:close,c:close,v:1,closed:false});
+ const input={asset:'BTC',interval:60000,settings,candles:[bar(600000),bar(660000)]};const disconnect=c.connect('chart',(r:any)=>results.push(r));
+ c.update('chart',input,'all');c.update('chart',input,'all');assert.equal(pending.length,1,'mount effects must share one warmup');pending[0].resolve({ok:true,bars:[]});await new Promise(r=>setImmediate(r));
+ assert.equal(created,1);assert.equal(posted.filter(m=>m.type==='reset').length,1);const oldKey=posted.at(-1).key;
+ const commits=posted.length;c.update('chart',{...input,candles:[{...bar(600000),closed:true},bar(660000)]},'none');assert.equal(posted.length,commits+1,'same-price closing state must still reach the calculator');assert.equal(posted.at(-1).type,'tail');
+ c.update('chart',{...input,candles:[bar(660000),bar(720000)]},'all');assert.equal(posted.at(-1).type,'tail');assert.equal(pending.length,1,'rolling window should preserve calculation state');
+ c.update('chart',{...input,candles:[bar(660000),bar(720000,101)]},'last');assert.equal(posted.at(-1).type,'tail');assert.equal(pending.length,1);
+ const before=results.length;stamp={id:'new-leader',epoch:2};listeners.forEach(f=>f());worker.onmessage({data:{id:'chart',key:oldKey,points:[]}});assert.equal(results.length,before+1,'old calculation is rejected; only new warmup status was emitted');
+ pending.at(-1)!.resolve({ok:true,bars:[]});await new Promise(r=>setImmediate(r));const newKey=posted.at(-1).key;assert.notEqual(newKey,oldKey);worker.onmessage({data:{id:'chart',key:newKey,points:[]}});assert.equal(results.length,before+3);
+ document.hidden=true;visibility.visibilitychange();const hidden=results.length;worker.onmessage({data:{id:'chart',key:newKey,points:[]}});c.update('chart',input,'all');assert.equal(results.length,hidden);
+ document.hidden=false;visibility.visibilitychange();assert.equal(created,1);disconnect();
+});

@@ -168,6 +168,8 @@ func AuditSealedDay(ctx context.Context,path,day,expectedSHA,producer string)(Da
      if c.Status!="missing"&&at750(r.TrustedBid)&&at750(r.TrustedAsk){
       stream.PairedTrusted750++
       if complete750(r){stream.PairedComplete750++;paired[r.Asset][idx]++}
+     }else if c.Status=="ok"&&r.Venue=="binance"&&at750(r.ObservedBid)&&at750(r.ObservedAsk)&&complete750(r){
+      stream.PairedComplete750++;paired[r.Asset][idx]++
      }
     }
    }

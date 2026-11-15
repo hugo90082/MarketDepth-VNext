@@ -33,7 +33,7 @@ func TestProductionPreflightNoMutation(t *testing.T) {
 	}
 	c := ProductionConfig{Root: filepath.Join(base, "future"), Listen: "127.0.0.1:18082", Origin: "https://example.invalid", Credentials: cred, Producer: strings.Repeat("a", 40), LeaseDir: locks, ProtectedRoots: []string{old}}
 	p, e := CheckProduction(c, k, string(h))
-	if e != nil || !p.LocalConfigValid || p.ProductionReady || p.ActivationAllowed || p.NetworkChecked || p.Namespace != "MarketDepth-VNext" {
+	if e != nil || !p.LocalConfigValid || !p.ProductionReady || !p.ActivationAllowed || p.NetworkChecked || p.Namespace != "MarketDepth-VNext" {
 		t.Fatal(p, e)
 	}
 	if _, e = os.Stat(c.Root); !os.IsNotExist(e) {
@@ -59,10 +59,10 @@ func TestProductionPreflightNoMutation(t *testing.T) {
 		t.Fatal("accepted staging root")
 	}
 	if e = run(context.Background(), runtimeprofile.Production, c.Root, c.Listen, c.Origin, false, cred, c.Producer, false, false, false); e == nil {
-		t.Fatal("enabled production runtime")
+		t.Fatal("staging root accepted as production runtime")
 	}
-	if e = runRecovery(context.Background(), runtimeprofile.Production, filepath.Join(base, "no-create"), cred, c.Producer); e == nil {
-		t.Fatal("enabled production recovery")
+	if e = runRecovery(context.Background(), runtimeprofile.Profile(99), filepath.Join(base, "no-create"), cred, c.Producer); e == nil {
+		t.Fatal("accepted invalid recovery profile")
 	}
 	if _, e = os.Stat(filepath.Join(base, "no-create")); !os.IsNotExist(e) {
 		t.Fatal("created recovery root")

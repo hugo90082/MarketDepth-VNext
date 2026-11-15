@@ -3,9 +3,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
-	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/runtimeapp"
 	"os"
+
+	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/runtimeapp"
 )
 
 func checkProduction(root, addr, origin, credentials, producer, leaseDir string, roots []string) error {
@@ -14,4 +16,12 @@ func checkProduction(root, addr, origin, credentials, producer, leaseDir string,
 		return e
 	}
 	return json.NewEncoder(os.Stdout).Encode(p)
+}
+
+func runProduction(ctx context.Context, root, addr, origin, webDir string, init bool, credentials, producer, leaseDir string, allowLoss, resumeRecovered bool) error {
+	return runtimeapp.RunProduction(ctx, root, addr, origin, webDir, init, credentials, producer, leaseDir, allowLoss, resumeRecovered)
+}
+
+func recoverProduction(ctx context.Context, root, credentials, producer, leaseDir string) error {
+	return runtimeapp.RecoverProduction(ctx, root, credentials, producer, leaseDir)
 }

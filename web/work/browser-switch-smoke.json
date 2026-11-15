@@ -1,0 +1,1431 @@
+[
+  {
+    "type": "diagnostics",
+    "at": 1791453988856,
+    "bootAt": 1791453958842,
+    "profiles": {
+      "demands": 2,
+      "cache": 2,
+      "queued": 0,
+      "p95": 1,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "generation": 8,
+          "ready": true,
+          "dirty": 998,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10075,
+          "activityAt": 1791453988843,
+          "updateAt": 1791453988843
+        },
+        {
+          "key": "coinbase:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 435,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 40976,
+          "activityAt": 1791453988767,
+          "updateAt": 1791453988767
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 3332,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 3762,
+          "activityAt": 1791453988844,
+          "updateAt": 1791453988844
+        },
+        {
+          "key": "binance:ETH",
+          "generation": 6,
+          "ready": true,
+          "dirty": 599,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 10042,
+          "activityAt": 1791453988844,
+          "updateAt": 1791453988844
+        },
+        {
+          "key": "coinbase:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 402,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 20009,
+          "activityAt": 1791453988753,
+          "updateAt": 1791453988753
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 2367,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 3140,
+          "activityAt": 1791453988844,
+          "updateAt": 1791453988802
+        },
+        {
+          "key": "binance:SOL",
+          "generation": 7,
+          "ready": true,
+          "dirty": 111,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10000,
+          "activityAt": 1791453988824,
+          "updateAt": 1791453988824
+        },
+        {
+          "key": "coinbase:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 123,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 13152,
+          "activityAt": 1791453988781,
+          "updateAt": 1791453988781
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 711,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 2042,
+          "activityAt": 1791453988844,
+          "updateAt": 1791453988822
+        }
+      ]
+    },
+    "usdm": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11764080258893,
+        "levels": 3762,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11764080253942,
+        "levels": 3140,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11764080256540,
+        "levels": 2042,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "samples": [],
+    "owner": "e29a8a36-7389-4478-ae51-5195250977ec",
+    "epoch": 1791453958513,
+    "canvas": {
+      "count": 56,
+      "p95": 0.5,
+      "max": 1.5999999977648258
+    },
+    "heap": 63675605
+  },
+  {
+    "type": "diagnostics",
+    "at": 1791454018871,
+    "bootAt": 1791453958842,
+    "profiles": {
+      "demands": 2,
+      "cache": 4,
+      "queued": 0,
+      "p95": 1.300000000745058,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "generation": 8,
+          "ready": true,
+          "dirty": 1081,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10121,
+          "activityAt": 1791454018843,
+          "updateAt": 1791454018843
+        },
+        {
+          "key": "coinbase:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 461,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 40965,
+          "activityAt": 1791454018837,
+          "updateAt": 1791454018837
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 4120,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 4480,
+          "activityAt": 1791454018853,
+          "updateAt": 1791454018831
+        },
+        {
+          "key": "binance:ETH",
+          "generation": 6,
+          "ready": true,
+          "dirty": 639,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 10031,
+          "activityAt": 1791454018844,
+          "updateAt": 1791454018844
+        },
+        {
+          "key": "coinbase:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 425,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 19988,
+          "activityAt": 1791454018804,
+          "updateAt": 1791454018804
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 3129,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 3774,
+          "activityAt": 1791454018853,
+          "updateAt": 1791454018853
+        },
+        {
+          "key": "binance:SOL",
+          "generation": 7,
+          "ready": true,
+          "dirty": 143,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10000,
+          "activityAt": 1791454018823,
+          "updateAt": 1791454018823
+        },
+        {
+          "key": "coinbase:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 123,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 13152,
+          "activityAt": 1791454018801,
+          "updateAt": 1791454018801
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 864,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 2056,
+          "activityAt": 1791454018853,
+          "updateAt": 1791454018786
+        }
+      ]
+    },
+    "usdm": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11764083221861,
+        "levels": 4480,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11764083224637,
+        "levels": 3774,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11764083216321,
+        "levels": 2056,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "samples": [
+      {
+        "asset": "BTC",
+        "at": 1791453990000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "ETH",
+        "at": 1791453990000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "SOL",
+        "at": 1791453990000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      }
+    ],
+    "owner": "e29a8a36-7389-4478-ae51-5195250977ec",
+    "epoch": 1791453958513,
+    "canvas": {
+      "count": 110,
+      "p95": 0.3999999985098839,
+      "max": 1.5999999977648258
+    },
+    "heap": 97223205
+  },
+  {
+    "type": "diagnostics",
+    "at": 1791454048879,
+    "bootAt": 1791453958842,
+    "profiles": {
+      "demands": 1,
+      "cache": 1,
+      "queued": 0,
+      "p95": 1.199999999254942,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "generation": 8,
+          "ready": true,
+          "dirty": 1204,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10138,
+          "activityAt": 1791454048842,
+          "updateAt": 1791454048842
+        },
+        {
+          "key": "coinbase:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 493,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 40984,
+          "activityAt": 1791454048834,
+          "updateAt": 1791454048834
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 5275,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 5536,
+          "activityAt": 1791454048826,
+          "updateAt": 1791454048819
+        },
+        {
+          "key": "binance:ETH",
+          "generation": 6,
+          "ready": true,
+          "dirty": 755,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 10052,
+          "activityAt": 1791454048843,
+          "updateAt": 1791454048843
+        },
+        {
+          "key": "coinbase:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 432,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 19997,
+          "activityAt": 1791454048802,
+          "updateAt": 1791454048802
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 3876,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 4467,
+          "activityAt": 1791454048826,
+          "updateAt": 1791454048826
+        },
+        {
+          "key": "binance:SOL",
+          "generation": 7,
+          "ready": true,
+          "dirty": 166,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10000,
+          "activityAt": 1791454048823,
+          "updateAt": 1791454048823
+        },
+        {
+          "key": "coinbase:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 135,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 13156,
+          "activityAt": 1791454048839,
+          "updateAt": 1791454048839
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 952,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 2065,
+          "activityAt": 1791454048826,
+          "updateAt": 1791454048801
+        }
+      ]
+    },
+    "usdm": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11764086666873,
+        "levels": 5536,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11764086667353,
+        "levels": 4467,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11764086664523,
+        "levels": 2065,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "samples": [
+      {
+        "asset": "BTC",
+        "at": 1791454020000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "ETH",
+        "at": 1791454020000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "SOL",
+        "at": 1791454020000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      }
+    ],
+    "owner": "e29a8a36-7389-4478-ae51-5195250977ec",
+    "epoch": 1791453958513,
+    "canvas": {
+      "count": 160,
+      "p95": 0.3999999985098839,
+      "max": 1.5999999977648258
+    },
+    "heap": 85013912
+  },
+  {
+    "type": "diagnostics",
+    "at": 1791454078884,
+    "bootAt": 1791453958842,
+    "profiles": {
+      "demands": 2,
+      "cache": 4,
+      "queued": 0,
+      "p95": 1.199999999254942,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "generation": 8,
+          "ready": true,
+          "dirty": 1244,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10183,
+          "activityAt": 1791454078842,
+          "updateAt": 1791454078842
+        },
+        {
+          "key": "coinbase:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 518,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 40990,
+          "activityAt": 1791454078744,
+          "updateAt": 1791454078744
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 5937,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 6102,
+          "activityAt": 1791454078884,
+          "updateAt": 1791454078807
+        },
+        {
+          "key": "binance:ETH",
+          "generation": 6,
+          "ready": true,
+          "dirty": 701,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 10041,
+          "activityAt": 1791454078843,
+          "updateAt": 1791454078843
+        },
+        {
+          "key": "coinbase:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 444,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 19979,
+          "activityAt": 1791454078873,
+          "updateAt": 1791454078873
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 4342,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 4889,
+          "activityAt": 1791454078884,
+          "updateAt": 1791454078793
+        },
+        {
+          "key": "binance:SOL",
+          "generation": 7,
+          "ready": true,
+          "dirty": 167,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10000,
+          "activityAt": 1791454078822,
+          "updateAt": 1791454078822
+        },
+        {
+          "key": "coinbase:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 117,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 13151,
+          "activityAt": 1791454078849,
+          "updateAt": 1791454078849
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1005,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 2071,
+          "activityAt": 1791454078884,
+          "updateAt": 1791454078884
+        }
+      ]
+    },
+    "usdm": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11764089381474,
+        "levels": 6102,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11764089380468,
+        "levels": 4889,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11764089386859,
+        "levels": 2071,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "samples": [
+      {
+        "asset": "BTC",
+        "at": 1791454050000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "ETH",
+        "at": 1791454050000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "SOL",
+        "at": 1791454050000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      }
+    ],
+    "owner": "e29a8a36-7389-4478-ae51-5195250977ec",
+    "epoch": 1791453958513,
+    "canvas": {
+      "count": 219,
+      "p95": 0.3999999985098839,
+      "max": 1.5999999977648258
+    },
+    "heap": 82964350
+  },
+  {
+    "type": "diagnostics",
+    "at": 1791454108886,
+    "bootAt": 1791453958842,
+    "profiles": {
+      "demands": 2,
+      "cache": 4,
+      "queued": 0,
+      "p95": 1.199999999254942,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "generation": 8,
+          "ready": true,
+          "dirty": 1452,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10161,
+          "activityAt": 1791454108841,
+          "updateAt": 1791454108841
+        },
+        {
+          "key": "coinbase:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 566,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 40993,
+          "activityAt": 1791454108854,
+          "updateAt": 1791454108854
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 6800,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 6775,
+          "activityAt": 1791454108816,
+          "updateAt": 1791454108795
+        },
+        {
+          "key": "binance:ETH",
+          "generation": 6,
+          "ready": true,
+          "dirty": 837,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 10058,
+          "activityAt": 1791454108842,
+          "updateAt": 1791454108842
+        },
+        {
+          "key": "coinbase:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 516,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 19998,
+          "activityAt": 1791454108833,
+          "updateAt": 1791454108833
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 4994,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 5421,
+          "activityAt": 1791454108816,
+          "updateAt": 1791454108788
+        },
+        {
+          "key": "binance:SOL",
+          "generation": 7,
+          "ready": true,
+          "dirty": 170,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10000,
+          "activityAt": 1791454108822,
+          "updateAt": 1791454108822
+        },
+        {
+          "key": "coinbase:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 131,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 13153,
+          "activityAt": 1791454108833,
+          "updateAt": 1791454108833
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1031,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 2076,
+          "activityAt": 1791454108816,
+          "updateAt": 1791454108816
+        }
+      ]
+    },
+    "usdm": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11764092434547,
+        "levels": 6775,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11764092434193,
+        "levels": 5421,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11764092436785,
+        "levels": 2076,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "samples": [
+      {
+        "asset": "BTC",
+        "at": 1791454080000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "ETH",
+        "at": 1791454080000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "SOL",
+        "at": 1791454080000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      }
+    ],
+    "owner": "e29a8a36-7389-4478-ae51-5195250977ec",
+    "epoch": 1791453958513,
+    "canvas": {
+      "count": 269,
+      "p95": 0.3999999985098839,
+      "max": 1.5999999977648258
+    },
+    "heap": 80807444
+  },
+  {
+    "type": "diagnostics",
+    "at": 1791454138901,
+    "bootAt": 1791453958842,
+    "profiles": {
+      "demands": 2,
+      "cache": 2,
+      "queued": 0,
+      "p95": 1.300000000745058,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "generation": 8,
+          "ready": true,
+          "dirty": 1865,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10238,
+          "activityAt": 1791454138901,
+          "updateAt": 1791454138901
+        },
+        {
+          "key": "coinbase:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 700,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 41004,
+          "activityAt": 1791454138900,
+          "updateAt": 1791454138900
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 7833,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 7469,
+          "activityAt": 1791454138901,
+          "updateAt": 1791454138783
+        },
+        {
+          "key": "binance:ETH",
+          "generation": 6,
+          "ready": true,
+          "dirty": 1032,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 10054,
+          "activityAt": 1791454138742,
+          "updateAt": 1791454138742
+        },
+        {
+          "key": "coinbase:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 620,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 20001,
+          "activityAt": 1791454138783,
+          "updateAt": 1791454138783
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 5714,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 5883,
+          "activityAt": 1791454138901,
+          "updateAt": 1791454138784
+        },
+        {
+          "key": "binance:SOL",
+          "generation": 7,
+          "ready": true,
+          "dirty": 184,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10000,
+          "activityAt": 1791454138834,
+          "updateAt": 1791454138834
+        },
+        {
+          "key": "coinbase:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 167,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 13151,
+          "activityAt": 1791454138721,
+          "updateAt": 1791454138721
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1064,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 2082,
+          "activityAt": 1791454138901,
+          "updateAt": 1791454138901
+        }
+      ]
+    },
+    "usdm": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11764095497921,
+        "levels": 7469,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11764095497963,
+        "levels": 5883,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11764095501469,
+        "levels": 2082,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "samples": [
+      {
+        "asset": "BTC",
+        "at": 1791454110000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "ETH",
+        "at": 1791454110000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "SOL",
+        "at": 1791454110000,
+        "usable": [
+          "Binance",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      }
+    ],
+    "owner": "e29a8a36-7389-4478-ae51-5195250977ec",
+    "epoch": 1791453958513,
+    "canvas": {
+      "count": 320,
+      "p95": 0.3999999985098839,
+      "max": 3
+    },
+    "heap": 95104148
+  },
+  {
+    "type": "diagnostics",
+    "at": 1791454168910,
+    "bootAt": 1791453958842,
+    "profiles": {
+      "demands": 2,
+      "cache": 2,
+      "queued": 0,
+      "p95": 1.5,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "generation": 8,
+          "ready": true,
+          "dirty": 2130,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10209,
+          "activityAt": 1791454168910,
+          "updateAt": 1791454168910
+        },
+        {
+          "key": "coinbase:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 775,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 41002,
+          "activityAt": 1791454168784,
+          "updateAt": 1791454168784
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 8918,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 8193,
+          "activityAt": 1791454168910,
+          "updateAt": 1791454168770
+        },
+        {
+          "key": "binance:ETH",
+          "generation": 6,
+          "ready": true,
+          "dirty": 1535,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 9985,
+          "activityAt": 1791454168910,
+          "updateAt": 1791454168910
+        },
+        {
+          "key": "coinbase:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 768,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 20007,
+          "activityAt": 1791454168909,
+          "updateAt": 1791454168909
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 6794,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 6699,
+          "activityAt": 1791454168910,
+          "updateAt": 1791454168910
+        },
+        {
+          "key": "binance:SOL",
+          "generation": 7,
+          "ready": true,
+          "dirty": 208,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10000,
+          "activityAt": 1791454168909,
+          "updateAt": 1791454168909
+        },
+        {
+          "key": "coinbase:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 195,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 13148,
+          "activityAt": 1791454168770,
+          "updateAt": 1791454168770
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1124,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 2092,
+          "activityAt": 1791454168910,
+          "updateAt": 1791454168759
+        }
+      ]
+    },
+    "usdm": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11764098734836,
+        "levels": 8193,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11764098747830,
+        "levels": 6699,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11764098734376,
+        "levels": 2092,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "samples": [
+      {
+        "asset": "BTC",
+        "at": 1791454140000,
+        "usable": [
+          "Binance",
+          "OKX",
+          "Bybit",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "ETH",
+        "at": 1791454140000,
+        "usable": [
+          "Binance",
+          "OKX",
+          "Bybit",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "SOL",
+        "at": 1791454140000,
+        "usable": [
+          "Binance",
+          "OKX",
+          "Bybit",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      }
+    ],
+    "owner": "e29a8a36-7389-4478-ae51-5195250977ec",
+    "epoch": 1791453958513,
+    "canvas": {
+      "count": 371,
+      "p95": 0.3999999985098839,
+      "max": 3
+    },
+    "heap": 99348772
+  },
+  {
+    "type": "diagnostics",
+    "at": 1791454198920,
+    "bootAt": 1791453958842,
+    "profiles": {
+      "demands": 2,
+      "cache": 2,
+      "queued": 0,
+      "p95": 1.6000000014901161,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "generation": 8,
+          "ready": true,
+          "dirty": 2267,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10267,
+          "activityAt": 1791454198840,
+          "updateAt": 1791454198840
+        },
+        {
+          "key": "coinbase:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 794,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 40997,
+          "activityAt": 1791454198864,
+          "updateAt": 1791454198864
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 9546,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 8761,
+          "activityAt": 1791454198919,
+          "updateAt": 1791454198860
+        },
+        {
+          "key": "binance:ETH",
+          "generation": 6,
+          "ready": true,
+          "dirty": 1628,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 10028,
+          "activityAt": 1791454198840,
+          "updateAt": 1791454198840
+        },
+        {
+          "key": "coinbase:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 791,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 20017,
+          "activityAt": 1791454198840,
+          "updateAt": 1791454198840
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 7238,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 7105,
+          "activityAt": 1791454198919,
+          "updateAt": 1791454198846
+        },
+        {
+          "key": "binance:SOL",
+          "generation": 7,
+          "ready": true,
+          "dirty": 220,
+          "rebuilds": 2,
+          "building": false,
+          "levels": 10000,
+          "activityAt": 1791454198821,
+          "updateAt": 1791454198821
+        },
+        {
+          "key": "coinbase:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 200,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 13146,
+          "activityAt": 1791454198919,
+          "updateAt": 1791454198919
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1143,
+          "rebuilds": 1,
+          "building": false,
+          "levels": 2098,
+          "activityAt": 1791454198919,
+          "updateAt": 1791454198919
+        }
+      ]
+    },
+    "usdm": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11764101797528,
+        "levels": 8761,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11764101796713,
+        "levels": 7105,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11764101798782,
+        "levels": 2098,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "samples": [
+      {
+        "asset": "BTC",
+        "at": 1791454170000,
+        "usable": [
+          "Binance",
+          "OKX",
+          "Bybit",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "ETH",
+        "at": 1791454170000,
+        "usable": [
+          "Binance",
+          "OKX",
+          "Bybit",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      },
+      {
+        "asset": "SOL",
+        "at": 1791454170000,
+        "usable": [
+          "Binance",
+          "OKX",
+          "Bybit",
+          "Coinbase",
+          "Bitfinex",
+          "Kraken"
+        ]
+      }
+    ],
+    "owner": "e29a8a36-7389-4478-ae51-5195250977ec",
+    "epoch": 1791453958513,
+    "canvas": {
+      "count": 425,
+      "p95": 0.3999999985098839,
+      "max": 3
+    },
+    "heap": 82101207
+  }
+]

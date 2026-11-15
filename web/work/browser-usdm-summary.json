@@ -1,0 +1,20 @@
+{
+  "records": 64,
+  "minutesSinceBoot": 36.00548333333333,
+  "retainedTraceMinutes": 31.50455,
+  "owners": [
+    "157820ce-5e09-4c0b-9e7c-22319fa186f2:1791451676692"
+  ],
+  "allNineReady": true,
+  "maxProfileP95": 2.099999997764826,
+  "maxCanvasP95": 0.30000000074505806,
+  "maxCache": 3,
+  "maxQueue": 0,
+  "largestSampleSpacingMs": 30000,
+  "allThreeSamplesIncludeBinanceCoinbase": true,
+  "browserPageHeapMB": {
+    "first": 62.454142570495605,
+    "last": 59.581573486328125,
+    "max": 84.8052978515625
+  }
+}

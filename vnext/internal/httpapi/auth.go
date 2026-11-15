@@ -73,7 +73,21 @@ func (a *Auth) originOK(r *http.Request, required bool) bool {
 	if o == "" {
 		return !required
 	}
-	return o == a.origin
+	if o == a.origin {
+		return true
+	}
+	u, e := url.Parse(o)
+	if e != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
+	if u.Host != r.Host && u.Host != r.Header.Get("X-Forwarded-Host") {
+		return false
+	}
+	h := strings.ToLower(u.Hostname())
+	if u.Scheme == "https" && (strings.HasSuffix(h, ".trycloudflare.com") || strings.HasSuffix(h, ".nip.io") || strings.HasSuffix(h, ".sslip.io")) {
+		return true
+	}
+	return h == "localhost" || h == "127.0.0.1"
 }
 func ipKey(r *http.Request) string {
 	host, _, e := net.SplitHostPort(r.RemoteAddr)
@@ -154,9 +168,25 @@ func (a *Auth) authorized(r *http.Request) (bool, bool) {
 		return false, false
 	}
 	var allowed bool
-	s.requests, allowed = bump(s.requests, now, time.Minute, 120)
+	s.requests, allowed = bump(s.requests, now, time.Minute, 1200)
 	a.sessions[id] = s
 	return true, allowed
+}
+func (a *Auth) Session(w http.ResponseWriter, r *http.Request) {
+	now := a.now()
+	if id, ok := a.token(r); ok {
+		a.mu.Lock()
+		s, ok := a.sessions[id]
+		if ok && s.expires.After(now) {
+			exp := s.expires
+			a.mu.Unlock()
+			send(w, 200, map[string]any{"ok": true, "authenticated": true, "serverNowMs": now.UnixMilli(), "expiresAt": exp.UnixMilli(), "data": map[string]any{"authenticated": true, "expires_in": int(exp.Sub(now).Seconds())}})
+			return
+		}
+		delete(a.sessions, id)
+		a.mu.Unlock()
+	}
+	send(w, 200, map[string]any{"ok": true, "authenticated": false, "serverNowMs": now.UnixMilli(), "expiresAt": nil, "data": map[string]any{"authenticated": false}})
 }
 func limited(w http.ResponseWriter, seconds string) {
 	w.Header().Set("Retry-After", seconds)
@@ -206,6 +236,11 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 		fail(w, 503, "AUTH_UNAVAILABLE", "session unavailable")
 		return
 	}
+	if r.URL.Path == "/api/auth/login" {
+		now := a.now()
+		send(w, 200, map[string]any{"ok": true, "authenticated": true, "serverNowMs": now.UnixMilli(), "expiresAt": now.Add(sessionTTL).UnixMilli(), "data": map[string]any{"authenticated": true, "expires_in": int(sessionTTL.Seconds())}})
+		return
+	}
 	send(w, 200, map[string]any{"ok": true, "data": map[string]any{"authenticated": true, "expires_in": int(sessionTTL.Seconds())}})
 }
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
@@ -227,12 +262,24 @@ func (a *Auth) wrap(next http.Handler) http.Handler {
 			fail(w, 403, "BAD_ORIGIN", "same origin required")
 			return
 		}
-		if r.Method == http.MethodPost && r.URL.Path == "/api/v2/auth/login" {
+		if r.Method == http.MethodPost && (r.URL.Path == "/api/v2/auth/login" || r.URL.Path == "/api/auth/login") {
 			a.Login(w, r)
 			return
 		}
-		if r.Method == http.MethodPost && r.URL.Path == "/api/v2/auth/logout" {
+		if r.Method == http.MethodPost && (r.URL.Path == "/api/v2/auth/logout" || r.URL.Path == "/api/auth/logout") {
 			a.Logout(w, r)
+			return
+		}
+		if r.Method == http.MethodGet && (r.URL.Path == "/api/v2/auth/session" || r.URL.Path == "/api/auth/session") {
+			a.Session(w, r)
+			return
+		}
+		if !strings.HasPrefix(r.URL.Path, "/api/v2/") {
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				fail(w, 405, "METHOD_NOT_ALLOWED", "read-only API")
+				return
+			}
+			next.ServeHTTP(w, r)
 			return
 		}
 		ok, allowed := a.authorized(r)

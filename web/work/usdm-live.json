@@ -1,0 +1,6895 @@
+[
+  {
+    "at": 1791451427194,
+    "elapsed": 30034,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763836751393,
+        "levels": 3359,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763836740823,
+        "levels": 2780,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763836750385,
+        "levels": 2021,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 9,
+      "queued": 0,
+      "p95": 1.3886999999999716,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 2770,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1797,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 609,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 93,
+    "heapMB": 16.64301300048828,
+    "cpu": {
+      "user": 421000,
+      "system": 156000
+    }
+  },
+  {
+    "at": 1791451457204,
+    "elapsed": 60043,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763839396480,
+        "levels": 4698,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763839399166,
+        "levels": 3573,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763839393669,
+        "levels": 2033,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 13,
+      "queued": 0,
+      "p95": 1.3513000000002648,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 4702,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 2869,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 887,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 183,
+    "heapMB": 19.518768310546875,
+    "cpu": {
+      "user": 718000,
+      "system": 250000
+    }
+  },
+  {
+    "at": 1791451487206,
+    "elapsed": 90045,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763842005731,
+        "levels": 5810,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763842007614,
+        "levels": 4679,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763842006550,
+        "levels": 2046,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 19,
+      "queued": 0,
+      "p95": 1.431399999986752,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 6008,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 4228,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 944,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 273,
+    "heapMB": 19.848922729492188,
+    "cpu": {
+      "user": 1125000,
+      "system": 297000
+    }
+  },
+  {
+    "at": 1791451517207,
+    "elapsed": 120046,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763844161555,
+        "levels": 6347,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763844161083,
+        "levels": 5056,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763844163905,
+        "levels": 2139,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 21,
+      "queued": 0,
+      "p95": 1.4448999999876833,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 6506,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 4576,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1061,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 363,
+    "heapMB": 21.16088104248047,
+    "cpu": {
+      "user": 1468000,
+      "system": 328000
+    }
+  },
+  {
+    "at": 1791451547210,
+    "elapsed": 150049,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763846172844,
+        "levels": 6715,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763846172436,
+        "levels": 5347,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763846174657,
+        "levels": 2146,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 23,
+      "queued": 0,
+      "p95": 1.4904999999998836,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 6909,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 4863,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1134,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 453,
+    "heapMB": 18.959381103515625,
+    "cpu": {
+      "user": 1781000,
+      "system": 391000
+    }
+  },
+  {
+    "at": 1791451577213,
+    "elapsed": 180052,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763849004256,
+        "levels": 7373,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763849003686,
+        "levels": 5750,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763848999194,
+        "levels": 2165,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 1.5817999999999302,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 7444,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 5329,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1156,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 543,
+    "heapMB": 22.730316162109375,
+    "cpu": {
+      "user": 2187000,
+      "system": 406000
+    }
+  },
+  {
+    "at": 1791451607225,
+    "elapsed": 210064,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763851534788,
+        "levels": 7929,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763851533043,
+        "levels": 6138,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763851534060,
+        "levels": 2308,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 1.6178999999829102,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 8056,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 5731,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1342,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 630,
+    "heapMB": 31.82391357421875,
+    "cpu": {
+      "user": 2562000,
+      "system": 500000
+    }
+  },
+  {
+    "at": 1791451637225,
+    "elapsed": 240064,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763854423649,
+        "levels": 8425,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763854425988,
+        "levels": 6550,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763854424003,
+        "levels": 2320,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 1.685300000011921,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 8500,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 6186,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1389,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 720,
+    "heapMB": 24.392547607421875,
+    "cpu": {
+      "user": 2968000,
+      "system": 547000
+    }
+  },
+  {
+    "at": 1791451667240,
+    "elapsed": 270079,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763857164046,
+        "levels": 8781,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763857164801,
+        "levels": 6905,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763857167737,
+        "levels": 2328,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 1.7511999999987893,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 9020,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 6635,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1411,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 810,
+    "heapMB": 30.322975158691406,
+    "cpu": {
+      "user": 3234000,
+      "system": 609000
+    }
+  },
+  {
+    "at": 1791451697250,
+    "elapsed": 300089,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763859611892,
+        "levels": 9042,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763859612223,
+        "levels": 7188,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763859616207,
+        "levels": 2331,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 1.7511999999987893,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 9128,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 6856,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1404,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 900,
+    "heapMB": 20.227005004882812,
+    "cpu": {
+      "user": 3656000,
+      "system": 609000
+    }
+  },
+  {
+    "at": 1791451727251,
+    "elapsed": 330090,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763861718439,
+        "levels": 9203,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763861719299,
+        "levels": 7239,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763861718959,
+        "levels": 2399,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 1.7805999999982305,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 9293,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 6928,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1498,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 990,
+    "heapMB": 24.69672393798828,
+    "cpu": {
+      "user": 3890000,
+      "system": 625000
+    }
+  },
+  {
+    "at": 1791451757262,
+    "elapsed": 360101,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763864346383,
+        "levels": 9386,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763864341378,
+        "levels": 7351,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763864346070,
+        "levels": 2401,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 1.8665999999502674,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 9498,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 7025,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1490,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 1080,
+    "heapMB": 39.2569580078125,
+    "cpu": {
+      "user": 4125000,
+      "system": 688000
+    }
+  },
+  {
+    "at": 1791451787265,
+    "elapsed": 390104,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763866836882,
+        "levels": 9619,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763866834398,
+        "levels": 7430,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763866831296,
+        "levels": 2401,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 1.9639000000315718,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 9796,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 7115,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1498,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 1167,
+    "heapMB": 28.138626098632812,
+    "cpu": {
+      "user": 4421000,
+      "system": 734000
+    }
+  },
+  {
+    "at": 1791451817267,
+    "elapsed": 420106,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763870165559,
+        "levels": 9985,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763870163456,
+        "levels": 7732,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763870159104,
+        "levels": 2439,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.0077000000164844,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 10173,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 7497,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1564,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 1257,
+    "heapMB": 39.43737030029297,
+    "cpu": {
+      "user": 4859000,
+      "system": 750000
+    }
+  },
+  {
+    "at": 1791451847274,
+    "elapsed": 450113,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763873412574,
+        "levels": 10333,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763873415418,
+        "levels": 8096,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763873416370,
+        "levels": 2442,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.0192999999853782,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 10653,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 7872,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1552,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 1347,
+    "heapMB": 26.37438201904297,
+    "cpu": {
+      "user": 5281000,
+      "system": 750000
+    }
+  },
+  {
+    "at": 1791451877284,
+    "elapsed": 480123,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763876999894,
+        "levels": 10821,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763877000660,
+        "levels": 8364,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763877003285,
+        "levels": 2446,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.0628000000142492,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 10941,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 8063,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1570,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 1437,
+    "heapMB": 24.27069091796875,
+    "cpu": {
+      "user": 5625000,
+      "system": 781000
+    }
+  },
+  {
+    "at": 1791451907295,
+    "elapsed": 510134,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763880544191,
+        "levels": 11377,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763880543313,
+        "levels": 8820,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763880540293,
+        "levels": 2467,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.121500000008382,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 11876,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 8837,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1638,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 1527,
+    "heapMB": 32.599830627441406,
+    "cpu": {
+      "user": 6015000,
+      "system": 859000
+    }
+  },
+  {
+    "at": 1791451937299,
+    "elapsed": 540138,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 1,
+        "id": 11763883649924,
+        "levels": 11769,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763883649077,
+        "levels": 9351,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763883646274,
+        "levels": 2480,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.2660000000032596,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 1,
+          "ready": true,
+          "dirty": 12537,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 9607,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1665,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 1617,
+    "heapMB": 24.044998168945312,
+    "cpu": {
+      "user": 6484000,
+      "system": 906000
+    }
+  },
+  {
+    "at": 1791451967311,
+    "elapsed": 570150,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763886979853,
+        "levels": 12280,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763886978466,
+        "levels": 9691,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763886977456,
+        "levels": 2498,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.356599999940954,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 2000,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 10099,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1710,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 1710,
+    "heapMB": 28.729354858398438,
+    "cpu": {
+      "user": 6953000,
+      "system": 969000
+    }
+  },
+  {
+    "at": 1791451997321,
+    "elapsed": 600160,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763890526037,
+        "levels": 12838,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763890523867,
+        "levels": 10039,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763890531848,
+        "levels": 2507,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.356599999940954,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 4440,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 10511,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1717,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 1797,
+    "heapMB": 25.671119689941406,
+    "cpu": {
+      "user": 7312000,
+      "system": 1109000
+    }
+  },
+  {
+    "at": 1791452027334,
+    "elapsed": 630173,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763894049698,
+        "levels": 13074,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763894053488,
+        "levels": 10398,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763894049526,
+        "levels": 2508,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.356599999940954,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 5370,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 11022,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1716,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 1887,
+    "heapMB": 44.36582946777344,
+    "cpu": {
+      "user": 7843000,
+      "system": 1141000
+    }
+  },
+  {
+    "at": 1791452057336,
+    "elapsed": 660175,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763896964186,
+        "levels": 13292,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763896957935,
+        "levels": 10637,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763896958312,
+        "levels": 2553,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.3606999999610707,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 6344,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 11285,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1795,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 1977,
+    "heapMB": 25.276046752929688,
+    "cpu": {
+      "user": 8265000,
+      "system": 1203000
+    }
+  },
+  {
+    "at": 1791452087349,
+    "elapsed": 690188,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763900487362,
+        "levels": 13552,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763900486980,
+        "levels": 10809,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763900480594,
+        "levels": 2564,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.410200000042096,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7194,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 11400,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1796,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 2067,
+    "heapMB": 45.46685791015625,
+    "cpu": {
+      "user": 8578000,
+      "system": 1234000
+    }
+  },
+  {
+    "at": 1791452117350,
+    "elapsed": 720189,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763904724869,
+        "levels": 13881,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763904722985,
+        "levels": 11068,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763904718825,
+        "levels": 2626,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.450899999937974,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7785,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 11658,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1902,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 2157,
+    "heapMB": 39.492103576660156,
+    "cpu": {
+      "user": 9234000,
+      "system": 1250000
+    }
+  },
+  {
+    "at": 1791452147359,
+    "elapsed": 750198,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763907657214,
+        "levels": 14047,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763907655051,
+        "levels": 11141,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763907660368,
+        "levels": 2628,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.5093999999808148,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7996,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 11813,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1912,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 2247,
+    "heapMB": 34.03644561767578,
+    "cpu": {
+      "user": 9578000,
+      "system": 1297000
+    }
+  },
+  {
+    "at": 1791452177369,
+    "elapsed": 780208,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763910006996,
+        "levels": 14062,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763910012411,
+        "levels": 11143,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763910006363,
+        "levels": 2630,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.5631999999750406,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 8276,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 11829,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1911,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 2337,
+    "heapMB": 68.57095336914062,
+    "cpu": {
+      "user": 9937000,
+      "system": 1406000
+    }
+  },
+  {
+    "at": 1791452207377,
+    "elapsed": 810216,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763912808783,
+        "levels": 14112,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763912813252,
+        "levels": 11268,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763912813063,
+        "levels": 2632,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.604399999952875,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 8433,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 11939,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1901,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 2424,
+    "heapMB": 57.97224426269531,
+    "cpu": {
+      "user": 10281000,
+      "system": 1422000
+    }
+  },
+  {
+    "at": 1791452237387,
+    "elapsed": 840226,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763915554942,
+        "levels": 14093,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763915554097,
+        "levels": 11359,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763915549366,
+        "levels": 2637,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.671299999929033,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 8673,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 12049,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1908,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 2514,
+    "heapMB": 19.816940307617188,
+    "cpu": {
+      "user": 10687000,
+      "system": 1516000
+    }
+  },
+  {
+    "at": 1791452267400,
+    "elapsed": 870239,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763918449401,
+        "levels": 14355,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763918447858,
+        "levels": 11445,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763918451424,
+        "levels": 2638,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.6951000000117347,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 9306,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 12134,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1911,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 2604,
+    "heapMB": 25.314193725585938,
+    "cpu": {
+      "user": 11078000,
+      "system": 1531000
+    }
+  },
+  {
+    "at": 1791452297412,
+    "elapsed": 900251,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763921064576,
+        "levels": 14481,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 1,
+        "id": 11763921063234,
+        "levels": 11659,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 1,
+        "id": 11763921063756,
+        "levels": 2642,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.8126000000629574,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 9656,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 1,
+          "ready": true,
+          "dirty": 12404,
+          "rebuilds": 1,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 1,
+          "ready": true,
+          "dirty": 1925,
+          "rebuilds": 1,
+          "building": false
+        }
+      ]
+    },
+    "messages": 2694,
+    "heapMB": 19.074249267578125,
+    "cpu": {
+      "user": 11625000,
+      "system": 1578000
+    }
+  },
+  {
+    "at": 1791452327417,
+    "elapsed": 930256,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763924112290,
+        "levels": 14532,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763924117435,
+        "levels": 11809,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763924110959,
+        "levels": 2677,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.8126000000629574,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 9774,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1282,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 357,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 2790,
+    "heapMB": 26.383399963378906,
+    "cpu": {
+      "user": 12031000,
+      "system": 1578000
+    }
+  },
+  {
+    "at": 1791452357419,
+    "elapsed": 960258,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763926979828,
+        "levels": 14632,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763926988036,
+        "levels": 11924,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763926989221,
+        "levels": 2677,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.8126000000629574,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 9805,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 2333,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 630,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 2880,
+    "heapMB": 36.252891540527344,
+    "cpu": {
+      "user": 12406000,
+      "system": 1594000
+    }
+  },
+  {
+    "at": 1791452387428,
+    "elapsed": 990267,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763929796770,
+        "levels": 14745,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763929795336,
+        "levels": 12022,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763929796240,
+        "levels": 2677,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.8126000000629574,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 9948,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 3237,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 761,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 2970,
+    "heapMB": 28.293540954589844,
+    "cpu": {
+      "user": 12890000,
+      "system": 1594000
+    }
+  },
+  {
+    "at": 1791452417428,
+    "elapsed": 1020267,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763932453364,
+        "levels": 14875,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763932444440,
+        "levels": 12161,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763932451548,
+        "levels": 2725,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.7798999999649823,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 10053,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 3912,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1016,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 3057,
+    "heapMB": 24.503768920898438,
+    "cpu": {
+      "user": 13140000,
+      "system": 1625000
+    }
+  },
+  {
+    "at": 1791452447439,
+    "elapsed": 1050278,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763934755962,
+        "levels": 14951,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763934756042,
+        "levels": 12181,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763934755342,
+        "levels": 2726,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.7761000000173226,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 10221,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 4146,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1079,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 3147,
+    "heapMB": 28.69495391845703,
+    "cpu": {
+      "user": 13531000,
+      "system": 1703000
+    }
+  },
+  {
+    "at": 1791452477448,
+    "elapsed": 1080287,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763937384272,
+        "levels": 15030,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763937382829,
+        "levels": 12233,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763937383208,
+        "levels": 2730,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.7632000000448897,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 10313,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 4256,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1103,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 3237,
+    "heapMB": 36.29688262939453,
+    "cpu": {
+      "user": 13937000,
+      "system": 1766000
+    }
+  },
+  {
+    "at": 1791452507448,
+    "elapsed": 1110287,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763939988573,
+        "levels": 15093,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763939994476,
+        "levels": 12281,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763939990377,
+        "levels": 2735,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.7632000000448897,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 10608,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 4375,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1146,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 3327,
+    "heapMB": 23.79283905029297,
+    "cpu": {
+      "user": 14171000,
+      "system": 1797000
+    }
+  },
+  {
+    "at": 1791452537464,
+    "elapsed": 1140303,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763942631644,
+        "levels": 15184,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763942630749,
+        "levels": 12342,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763942629635,
+        "levels": 2736,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.763799999956973,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 10916,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 4660,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1147,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 3417,
+    "heapMB": 45.23841094970703,
+    "cpu": {
+      "user": 14546000,
+      "system": 1844000
+    }
+  },
+  {
+    "at": 1791452567468,
+    "elapsed": 1170307,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763945072772,
+        "levels": 15321,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763945073245,
+        "levels": 12402,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763945072985,
+        "levels": 2736,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.7761000000173226,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 11160,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 4832,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1147,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 3507,
+    "heapMB": 39.20525360107422,
+    "cpu": {
+      "user": 14968000,
+      "system": 1906000
+    }
+  },
+  {
+    "at": 1791452597471,
+    "elapsed": 1200310,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763947459131,
+        "levels": 15393,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763947459984,
+        "levels": 12399,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763947456307,
+        "levels": 2736,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.7761000000173226,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 11365,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 4895,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1149,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 3594,
+    "heapMB": 25.78839111328125,
+    "cpu": {
+      "user": 15312000,
+      "system": 1938000
+    }
+  },
+  {
+    "at": 1791452627478,
+    "elapsed": 1230317,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763950614057,
+        "levels": 15645,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763950613738,
+        "levels": 12560,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763950613157,
+        "levels": 2746,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.7632000000448897,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 11593,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 5638,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1241,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 3684,
+    "heapMB": 38.44691467285156,
+    "cpu": {
+      "user": 15640000,
+      "system": 1969000
+    }
+  },
+  {
+    "at": 1791452657479,
+    "elapsed": 1260318,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763953677147,
+        "levels": 15862,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763953674731,
+        "levels": 12716,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763953674616,
+        "levels": 2752,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.7075999999651685,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 11931,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 6181,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1297,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 3774,
+    "heapMB": 31.574546813964844,
+    "cpu": {
+      "user": 15937000,
+      "system": 1984000
+    }
+  },
+  {
+    "at": 1791452687480,
+    "elapsed": 1290319,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763956098300,
+        "levels": 15918,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763956104656,
+        "levels": 12783,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763956102827,
+        "levels": 2756,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.8334999999497086,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 11897,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 6225,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1304,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 3864,
+    "heapMB": 22.115371704101562,
+    "cpu": {
+      "user": 16484000,
+      "system": 2031000
+    }
+  },
+  {
+    "at": 1791452717487,
+    "elapsed": 1320326,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763958742646,
+        "levels": 16054,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763958741849,
+        "levels": 12864,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763958738693,
+        "levels": 2807,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.8334999999497086,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 11924,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 6355,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1379,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 3954,
+    "heapMB": 21.03106689453125,
+    "cpu": {
+      "user": 16921000,
+      "system": 2078000
+    }
+  },
+  {
+    "at": 1791452747493,
+    "elapsed": 1350332,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763961650722,
+        "levels": 16145,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763961646597,
+        "levels": 12911,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763961644774,
+        "levels": 2808,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.8225000000093132,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 12151,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 6352,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1375,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 4044,
+    "heapMB": 28.36571502685547,
+    "cpu": {
+      "user": 17390000,
+      "system": 2125000
+    }
+  },
+  {
+    "at": 1791452777494,
+    "elapsed": 1380333,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763965190872,
+        "levels": 16221,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763965187211,
+        "levels": 12988,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763965186731,
+        "levels": 2809,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.783199999947101,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 12318,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 6455,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1374,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 4134,
+    "heapMB": 32.283111572265625,
+    "cpu": {
+      "user": 17937000,
+      "system": 2188000
+    }
+  },
+  {
+    "at": 1791452807497,
+    "elapsed": 1410336,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763968046099,
+        "levels": 16277,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763968049733,
+        "levels": 13007,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763968050261,
+        "levels": 2809,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.706199999898672,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 12272,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 6514,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1370,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 4221,
+    "heapMB": 35.118896484375,
+    "cpu": {
+      "user": 18328000,
+      "system": 2203000
+    }
+  },
+  {
+    "at": 1791452837505,
+    "elapsed": 1440344,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 2,
+        "id": 11763970730413,
+        "levels": 16320,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763970732050,
+        "levels": 13036,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763970732187,
+        "levels": 2811,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.654799999902025,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 2,
+          "ready": true,
+          "dirty": 12356,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 6547,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1377,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 4311,
+    "heapMB": 25.833724975585938,
+    "cpu": {
+      "user": 18703000,
+      "system": 2234000
+    }
+  },
+  {
+    "at": 1791452867519,
+    "elapsed": 1470358,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11763973390524,
+        "levels": 16349,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763973389320,
+        "levels": 13055,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763973390383,
+        "levels": 2812,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.685499999905005,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 2351,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 6656,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1374,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 4404,
+    "heapMB": 26.022911071777344,
+    "cpu": {
+      "user": 19281000,
+      "system": 2234000
+    }
+  },
+  {
+    "at": 1791452897521,
+    "elapsed": 1500360,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11763976310607,
+        "levels": 16535,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763976317586,
+        "levels": 13138,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763976315358,
+        "levels": 2813,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.685499999905005,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 4940,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 6971,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1504,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 4494,
+    "heapMB": 31.84703826904297,
+    "cpu": {
+      "user": 19671000,
+      "system": 2250000
+    }
+  },
+  {
+    "at": 1791452927531,
+    "elapsed": 1530370,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11763979089161,
+        "levels": 16654,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763979102569,
+        "levels": 13220,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763979088629,
+        "levels": 2814,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.685499999905005,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 6085,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7138,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1504,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 4584,
+    "heapMB": 24.19463348388672,
+    "cpu": {
+      "user": 20078000,
+      "system": 2328000
+    }
+  },
+  {
+    "at": 1791452957541,
+    "elapsed": 1560380,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11763982085930,
+        "levels": 16821,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763982076546,
+        "levels": 13253,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763982085601,
+        "levels": 2815,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.685499999905005,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 6500,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7181,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1501,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 4674,
+    "heapMB": 41.74546813964844,
+    "cpu": {
+      "user": 20296000,
+      "system": 2359000
+    }
+  },
+  {
+    "at": 1791452987552,
+    "elapsed": 1590391,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11763984820708,
+        "levels": 16869,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763984818427,
+        "levels": 13258,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763984819119,
+        "levels": 2817,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.685499999905005,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 6918,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7196,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1522,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 4764,
+    "heapMB": 24.563552856445312,
+    "cpu": {
+      "user": 20671000,
+      "system": 2406000
+    }
+  },
+  {
+    "at": 1791453017568,
+    "elapsed": 1620407,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11763988304957,
+        "levels": 17018,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763988293033,
+        "levels": 13399,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763988295925,
+        "levels": 2869,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.685499999905005,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 7924,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7735,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1600,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 4851,
+    "heapMB": 26.951126098632812,
+    "cpu": {
+      "user": 21281000,
+      "system": 2484000
+    }
+  },
+  {
+    "at": 1791453047569,
+    "elapsed": 1650408,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11763991006142,
+        "levels": 17179,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763991010310,
+        "levels": 13467,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763991005315,
+        "levels": 2870,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.654799999902025,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 8041,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7749,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1599,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 4941,
+    "heapMB": 27.513404846191406,
+    "cpu": {
+      "user": 21734000,
+      "system": 2516000
+    }
+  },
+  {
+    "at": 1791453077569,
+    "elapsed": 1680408,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11763993590835,
+        "levels": 17167,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763993596519,
+        "levels": 13495,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763993588875,
+        "levels": 2870,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.6532999998889863,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 8213,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7871,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1600,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 5031,
+    "heapMB": 47.087684631347656,
+    "cpu": {
+      "user": 22046000,
+      "system": 2547000
+    }
+  },
+  {
+    "at": 1791453107570,
+    "elapsed": 1710409,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11763997360895,
+        "levels": 17251,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11763997354949,
+        "levels": 13628,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11763997351530,
+        "levels": 2871,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.654100000159815,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 8449,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 8010,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1598,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 5121,
+    "heapMB": 33.229270935058594,
+    "cpu": {
+      "user": 22343000,
+      "system": 2594000
+    }
+  },
+  {
+    "at": 1791453137576,
+    "elapsed": 1740415,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11764000291637,
+        "levels": 17453,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11764000282405,
+        "levels": 13668,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11764000288286,
+        "levels": 2872,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.654100000159815,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 8641,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7976,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1608,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 5211,
+    "heapMB": 37.01361846923828,
+    "cpu": {
+      "user": 22812000,
+      "system": 2625000
+    }
+  },
+  {
+    "at": 1791453167579,
+    "elapsed": 1770418,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11764003072548,
+        "levels": 17441,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11764003071525,
+        "levels": 13736,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11764003072897,
+        "levels": 2872,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.654100000159815,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 8597,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7971,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1611,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 5301,
+    "heapMB": 36.432952880859375,
+    "cpu": {
+      "user": 23125000,
+      "system": 2656000
+    }
+  },
+  {
+    "at": 1791453197584,
+    "elapsed": 1800423,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11764005844873,
+        "levels": 17484,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 2,
+        "id": 11764005849279,
+        "levels": 13778,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11764005846014,
+        "levels": 2875,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.57190000009723,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 8579,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 2,
+          "ready": true,
+          "dirty": 7797,
+          "rebuilds": 2,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1598,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 5388,
+    "heapMB": 33.398292541503906,
+    "cpu": {
+      "user": 23546000,
+      "system": 2672000
+    }
+  },
+  {
+    "at": 1791453227599,
+    "elapsed": 1830438,
+    "books": [
+      {
+        "asset": "BTC",
+        "ready": true,
+        "generation": 3,
+        "id": 11764008469074,
+        "levels": 17585,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "ETH",
+        "ready": true,
+        "generation": 3,
+        "id": 11764008470481,
+        "levels": 13798,
+        "phase": "已同步",
+        "buffer": 0
+      },
+      {
+        "asset": "SOL",
+        "ready": true,
+        "generation": 2,
+        "id": 11764008472200,
+        "levels": 2875,
+        "phase": "已同步",
+        "buffer": 0
+      }
+    ],
+    "profiles": {
+      "demands": 3,
+      "cache": 24,
+      "queued": 0,
+      "p95": 2.4737999998033047,
+      "indexes": [
+        {
+          "key": "binance:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:BTC",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:BTC",
+          "generation": 3,
+          "ready": true,
+          "dirty": 8592,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:ETH",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:ETH",
+          "generation": 3,
+          "ready": true,
+          "dirty": 1384,
+          "rebuilds": 3,
+          "building": false
+        },
+        {
+          "key": "binance:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "coinbase:SOL",
+          "ready": false,
+          "dirty": 0,
+          "rebuilds": 0,
+          "building": false
+        },
+        {
+          "key": "usdm:binance:SOL",
+          "generation": 2,
+          "ready": true,
+          "dirty": 1594,
+          "rebuilds": 2,
+          "building": false
+        }
+      ]
+    },
+    "messages": 5481,
+    "heapMB": 36.47863006591797,
+    "cpu": {
+      "user": 23859000,
+      "system": 2750000
+    }
+  }
+]

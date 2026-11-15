@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "CoinGlass 指標提醒",
+  "description": "監控 zh-TW CoinGlass TV 頁面的技術指標，依自訂門檻發出本機提醒並同步至 DepthWatch。",
+  "version": "1.4.1",
+  "minimum_chrome_version": "141",
+  "permissions": [
+    "alarms",
+    "notifications",
+    "offscreen",
+    "scripting",
+    "sidePanel",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://www.coinglass.com/tv/zh-TW/*",
+    "https://aggregate-spot-depth-test.magic-knoll-8651.chatgpt.site/*",
+    "https://order-book-depth-ratio-monitor.magic-knoll-8651.chatgpt.site/*",
+    "https://marketdepth-observatory.magic-knoll-8651.chatgpt.site/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.coinglass.com/tv/zh-TW/*"
+      ],
+      "js": [
+        "coinglass-page.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://aggregate-spot-depth-test.magic-knoll-8651.chatgpt.site/*",
+        "https://order-book-depth-ratio-monitor.magic-knoll-8651.chatgpt.site/*",
+        "https://marketdepth-observatory.magic-knoll-8651.chatgpt.site/*"
+      ],
+      "js": [
+        "depthwatch-content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_title": "CoinGlass 指標提醒",
+    "default_popup": "ui/index.html?mode=popup"
+  },
+  "side_panel": {
+    "default_path": "ui/index.html?mode=side"
+  }
+}

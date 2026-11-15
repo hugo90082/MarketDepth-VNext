@@ -418,7 +418,13 @@ func(w *ArchiveWorker) ClearDisposableScratch(ctx context.Context)(string,error)
 func(w *ArchiveWorker) IdleMaintenance(ctx context.Context,r *ArchiveReader)(string,error){
  if !w.mu.TryLock(){return "maintenance_busy",nil}
  defer w.mu.Unlock()
- for _,f:=range []func(context.Context)(string,error){r.ReclaimVerifiedCycle,r.CompactVerifiedCycle,r.SyncLossCycle,r.VacuumCatalogCycle}{
+ steps:=[]func(context.Context)(string,error){r.ReclaimVerifiedCycle,r.CompactVerifiedCycle,r.SyncLossCycle}
+ if free,e:=r.CatalogFreePages(ctx);e!=nil{
+  return "",e
+ }else if free>=64{
+  steps=append(steps,r.VacuumCatalogCycle)
+ }
+ for _,f:=range steps{
   state,e:=f(ctx);if e!=nil||state!="idle"{return state,e}
  }
  return "idle",nil
