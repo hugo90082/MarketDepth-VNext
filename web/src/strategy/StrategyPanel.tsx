@@ -4,8 +4,8 @@ import {floating, HOUR, NOTIONAL, remaining, type ClosedEpisode, type Fill, type
 import {LANES, shownStates, summarizeAsset, type AssetPnlSummary, type Lane, type LaneDefinition, type Ledger, type Notice} from '../../shared/strategy-v37-ledger';
 import {marketRuntime} from '../runtime/client';
 import {dateTime} from '../format';
-import {strategyRuntime} from './runtime';
-import {readHistory, type HistoryCursor} from './store';
+import {strategyRuntime, type ResetHorizon} from './runtime';
+import {MAX_NOTICES, readHistory, type HistoryCursor} from './store';
 import './strategy.css';
 
 const money = new Intl.NumberFormat('zh-TW', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -60,25 +60,29 @@ function NotionalControl({notional}: {notional: number}) {
 }
 
 function ResetControl({resetting}: {resetting: boolean}) {
- const [hours, setHours] = useState<number>(8);
+ const [horizon, setHorizon] = useState<ResetHorizon>('all');
  const isLeader = marketRuntime.isLeader();
  return <div className="v37-reset-group" title="重設觀測起算時間與清空現有策略帳本並重新演算（歷史區間需起算點前 15 小時連續 K 線暖機）">
-  <select className="v37-select" aria-label="選擇重設起算點" value={hours} onChange={e => setHours(Number(e.currentTarget.value))}>
-   <option value={0}>從現在起算</option>
-   <option value={8}>最近 8 小時</option>
-   <option value={24}>最近 24 小時</option>
-   <option value={72}>最近 3 天</option>
-   <option value={168}>最近 7 天</option>
+  <select className="v37-select" aria-label="選擇重設起算點" value={String(horizon)} onChange={e => {
+   const v = e.currentTarget.value;
+   setHorizon(v === 'all' ? 'all' : Number(v));
+  }}>
+   <option value="all">有資料以來（自動）</option>
+   <option value="0">從現在起算</option>
+   <option value="8">最近 8 小時</option>
+   <option value="24">最近 24 小時</option>
+   <option value="72">最近 3 天</option>
+   <option value="168">最近 7 天</option>
   </select>
   <button type="button" className="v37-button" disabled={resetting || !isLeader}
    title={!isLeader ? '請在主控分頁操作重設' : '依所選起算點清除並重算所有策略'}
-   onClick={() => {void strategyRuntime.reset(hours);}}>
+   onClick={() => {void strategyRuntime.reset(horizon);}}>
    {resetting ? '重算中…' : '重設起算'}
   </button>
  </div>;
 }
 
-function TimelineBar({ledger, summaries}: {ledger: Ledger | null; summaries: AssetPnlSummary[]}) {
+function TimelineBar({ledger, summaries, catchingUp}: {ledger: Ledger | null; summaries: AssetPnlSummary[]; catchingUp?: boolean}) {
  const readyTimes = summaries.map(s => s.firstReadyAt).filter((x): x is number => x !== null);
  const firstReadyAt = readyTimes.length ? Math.min(...readyTimes) : (ledger?.firstReadyAt ?? null);
  const confirmedTimes = summaries.map(s => s.confirmedThrough).filter((x): x is number => x !== null);
@@ -89,7 +93,7 @@ function TimelineBar({ledger, summaries}: {ledger: Ledger | null; summaries: Ass
  return <div className="v37-timeline-bar">
   <div className="v37-timeline-item"><span>起算基準</span><b>{ledger ? timestamp(ledger.from) : '初始化中'}</b></div>
   <div className="v37-timeline-item"><span>首筆就緒</span><b>{firstReadyAt ? timestamp(firstReadyAt) : '暖機中（需起算前 15h K 線）'}</b></div>
-  <div className="v37-timeline-item"><span>確認至</span><b>{confirmedThrough ? timestamp(confirmedThrough) : '等待資料'}</b></div>
+  <div className="v37-timeline-item"><span>確認至</span><b>{confirmedThrough ? timestamp(confirmedThrough) : '等待資料'}{catchingUp ? ' · 背景回算中…' : ''}</b></div>
   <div className="v37-timeline-item"><span>連線區間</span><b>{availableLanes} / 15 區</b></div>
   <div className="v37-timeline-item"><span>持倉統計</span><b>多 {longCount} / 空 {shortCount} 支</b></div>
  </div>;
@@ -407,19 +411,30 @@ type NoticeFilter = 'all' | 'open' | 'close';
 
 function NoticeLog({notices, asset, scale}: {notices: Notice[]; asset?: Asset; scale: number}) {
  const [filter, setFilter] = useState<NoticeFilter>('all');
+ const [expanded, setExpanded] = useState(false);
  const byAsset = notices.filter(notice => !asset || notice.asset === asset);
- const filtered = byAsset.filter(notice => {
+ const cutoff = Date.now() - HOUR;
+ const recent = byAsset.filter(notice => notice.fillAt >= cutoff);
+ const scoped = expanded ? byAsset : recent;
+ const filtered = scoped.filter(notice => {
   if (filter === 'open') return notice.action === 'entry' || notice.action === 'add';
   if (filter === 'close') return notice.action !== 'entry' && notice.action !== 'add';
   return true;
  });
- return <details className="v37-notices">
-  <summary>
-   <span>提醒紀錄（僅實際進出場觸發）</span>
-   <span>{byAsset.length ? `${byAsset.length} 筆成交` : '尚無成交'}</span>
-  </summary>
+ return <section className={'v37-notices' + (expanded ? ' is-expanded' : '')} aria-label="提醒紀錄">
+  <div className="v37-notices-head">
+   <span className="v37-notices-title">
+    <span>提醒紀錄（僅實際進出場觸發）</span>
+    <span className="v37-notices-count">最近 1 小時 {recent.length} 筆 · 已存 {byAsset.length}／{MAX_NOTICES} 筆</span>
+   </span>
+   {byAsset.length > 0 && <button type="button" className="v37-button" aria-expanded={expanded} onClick={() => setExpanded(v => !v)}>
+    {expanded ? '收合至最近 1 小時' : `展開完整（${byAsset.length} 筆）`}
+   </button>}
+  </div>
   {byAsset.length > 0 && <div className="v37-notice-filters" role="group" aria-label="提醒篩選">
-   <button type="button" className="v37-button" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>全部 ({byAsset.length})</button>
+   <button type="button" className="v37-button" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>
+    {expanded ? `全部 (${byAsset.length})` : `最近 1h (${recent.length})`}
+   </button>
    <button type="button" className="v37-button" aria-pressed={filter === 'open'} onClick={() => setFilter('open')}>進場／加碼</button>
    <button type="button" className="v37-button" aria-pressed={filter === 'close'} onClick={() => setFilter('close')}>出場／停損</button>
   </div>}
@@ -443,12 +458,16 @@ function NoticeLog({notices, asset, scale}: {notices: Notice[]; asset?: Asset; s
     </div>
    </li>;
   })}</ul>
-  {!filtered.length && <p className="v37-message">尚無進出場提醒，實際進場、加碼、減碼或出場時才會記錄並提醒。</p>}
- </details>;
+  {!filtered.length && <p className="v37-message">
+   {!expanded && byAsset.length > 0
+    ? `最近 1 小時內尚無符合條件的進出場提醒（完整歷史共 ${byAsset.length} 筆，可點擊「展開完整」檢視）。`
+    : '尚無進出場提醒，實際進場、加碼、減碼或出場時才會記錄並提醒。'}
+  </p>}
+ </section>;
 }
 
 export function StrategyPanel({asset}: {asset?: Asset}) {
- const {ledger, notices, error, capable, notional, resetting} = useStrategy();
+ const {ledger, notices, error, capable, notional, resetting, catchingUp} = useStrategy();
  const [selectedAsset, select] = useState<Asset>('BTC');
  const [open, setOpen] = useState(false);
  const dialog = useRef<HTMLDialogElement>(null);
@@ -474,7 +493,7 @@ export function StrategyPanel({asset}: {asset?: Asset}) {
   </header>
   {error && <p role="status" className="v37-message">{error}</p>}
   {capable === false && <p role="status" className="v37-message">請重新整理目前負責收集行情的分頁，以啟用策略。</p>}
-  <TimelineBar ledger={ledger} summaries={summaries}/>
+  <TimelineBar ledger={ledger} summaries={summaries} catchingUp={catchingUp}/>
   {!asset && <PortfolioStrip summaries={summaries} scale={scale}/>}
   <div className="v37-summaries">
    {(asset ? [currentSummary!] : summaries).map(s => <SummaryCard key={s.asset} summary={s} scale={scale} replaying={!!ledger?.replay}/>)}
@@ -491,7 +510,7 @@ export function StrategyPanel({asset}: {asset?: Asset}) {
      <button className="v37-button" type="button" onClick={close}>關閉</button>
     </header>
     {open && <>
-     <TimelineBar ledger={ledger} summaries={summaries}/>
+     <TimelineBar ledger={ledger} summaries={summaries} catchingUp={catchingUp}/>
      <PortfolioStrip summaries={summaries} scale={scale}/>
      <div className="v37-tabs" role="group" aria-label="策略商品" style={{padding:'6px 8px 0'}}>
       {ASSETS.map(item => <button className="v37-button" key={item} type="button"

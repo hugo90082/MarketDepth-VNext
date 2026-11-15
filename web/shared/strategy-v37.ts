@@ -30,7 +30,7 @@ export type ClosedEpisode = Omit<Episode, 'lots' | 'addLocked' | 'trimmed'> & {
 export type StrategyState = {episode: Episode | null; pending: Pending[]; stopped: boolean; closedPnl: number; closedCount: number};
 export type MinuteInput = {
  bar: PriceBar; depth: DepthPoint | null; window: readonly (DepthPoint | null)[];
- price: PriceFeatures | null; riskOnly?: boolean; reference?: boolean; entryDeadline?: number; lastDecision?: number;
+ price: PriceFeatures | null; riskOnly?: boolean; sealed?: boolean; reference?: boolean; entryDeadline?: number; lastDecision?: number;
 };
 
 export function emptyStrategy(): StrategyState {
@@ -217,7 +217,7 @@ export function advanceStrategy(state: StrategyState, strategy: Strategy, input:
  const {bar, riskOnly = false} = input;
  const closed: ClosedEpisode[] = [];
  const close = (kind: 'trim' | ClosedEpisode['reason'], price: number, action?: Pending) => {
-  const record = exit(state, strategy, kind, bar.t, price, riskOnly, action);
+  const record = exit(state, strategy, kind, bar.t, price, riskOnly && !input.sealed, action);
   if (record) closed.push(record);
  };
  if (state.episode && state.episode.cash + floating(state.episode, strategy.side, bar.o) <= -STOP) {

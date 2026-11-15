@@ -153,18 +153,21 @@
 .v37-sidebar-actions .v37-button { flex: 1 1 auto; }
 
 .v37-notices { border-top: 1px solid var(--strategy-line); border-bottom: 1px solid var(--strategy-line); background: #faf6ec; }
-.v37-notices summary {
+.v37-notices-head {
   padding: 6px 10px;
-  cursor: pointer;
   font-size: 12px;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
 }
+.v37-notices-title { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.v37-notices-count { font-weight: 500; font-size: 11px; color: var(--strategy-muted); }
 .v37-notice-filters { display: flex; gap: 4px; padding: 0 10px 6px; flex-wrap: wrap; }
-.v37-notices ul { list-style: none; margin: 0; padding: 0 10px 6px; font-size: 12px; max-height: 280px; overflow: auto; }
+.v37-notices ul { list-style: none; margin: 0; padding: 0 10px 6px; font-size: 12px; max-height: 220px; overflow-y: auto; }
+.v37-notices.is-expanded ul { max-height: 420px; }
 .v37-notices li {
   padding: 5px 6px;
   margin-bottom: 4px;

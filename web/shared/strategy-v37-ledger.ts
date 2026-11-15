@@ -2,7 +2,7 @@ import {ASSETS, type Asset} from './model';
 import {advanceStrategy, DEPTH_LIMITS, emptyStrategy, floating, HOUR, MINUTE, remaining, STRATEGIES, STRATEGY_VERSION,
  type ClosedEpisode, type DepthPoint, type Fill, type PriceBar, type PriceFeatures, type Strategy, type StrategyState} from './strategy-v37';
 
-export const STEP_LIMIT = 180;
+export const STEP_LIMIT = 240;
 export const WARMUP = 15 * HOUR;
 const ANCHOR = 15 * MINUTE;
 
@@ -169,7 +169,7 @@ export function summarizeAsset(asset: Asset, ledger: Ledger | null): AssetPnlSum
 }
 
 export function laneRanges(lane: Lane, from: number, target: number) {
- if (lane.through === null) return [{from: from - WARMUP, to: target}];
+ if (lane.through === null) return [{from: from - WARMUP, to: Math.min(target, from + STEP_LIMIT * MINUTE)}];
  const ranges = [{from: lane.through + MINUTE - WARMUP, to: Math.min(target, lane.through + STEP_LIMIT * MINUTE)}];
  if (lane.gap) ranges.push({from: lane.gap.through + MINUTE, to: Math.min(target, lane.gap.through + STEP_LIMIT * MINUTE)});
  return ranges.filter(range => range.from <= range.to);
@@ -180,7 +180,7 @@ function stepStrategyWithFills(
  strategy: Strategy,
  zone: string,
  bar: PriceBar,
- input: {depth: DepthPoint | null; window: readonly (DepthPoint | null)[]; price: PriceFeatures | null; riskOnly?: boolean},
+ input: {depth: DepthPoint | null; window: readonly (DepthPoint | null)[]; price: PriceFeatures | null; riskOnly?: boolean; sealed?: boolean},
  provisional: boolean,
  seqCounter: {n: number},
 ): {closed: ClosedEpisode[]; drafts: FillDraft[]} {
@@ -240,15 +240,16 @@ function stepStrategyWithFills(
  return {closed, drafts};
 }
 
-function advanceLane(lane: Lane, definition: LaneDefinition, input: LaneInput, from: number, target: number, seqCounter: {n: number}) {
+function advanceLane(lane: Lane, definition: LaneDefinition, input: LaneInput, from: number, target: number, sealedBefore: number, seqCounter: {n: number}) {
  const oldGap = lane.gap;
  const records: ClosedEpisode[] = [], remove: string[] = [], drafts: FillDraft[] = [];
  const strategies = definition.strategies;
  const zoneLabel = definition.key.split(':')[1] ? '0-' + definition.key.split(':')[1] : '';
  let start = lane.through === null ? from : lane.through + MINUTE;
  if (lane.through === null) {
+  const probeLimit = Math.min(target, from + STEP_LIMIT * MINUTE);
   start = Math.ceil(start / ANCHOR) * ANCHOR;
-  for (; start <= target; start += ANCHOR) {
+  for (; start <= probeLimit; start += ANCHOR) {
    const point = input.point(start);
    if (!point || !input.bar(start) || !input.features(start)) continue;
    const window = Array.from({length: 14}, (_, i) => input.point(start - (14 - i) * MINUTE));
@@ -257,12 +258,34 @@ function advanceLane(lane: Lane, definition: LaneDefinition, input: LaneInput, f
    lane.firstAt ??= start;
    break;
   }
-  if (start > target) return {records, remove, drafts, more:false, from:null, through:null, replay:false, corrected:0};
+  if (start > probeLimit) {
+   if (probeLimit < target && probeLimit < sealedBefore) {
+    lane.through = probeLimit;
+    return {records, remove, drafts, more:true, from:null, through:probeLimit, replay:false, corrected:0};
+   }
+   return {records, remove, drafts, more:false, from:null, through:null, replay:false, corrected:0};
+  }
  }
  let next = start, steps = 0;
  for (; next <= target && steps < STEP_LIMIT; next += MINUTE, steps++) {
   const bar = input.bar(next), point = input.point(next);
-  if (!bar || !point) break;
+  if (!bar || !point) {
+   if (next < sealedBefore) {
+    lane.window = [];
+    if (bar) {
+     strategies.forEach((strategy, i) => {
+      const res = stepStrategyWithFills(lane.states[i], strategy, zoneLabel, bar, {
+       depth: null, window: [], price: null, riskOnly: true, sealed: true,
+      }, false, seqCounter);
+      records.push(...res.closed);
+      drafts.push(...res.drafts);
+     });
+    }
+    lane.through = next;
+    continue;
+   }
+   break;
+  }
   lane.window = [...lane.window.slice(-14), point];
   const features = next % ANCHOR === 0 ? input.features(next) : null;
   strategies.forEach((strategy, i) => {
@@ -321,10 +344,10 @@ function advanceLane(lane: Lane, definition: LaneDefinition, input: LaneInput, f
 }
 
 /** Advance all independent depth intervals and emit only actual fill notices. */
-export function advanceLedger(ledger: Ledger, inputs: ReadonlyMap<string, LaneInput>, target: number) {
+export function advanceLedger(ledger: Ledger, inputs: ReadonlyMap<string, LaneInput>, target: number, sealedBefore = -Infinity) {
  const before = portfolioNets(ledger);
  const seqCounter = {n: 0};
- const results = LANES.map(definition => advanceLane(ledger.lanes[definition.key], definition, inputs.get(definition.key)!, ledger.from, target, seqCounter));
+ const results = LANES.map(definition => advanceLane(ledger.lanes[definition.key], definition, inputs.get(definition.key)!, ledger.from, target, sealedBefore, seqCounter));
  const records = results.flatMap(result => result.records);
  const remove = results.flatMap(result => result.remove);
  const allDrafts = results.flatMap(result => result.drafts).sort((a, b) => a.fillAt - b.fillAt || a.seq - b.seq);

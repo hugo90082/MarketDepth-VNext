@@ -3,9 +3,9 @@ import {test} from 'node:test';
 import 'fake-indexeddb/auto';
 import {advanceStrategy, emptyStrategy, HOUR, MINUTE, priceFeatures, remaining, STRATEGIES, strategyDepth,
  type DepthPoint, type PriceBar, type Strategy, type StrategyState} from '../shared/strategy-v37';
-import {advanceLedger, createLedger, LANES, portfolioNets, summarizeAsset, type LaneInput} from '../shared/strategy-v37-ledger';
+import {advanceLedger, createLedger, LANES, portfolioNets, summarizeAsset, type LaneInput, type Notice} from '../shared/strategy-v37-ledger';
 import {CONTRACT, emptyRow} from '../shared/contract';
-import {claimSound, commitLedger, readHistory, readLedger} from '../src/strategy/store';
+import {claimSound, commitLedger, MAX_NOTICES, readHistory, readLedger, recentNotices, resetLedger} from '../src/strategy/store';
 
 const T = 20 * HOUR;
 const long = STRATEGIES.find(s => s.asset === 'BTC' && s.side === 1 && s.add === 'A3')!;
@@ -223,4 +223,54 @@ test('idle minutes with no fills emit zero notices and summarizeAsset splits rea
  near(total, summary.realized + unrealized);
  assert.equal(summary.longNotional, 1000);
  assert.equal(summary.shortNotional, 0);
+});
+
+test('sealed historical gaps advance ledger in risk-only mode and rebuild 15-minute depth window afterward', () => {
+ const {ledger, lane, index} = setup();
+ lane.states[index] = started(long);
+ const sealedInputs = new Map<string, LaneInput>(LANES.map(definition => [definition.key, {
+  bar: t => t === T + 5 * MINUTE ? bar(t, 100, 80, 100) : bar(t, 100, 100, 100),
+  point: t => t < T + 15 * MINUTE ? null : point(t, .40),
+  features: () => null,
+ }]));
+ const res = advanceLedger(ledger, sealedInputs, T + 35 * MINUTE, T + 60 * MINUTE);
+ assert.equal(lane.gap, null);
+ assert.equal(lane.through, T + 35 * MINUTE);
+ assert.equal(lane.window.length, 15);
+ assert.equal(lane.window.every(Boolean), true);
+ assert.equal(lane.states[index].closedCount, 1);
+ assert.ok(res.records.some(record => record.reason === 'stop' && record.provisional === false));
+});
+
+test('commitLedger trims stored notices to MAX_NOTICES (150), removing the oldest', async () => {
+ assert.equal(MAX_NOTICES, 150);
+ const ledger = (await resetLedger(T, T, 200, () => true))!;
+ const notices: Notice[] = Array.from({length: 160}, (_, i) => ({
+  id: `notice-${i}`,
+  kind: 'fill',
+  at: T + i * MINUTE,
+  fillAt: T + i * MINUTE,
+  asset: 'BTC',
+  strategyId: long.id,
+  zone: long.zone,
+  side: 1,
+  threshold: long.threshold,
+  entryRule: long.entry,
+  addRule: long.add,
+  action: 'entry',
+  lot: 1,
+  price: 100,
+  amount: 1000,
+  fee: 0.4,
+  cash: -0.4,
+  netBefore: 0,
+  netAfter: 1000,
+  provisional: false,
+  historical: true,
+ }));
+ await commitLedger(ledger, [], [], notices, 200, () => true);
+ const stored = await recentNotices(200);
+ assert.equal(stored.length, 150);
+ assert.equal(stored[0].fillAt, T + 159 * MINUTE);
+ assert.equal(stored[stored.length - 1].fillAt, T + 10 * MINUTE);
 });

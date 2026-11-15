@@ -77,26 +77,79 @@ async function serializedV2Fetch(path: string, signal?: AbortSignal): Promise<Re
   }
 }
 
-export async function fetchVNextDays(fromDay = '2026-01-01', toDay = '2026-12-31', signal?: AbortSignal): Promise<VNextDay[]> {
-  const r = await serializedV2Fetch(`/api/v2/days?from=${fromDay}&to=${toDay}`, signal);
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  const body = await r.json() as { ok: boolean; data: VNextDay[] };
-  return (body.data ?? []).filter(d => d.state !== 'missing');
+export async function fetchVNextDays(
+  fromDay = '2026-09-01',
+  toDay = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10),
+  signal?: AbortSignal,
+): Promise<VNextDay[]> {
+  const startMs = Date.parse(`${fromDay}T00:00:00Z`);
+  const endMs = Date.parse(`${toDay}T00:00:00Z`);
+  const stepMs = 360 * 86_400_000;
+  const byDay = new Map<string, VNextDay>();
+  for (let cur = startMs; cur <= endMs; cur += stepMs + 86_400_000) {
+    const f = new Date(cur).toISOString().slice(0, 10);
+    const t = new Date(Math.min(endMs, cur + stepMs)).toISOString().slice(0, 10);
+    const r = await serializedV2Fetch(`/api/v2/days?from=${f}&to=${t}`, signal);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const body = await r.json() as { ok: boolean; data: VNextDay[] };
+    for (const d of body.data ?? []) {
+      if (d.state !== 'missing') byDay.set(d.day, d);
+    }
+  }
+  return [...byDay.values()].sort((a, b) => a.from - b.from);
 }
 
-export async function fetchVNextHistoryKind<T>(kind: 'spot_depth' | 'futures_1m', from: number, to: number, signal?: AbortSignal): Promise<T[]> {
-  if (to <= from) return [];
-  const out: T[] = [];
-  let cursor = '';
-  for (let page = 0; page < 64; page++) {
-    const q = `/api/v2/history?kind=${kind}&from=${from}&to=${to}&limit=2000${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+export async function fetchVNextFirstSpotTs(days: VNextDay[], signal?: AbortSignal): Promise<number | null> {
+  const ordered = [...days].filter(d => d.state !== 'missing').sort((a, b) => a.from - b.from);
+  for (const d of ordered) {
+    if (signal?.aborted) throw new Error('ABORTED');
+    const q = `/api/v2/history?kind=spot_depth&venue=binance&from=${d.from}&to=${d.to}&limit=1`;
     const r = await serializedV2Fetch(q, signal);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const body = await r.json() as { ok: boolean; data: T[]; meta?: { next_cursor?: string | null } };
-    if (Array.isArray(body.data)) out.push(...body.data);
-    const next = body.meta?.next_cursor;
-    if (!next) break;
-    cursor = next;
+    if (!r.ok) continue;
+    const body = await r.json() as { ok: boolean; data?: VNextSpotRow[] };
+    const first = body.data?.[0];
+    if (first && Number.isSafeInteger(first.t)) return first.t;
+  }
+  return null;
+}
+
+export type HistoryQueryOpts = AbortSignal | {
+  signal?: AbortSignal;
+  venue?: Exclude<Venue, 'all4'>;
+  asset?: Asset;
+  limit?: number;
+};
+
+export async function fetchVNextHistoryKind<T>(
+  kind: 'spot_depth' | 'futures_1m',
+  from: number,
+  to: number,
+  opts?: HistoryQueryOpts,
+): Promise<T[]> {
+  if (to <= from) return [];
+  const signal = opts instanceof AbortSignal ? opts : opts?.signal;
+  const venue = opts instanceof AbortSignal ? undefined : opts?.venue;
+  const asset = opts instanceof AbortSignal ? undefined : opts?.asset;
+  const limit = opts instanceof AbortSignal ? 2000 : (opts?.limit ?? 2000);
+  const out: T[] = [];
+  // Backend enforces t - f <= 31 days; split long ranges transparently when needed.
+  const MAX_SPAN = 25 * 86_400_000;
+  for (let spanStart = from; spanStart < to; spanStart += MAX_SPAN) {
+    const spanEnd = Math.min(to, spanStart + MAX_SPAN);
+    let cursor = '';
+    for (let page = 0; page < 128; page++) {
+      const q = `/api/v2/history?kind=${kind}&from=${spanStart}&to=${spanEnd}&limit=${limit}`
+        + (venue && kind === 'spot_depth' ? `&venue=${venue}` : '')
+        + (asset ? `&asset=${asset}` : '')
+        + (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
+      const r = await serializedV2Fetch(q, signal);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const body = await r.json() as { ok: boolean; data: T[]; meta?: { next_cursor?: string | null } };
+      if (Array.isArray(body.data)) out.push(...body.data);
+      const next = body.meta?.next_cursor;
+      if (!next) break;
+      cursor = next;
+    }
   }
   return out;
 }

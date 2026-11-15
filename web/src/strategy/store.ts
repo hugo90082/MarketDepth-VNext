@@ -1,10 +1,12 @@
 import type {ClosedEpisode} from '../../shared/strategy-v37';
 import {createLedger, type Ledger, type Notice} from '../../shared/strategy-v37-ledger';
 
+export const MAX_NOTICES = 150;
+
 let opening: Promise<IDBDatabase> | undefined;
 function open() {
  return opening ??= new Promise<IDBDatabase>((resolve, reject) => {
-  const request = indexedDB.open('marketdepth-strategy-v37-1m', 2);
+  const request = indexedDB.open('marketdepth-strategy-v37-1m', 3);
   request.onupgradeneeded = event => {
    const db = request.result;
    if (event.oldVersion < 1) {
@@ -12,7 +14,7 @@ function open() {
     db.createObjectStore('history', {keyPath:'id'}).createIndex('strategy-time', ['strategyId', 'closedAt', 'id']);
     db.createObjectStore('notices', {keyPath:'id'}).createIndex('time', 'at');
     db.createObjectStore('sound');
-   } else if (event.oldVersion < 2) {
+   } else if (event.oldVersion < 3) {
     const tx = request.transaction!;
     tx.objectStore('ledger').clear();
     tx.objectStore('history').clear();
@@ -77,6 +79,23 @@ export async function commitLedger(ledger: Ledger, records: ClosedEpisode[], rem
   log.add(notice);
   inserted.push(notice);
  }
+ if (notices.length) {
+  const total = await result(log.count());
+  let excess = total - MAX_NOTICES;
+  if (excess > 0) {
+   await new Promise<void>((resolve, reject) => {
+    const cursorReq = log.index('time').openCursor(null, 'next');
+    cursorReq.onerror = () => reject(cursorReq.error);
+    cursorReq.onsuccess = () => {
+     const cursor = cursorReq.result;
+     if (!cursor || excess <= 0) {resolve(); return;}
+     excess--;
+     cursor.delete();
+     cursor.continue();
+    };
+   });
+  }
+ }
  if (!current()) {
   tx.abort();
   await done.catch(() => {});
@@ -134,7 +153,7 @@ export async function readHistory(strategyId: string, before?: HistoryCursor) {
  });
 }
 
-export async function recentNotices() {
+export async function recentNotices(limit = MAX_NOTICES) {
  const db = await open();
  const request = db.transaction('notices').objectStore('notices').index('time').openCursor(null, 'prev');
  const notices: Notice[] = [];
@@ -142,7 +161,7 @@ export async function recentNotices() {
   request.onerror = () => reject(request.error);
   request.onsuccess = () => {
    const cursor = request.result;
-   if (!cursor || notices.length === 100) {resolve(notices); return;}
+   if (!cursor || notices.length >= limit) {resolve(notices); return;}
    if (cursor.value?.kind === 'fill') notices.push(cursor.value);
    cursor.continue();
   };
