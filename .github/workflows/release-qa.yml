@@ -1,0 +1,76 @@
+name: Integrated release candidate QA (no deployment)
+on:
+  push:
+    branches: [vnext-release-qa]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: vnext
+    env:
+      CGO_ENABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Verify and test integrated source
+        run: |
+          go mod download
+          go mod verify
+          go test ./...
+          go test -race ./...
+          go vet ./...
+          go test -tags sqlite_integration ./...
+          go test -race -tags sqlite_integration ./internal/store
+          go test -tags live_ws,sqlite_integration,secure_auth ./...
+          go vet -tags live_ws,sqlite_integration,secure_auth ./...
+          python3 tests/schema_check.py
+          python3 tests/daily_sql_check.py
+          python3 tests/legacy_inventory_test.py
+          python3 tests/legacy_raw_stage_test.py
+          python3 tests/resource_probe_test.py
+          python3 tests/staging_preflight_test.py
+          python3 tests/phase7_evidence_test.py
+      - name: Build and verify explicitly non-activatable release QA package
+        run: |
+          set -eu
+          out="$RUNNER_TEMP/release-qa"
+          mkdir -m 700 "$out"
+          tags=live_ws,sqlite_integration,secure_auth
+          go build -trimpath -tags "$tags" -o "$out/marketdepth" ./cmd/marketdepth
+          go build -trimpath -tags "$tags" -o "$out/marketdepth-staging" ./cmd/marketdepth-staging
+          go build -trimpath -tags sqlite_integration -o "$out/day-audit" ./cmd/day-audit
+          go build -trimpath -tags sqlite_integration -o "$out/legacy-v66-drive-review" ./cmd/legacy-v66-drive-review
+          go build -trimpath -tags sqlite_integration -o "$out/legacy-v66-plan" ./cmd/legacy-v66-plan
+          python3 tests/release_preflight_cli_test.py "$out/marketdepth" "$out/marketdepth-staging"
+          printf '%s\n' "$GITHUB_SHA" > "$out/PRODUCER_COMMIT"
+          printf '%s\n' 'QA ONLY: NO PRODUCTION ACTIVATION. Do not replace the running writer. No credentials or market data.' > "$out/QA_ONLY.txt"
+          go version > "$out/BUILD_INFO.txt"
+          go version -m "$out/marketdepth" >> "$out/BUILD_INFO.txt"
+          go version -m "$out/marketdepth-staging" >> "$out/BUILD_INFO.txt"
+          cd "$out"
+          sha256sum marketdepth marketdepth-staging day-audit legacy-v66-drive-review legacy-v66-plan PRODUCER_COMMIT QA_ONLY.txt BUILD_INFO.txt > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          tar -czf "$RUNNER_TEMP/marketdepth-release-qa-linux-amd64.tar.gz" .
+          dest="$(mktemp -d)"
+          tar -xzf "$RUNNER_TEMP/marketdepth-release-qa-linux-amd64.tar.gz" -C "$dest"
+          cd "$dest"
+          sha256sum -c SHA256SUMS
+          for b in marketdepth marketdepth-staging day-audit legacy-v66-drive-review legacy-v66-plan; do test -x "$b"; ./$b --help >/dev/null 2>&1; done
+          cd "$RUNNER_TEMP"
+          sha256sum marketdepth-release-qa-linux-amd64.tar.gz > marketdepth-release-qa-linux-amd64.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marketdepth-release-qa-linux-amd64-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/marketdepth-release-qa-linux-amd64.tar.gz
+            ${{ runner.temp }}/marketdepth-release-qa-linux-amd64.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14

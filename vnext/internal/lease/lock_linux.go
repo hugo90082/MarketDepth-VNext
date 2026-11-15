@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/runtimeprofile"
 	"os"
 	"path/filepath"
 	"sync"
@@ -75,7 +76,15 @@ func acquire(dir, name string, create bool) (*Lock, error) {
 	ok = true
 	return l, nil
 }
-func AcquireNamespace(dir string) (*Lock, error)   { return acquire(dir, NamespaceLock, true) }
+func AcquireNamespace(dir string) (*Lock, error) {
+	return AcquireProfileNamespace(dir, runtimeprofile.Staging)
+}
+func AcquireProfileNamespace(dir string, profile runtimeprofile.Profile) (*Lock, error) {
+	if !profile.Valid() {
+		return nil, errors.New("invalid namespace profile")
+	}
+	return acquire(dir, profile.Namespace()+".writer.lock", true)
+}
 func AcquireStoppedRoot(dir string) (*Lock, error) { return acquire(dir, ".writer.lock", false) }
 func (l *Lock) check() error {
 	if l.f == nil {

@@ -3,6 +3,7 @@
 package lease
 
 import (
+	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/runtimeprofile"
 	"os"
 	"path/filepath"
 	"testing"
@@ -65,5 +66,30 @@ func TestStoppedRootLock(t *testing.T) {
 	if b, e := AcquireStoppedRoot(d); e == nil {
 		b.Close()
 		t.Fatal("second root owner")
+	}
+}
+
+func TestProfileNamespaceIsolation(t *testing.T) {
+	d := t.TempDir()
+	if e := os.Chmod(d, 0700); e != nil {
+		t.Fatal(e)
+	}
+	a, e := AcquireProfileNamespace(d, runtimeprofile.Staging)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer a.Close()
+	b, e := AcquireProfileNamespace(d, runtimeprofile.Production)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer b.Close()
+	if x, e := AcquireProfileNamespace(d, runtimeprofile.Production); e == nil {
+		x.Close()
+		t.Fatal("two production locks")
+	}
+	if x, e := AcquireProfileNamespace(d, 0); e == nil {
+		x.Close()
+		t.Fatal("invalid profile lock")
 	}
 }
