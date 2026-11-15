@@ -279,13 +279,36 @@ export function useMarketEngine(asset:Asset,hours:number,interval:Interval=60000
    }finally{starting=false;}
   }
 
+  let nextRecentVNextSync=0;
+  async function syncRecentVNext(){
+   if(stopped||authPaused||Date.now()<nextRecentVNextSync)return;
+   nextRecentVNextSync=Date.now()+15000;
+   try{
+    const to=Math.ceil(Date.now()/60000)*60000;
+    const from=to-15*60000;
+    const [spotRows,f1mRows]=await Promise.all([
+     fetchVNextHistoryKind<VNextSpotRow>('spot_depth',from,to,signal()),
+     fetchVNextHistoryKind<VNextFutures1mRow>('futures_1m',from,to,signal()),
+    ]);
+    if(stopped)return;
+    const grouped=groupSpotRowsToStoredRows(spotRows);
+    const canonical=validateRows(grouped).map(r=>({...r,source:'railway' as const,format:CONTRACT.datasetFormat}));
+    const candles=mapFutures1mToStoredCandles(f1mRows);
+    if(canonical.length||candles.length){
+     await storage.save(canonical,candles);
+     dataRevision++;
+     channel?.postMessage({type:'changed'});
+    }
+   }catch{}
+  }
+
   async function update(){
    if(stopped||running)return;running=true;
    try{
     channel?.postMessage({type:'window',owner,hours:current.current.hours});
     for(const [id,p]of peers)if(Date.now()-p.at>=20000)peers.delete(id);
     const h=Math.max(current.current.hours,...[...peers.values()].map(p=>p.hours));
-    if(leader){if(candleBuffer.size){const batch=[...candleBuffer.values()],stamp=marketRuntime.collectorStamp();candleBuffer.clear();if(marketRuntime.isCollector(stamp))await storage.save([],batch,true,{term:stamp!.epoch,current:()=>marketRuntime.isCollector(stamp)});}await Promise.allSettled([fillPrices(h)]);}
+    if(leader){if(candleBuffer.size){const batch=[...candleBuffer.values()],stamp=marketRuntime.collectorStamp();candleBuffer.clear();if(marketRuntime.isCollector(stamp))await storage.save([],batch,true,{term:stamp!.epoch,current:()=>marketRuntime.isCollector(stamp)});}await Promise.allSettled([syncRecentVNext(),fillPrices(h)]);}
     await refreshComparisonStatus();
     await readLocal();
    }catch(e){storageFail(e);}finally{running=false;if(!stopped){timer=setTimeout(()=>void update(),5000);}}

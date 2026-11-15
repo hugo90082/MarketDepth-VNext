@@ -171,10 +171,16 @@ func(r *ArchiveReader) VacuumCatalogCycle(ctx context.Context)(string,error){
  defer release()
  j.mu.Lock();defer j.mu.Unlock()
  if e=j.ready(ctx);e!=nil{return "",e}
- if _,e=j.db.ExecContext(ctx,"PRAGMA incremental_vacuum(256)");e!=nil{return "",e}
+ rows,e:=j.db.QueryContext(ctx,"PRAGMA incremental_vacuum(2048)")
+ if e!=nil{return "",e}
+ for rows.Next(){}
+ _=rows.Close()
+ var afterFree int
+ _=j.db.QueryRowContext(ctx,"PRAGMA freelist_count").Scan(&afterFree)
  var busy,frames,done int
  if e=j.db.QueryRowContext(ctx,"PRAGMA wal_checkpoint(TRUNCATE)").Scan(&busy,&frames,&done);e!=nil{return "",e}
  if busy!=0||frames!=0||done!=0{return "",errors.New("catalog checkpoint incomplete")}
+ if afterFree>=free{return "idle",nil}
  return "catalog_vacuum",nil
 }
 

@@ -148,20 +148,28 @@ async function pullWindow(f: storage.CollectorFence) {
 
   const end = Math.min(p.to, Math.ceil(now / 60000) * 60000);
   const stats = p.stats;
+  const latestBase = Math.floor(now / MARKET_BLOCK_MS) * MARKET_BLOCK_MS;
+  const prevBase = latestBase - MARKET_BLOCK_MS;
 
-  // Skip already-cached blocks (except the current active 15m block)
+  // Skip already-cached historical blocks (never skip the latest two 15m blocks)
   while (p.bases.length > 0 && valid()) {
     const candidate = p.bases[0];
-    const isCurrentBlock = candidate + MARKET_BLOCK_MS >= now - 60000;
+    const isRecentBlock = candidate >= prevBase;
     const coverage = await storage.getMeta<{ version: number; coverage: Coverage }>('market-history-coverage:' + candidate);
     const seen = await storage.getMeta<{ version: number; hash: string }>('market-history-seen:' + candidate);
     const head = await storage.marketHistoryHead(candidate);
-    if (!isCurrentBlock && coverage && seen && head) {
+    if (!isRecentBlock && coverage && seen && head) {
       stats[candidate] = coverage.coverage;
       p.bases.shift();
       continue;
     }
     break;
+  }
+
+  // When initial backfill finishes, always refresh the latest two 15m blocks from VNext
+  if (p.bases.length === 0 && valid()) {
+    p.bases.push(latestBase);
+    if (prevBase >= p.from) p.bases.push(prevBase);
   }
 
   if (p.bases.length > 0 && valid()) {
