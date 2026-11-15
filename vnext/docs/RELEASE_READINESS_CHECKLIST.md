@@ -24,7 +24,7 @@ MD_SESSION_KEY_B64/MD_PASSWORD_BCRYPT 由受保護環境注入；不要貼進聊
 | 門檻 | 當前狀態 |
 |---|---|
 | R1 程式整合 | 分支整合/共用runtime/本機預檢完成；正式run、production namespace 的匯入與復原仍鎖定 |
-| R2 原始gzip/非秘密config | 尚需正式不可變證據歸檔；兩份原始gzip及尾端版本皆永久保留，勿常駐VM |
+| R2 原始gzip/非秘密config | 兩份固定原始gzip的離線封存工具及五項合成自測完成；真資料回讀、最終尾端、非秘密設定及真Drive驗證仍待完成。詳 R2_ORIGINAL_EVIDENCE_QA.md；勿常駐VM |
 | R3 混合日與切點 | 11/14、11/15保持隔離，正式尾端待實際cutover；同日revision/混合來源實作未完成 |
 | R4 Drive正式發布 | 已有離線coordinator/gate，仍需真實writer fence、production namespace及發布CLI、批准計畫 |
 | R5 V66 | 未取得最新C source/build/proxy/瀏覽器驗收 |
@@ -32,3 +32,5 @@ MD_SESSION_KEY_B64/MD_PASSWORD_BCRYPT 由受保護環境注入；不要貼進聊
 | R7 正式運維 | 容量/HTTPS/31日匯出、正式systemd與回復未驗收 |
 | R8 文件治理 | 本文件及Master Log追蹤；舊README早期mock說法以本次更新為準 |
 下一步補 R2 原始證據封存與明確的production namespace/目錄隔離，保持正式run拒絕；R3、R4完成及實際長測/前端驗收後再決定啟動門檻，正式發布與Phase8另批准。未操作主機、真Drive、舊服務、OAuth或目前長測。
+## 本輪補充
+- 原 release QA run43669115696 全部成功；PR#1 同步 main 文件，未改程式。舊離線 API 四檔 blob 已完全相同，無需再次合併。R2 新工具已本機合成驗證，追加 CI 尚無結果。不得將此視為真資料封存或正式發布批准。
