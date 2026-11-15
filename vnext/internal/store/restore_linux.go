@@ -20,7 +20,7 @@ import (
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"
 )
 
-// RestoreVerifiedDay validates a sealed live archive into a private cache
+// RestoreVerifiedDay validates a sealed live or reviewed legacy archive into a private cache
 // directory, not the writer's active directory. The caller must supply a
 // trusted catalog manifest and reserve physical space for both temporary files.
 // No local daily file or catalog is replaced, and no eviction is performed.
@@ -39,8 +39,13 @@ func RestoreVerifiedActive(ctx context.Context, manifest archive.Manifest, compr
 func restoreVerified(ctx context.Context, manifest archive.Manifest, compressed io.Reader, cache string, reserve int64, active bool) (string, error) {
 	m := manifest
 	a, b, e := dayRange(m.Day, m.Day)
-	if e != nil || m.ContractID != model.Contract || m.Timezone != model.Timezone || m.From != a.UnixMilli() || m.To != b.Add(24*time.Hour).UnixMilli() || (!active && (m.SealedAt == nil || *m.SealedAt < m.To)) || (active && m.SealedAt != nil) || m.Revision < 1 || m.DataOrigin != "live" || m.ProducerCommit == "" || m.FileID == "" || len(m.Generation) < 1 || len(m.Generation) > 80 || strings.Trim(m.Generation, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_") != "" || !validSHA(m.SHA256) || !validSHA(m.RawSHA256) || compressed == nil {
+	if e != nil || m.ContractID != model.Contract || m.Timezone != model.Timezone || m.From != a.UnixMilli() || m.To != b.Add(24*time.Hour).UnixMilli() || (!active && (m.SealedAt == nil || *m.SealedAt < m.To)) || (active && m.SealedAt != nil) || m.Revision < 1 || (m.DataOrigin != "live" && (active || m.DataOrigin != "legacy")) || m.ProducerCommit == "" || m.FileID == "" || len(m.Generation) < 1 || len(m.Generation) > 80 || strings.Trim(m.Generation, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_") != "" || !validSHA(m.SHA256) || !validSHA(m.RawSHA256) || compressed == nil {
 		return "", errors.New("invalid sealed archive manifest")
+	}
+	if !active {
+		if e = archive.ValidateSealedManifest(m); e != nil {
+			return "", e
+		}
 	}
 	if reserve <= 0 || reserve > archive.HardLimit || m.Size <= 0 || m.RawSize <= 0 || m.Size > reserve || m.RawSize > reserve-m.Size {
 		return "", errors.New("restore reservation insufficient")
@@ -107,7 +112,11 @@ func restoreVerified(ctx context.Context, manifest archive.Manifest, compressed 
 	if e = raw.Close(); e != nil {
 		return "", e
 	}
-	d, e := checkSnapshot(ctx, raw.Name(), m.Day)
+	var historical *archive.Manifest
+	if m.DataOrigin == "legacy" {
+		historical = &m
+	}
+	d, e := checkSnapshotWithLegacy(ctx, raw.Name(), m.Day, historical)
 	if e != nil {
 		return "", e
 	}

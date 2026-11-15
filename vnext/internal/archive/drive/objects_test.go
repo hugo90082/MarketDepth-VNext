@@ -13,6 +13,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -23,14 +25,15 @@ type staticToken string
 func (t staticToken) AccessToken(context.Context) (string, error) { return string(t), nil }
 
 type fakeDrive struct {
-	files                               map[string]file
-	data                                map[string][]byte
-	pending                             map[string]file
-	seq, uploads, rootGETs, folderCreates int
- failRootAfterCommit bool
- gzipMIME string
-	failAfterCommit, foreign, duplicate bool
-	server                              *httptest.Server
+	files                                     map[string]file
+	data                                      map[string][]byte
+	pending                                   map[string]file
+	seq, uploads, rootGETs, folderCreates     int
+	failRootAfterCommit                       bool
+	gzipMIME                                  string
+	failAfterCommit, foreign, duplicate       bool
+	server                                    *httptest.Server
+	listIncomplete, repeatToken, quotaMissing bool
 }
 
 func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
@@ -42,9 +45,15 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Path
 	q := r.URL.Query()
 	switch {
+	case p == "/drive/v3/about":
+		if f.quotaMissing {
+			respond(map[string]any{"storageQuota": map[string]string{"usage": "1000000"}})
+			return
+		}
+		respond(map[string]any{"storageQuota": map[string]string{"limit": "1000000000", "usage": "1000000"}})
 	case p == "/drive/v3/files/root":
 		f.rootGETs++
- w.WriteHeader(404)
+		w.WriteHeader(404)
 	case p == "/drive/v3/files/generateIds":
 		f.seq++
 		respond(map[string]any{"ids": []string{fmt.Sprintf("file_%d", f.seq)}})
@@ -52,17 +61,40 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 		out := []file{}
 		query := q.Get("q")
 		for _, x := range f.files {
-			parentMatch:=!strings.Contains(query," in parents")||(len(x.Parents)==1&&(strings.Contains(query,"'"+x.Parents[0]+"' in parents")||(x.Parents[0]=="my_root"&&strings.Contains(query,"'root' in parents"))))
- keyMatch:=!strings.Contains(query,"key='md_key'")||strings.Contains(query,"key='md_key' and value='"+x.Props["md_key"]+"'")
- mimeMatch:=!strings.Contains(query,"mimeType =")||(strings.Contains(query,"mimeType = 'application/json'")&&x.MIME=="application/json")
- if !x.Trashed&&strings.Contains(query,"key='md_ns' and value='"+x.Props["md_ns"]+"'")&&parentMatch&&keyMatch&&mimeMatch{
- out=append(out,x)
+			parentMatch := !strings.Contains(query, " in parents") || (len(x.Parents) == 1 && (strings.Contains(query, "'"+x.Parents[0]+"' in parents") || (x.Parents[0] == "my_root" && strings.Contains(query, "'root' in parents"))))
+			keyMatch := !strings.Contains(query, "key='md_key'") || strings.Contains(query, "key='md_key' and value='"+x.Props["md_key"]+"'")
+			mimeMatch := !strings.Contains(query, "mimeType =") || (strings.Contains(query, "mimeType = 'application/json'") && x.MIME == "application/json")
+			nsMatch := !strings.Contains(query, "key='md_ns'") || strings.Contains(query, "key='md_ns' and value='"+x.Props["md_ns"]+"'")
+			nameMatch := !strings.Contains(query, "name = ") || strings.Contains(query, "name = '"+x.Name+"'")
+			if !x.Trashed && nsMatch && nameMatch && parentMatch && keyMatch && mimeMatch {
+				out = append(out, x)
 				if f.duplicate && x.MIME != folderType {
 					out = append(out, x)
 				}
 			}
 		}
-		respond(map[string]any{"files": out})
+		sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+		offset := 0
+		if q.Get("pageToken") != "" {
+			var e error
+			offset, e = strconv.Atoi(q.Get("pageToken"))
+			if e != nil || offset < 0 || offset > len(out) {
+				w.WriteHeader(400)
+				return
+			}
+		}
+		end := offset + 100
+		if end > len(out) {
+			end = len(out)
+		}
+		next := ""
+		if end < len(out) {
+			next = strconv.Itoa(end)
+		}
+		if f.repeatToken && q.Get("pageToken") != "" {
+			next = q.Get("pageToken")
+		}
+		respond(map[string]any{"files": out[offset:end], "nextPageToken": next, "incompleteSearch": f.listIncomplete})
 	case p == "/drive/v3/files" && r.Method == "POST":
 		var x file
 		if json.NewDecoder(r.Body).Decode(&x) != nil {
@@ -73,14 +105,21 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(409)
 			return
 		}
-		if x.Props["md_key"]=="root" {
- if x.Parents!=nil{w.WriteHeader(400);return}
- x.Parents=[]string{"my_root"}
- }
- f.files[x.ID]=x
- f.folderCreates++
- if x.Props["md_key"]=="root"&&f.failRootAfterCommit{f.failRootAfterCommit=false;w.WriteHeader(503);return}
- respond(x)
+		if x.Props["md_key"] == "root" {
+			if x.Parents != nil {
+				w.WriteHeader(400)
+				return
+			}
+			x.Parents = []string{"my_root"}
+		}
+		f.files[x.ID] = x
+		f.folderCreates++
+		if x.Props["md_key"] == "root" && f.failRootAfterCommit {
+			f.failRootAfterCommit = false
+			w.WriteHeader(503)
+			return
+		}
+		respond(x)
 	case p == "/upload/drive/v3/files" && r.Method == "POST":
 		var x file
 		if json.NewDecoder(r.Body).Decode(&x) != nil {
@@ -113,7 +152,9 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 		h := sha256.Sum256(b)
 		x.SHA = hex.EncodeToString(h[:])
 		x.Size = fmt.Sprint(len(b))
- if f.gzipMIME!=""&&strings.HasSuffix(x.Name,".sqlite.gz"){x.MIME=f.gzipMIME}
+		if f.gzipMIME != "" && strings.HasSuffix(x.Name, ".sqlite.gz") {
+			x.MIME = f.gzipMIME
+		}
 		f.files[id] = x
 		f.data[id] = b
 		f.uploads++
@@ -318,135 +359,285 @@ func TestRetryAfterStatus(t *testing.T) {
 	}
 }
 
-func TestReadOnlyRecoveryWithoutLocalReservations(t *testing.T){
- c,f,_:=setup(t);ctx:=context.Background()
- key:="historical/2026/11/2026-11-13.r1.manifest.json"
- b:=[]byte("manifest")
- o,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));if e!=nil{t.Fatal(e)}
- seq,uploads:=f.seq,f.uploads
- dir:=t.TempDir();os.Chmod(dir,0700)
- fresh:=testClient(t,f,dir)
- if _,body,e:=fresh.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("default read accepted absent reservation")}
- fresh.EnableRecoveryReads()
- if _,body,e:=fresh.OpenObject(ctx,o.ID);e!=nil{t.Fatal(e)}else{body.Close()}
- r:=fresh.RecoveryReader()
- list,e:=r.Discover(ctx);if e!=nil||len(list)!=1||list[0]!=o{t.Fatal(list,e)}
- got,body,e:=r.OpenObject(ctx,o.ID);if e!=nil{t.Fatal(e)}
- raw,e:=io.ReadAll(body);body.Close()
- if e!=nil||got!=o||!bytes.Equal(raw,b){t.Fatal(got,e)}
- if _,e=r.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("recovery write accepted")}
- entries,e:=os.ReadDir(dir);if e!=nil||len(entries)!=0||f.seq!=seq||f.uploads!=uploads{t.Fatal("recovery side effects",entries,e)}
- f.duplicate=true
- if _,e=r.Discover(ctx);e==nil{t.Fatal("duplicate candidate accepted")}
- f.duplicate=false
- x:=f.files[o.ID];x.Parents=[]string{"unrelated-folder"};f.files[o.ID]=x
- if _,body,e=r.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("moved object accepted")}
+func TestReadOnlyRecoveryWithoutLocalReservations(t *testing.T) {
+	c, f, _ := setup(t)
+	ctx := context.Background()
+	key := "historical/2026/11/2026-11-13.r1.manifest.json"
+	b := []byte("manifest")
+	o, e := c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b))
+	if e != nil {
+		t.Fatal(e)
+	}
+	seq, uploads := f.seq, f.uploads
+	dir := t.TempDir()
+	os.Chmod(dir, 0700)
+	fresh := testClient(t, f, dir)
+	if _, body, e := fresh.OpenObject(ctx, o.ID); e == nil {
+		body.Close()
+		t.Fatal("default read accepted absent reservation")
+	}
+	fresh.EnableRecoveryReads()
+	if _, body, e := fresh.OpenObject(ctx, o.ID); e != nil {
+		t.Fatal(e)
+	} else {
+		body.Close()
+	}
+	r := fresh.RecoveryReader()
+	list, e := r.Discover(ctx)
+	if e != nil || len(list) != 1 || list[0] != o {
+		t.Fatal(list, e)
+	}
+	got, body, e := r.OpenObject(ctx, o.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	raw, e := io.ReadAll(body)
+	body.Close()
+	if e != nil || got != o || !bytes.Equal(raw, b) {
+		t.Fatal(got, e)
+	}
+	if _, e = r.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b)); e == nil {
+		t.Fatal("recovery write accepted")
+	}
+	entries, e := os.ReadDir(dir)
+	if e != nil || len(entries) != 0 || f.seq != seq || f.uploads != uploads {
+		t.Fatal("recovery side effects", entries, e)
+	}
+	f.duplicate = true
+	if _, e = r.Discover(ctx); e == nil {
+		t.Fatal("duplicate candidate accepted")
+	}
+	f.duplicate = false
+	x := f.files[o.ID]
+	x.Parents = []string{"unrelated-folder"}
+	f.files[o.ID] = x
+	if _, body, e = r.OpenObject(ctx, o.ID); e == nil {
+		body.Close()
+		t.Fatal("moved object accepted")
+	}
 }
 
-
-func TestDiscoverPlacementIncludesOrphanData(t *testing.T){
- c,f,_:=setup(t);ctx:=context.Background()
- b:=[]byte("opaque data")
- k:="historical/2026/11/2026-11-13.r1.sqlite.gz"
- o,e:=c.PutImmutable(ctx,k,int64(len(b)),hash(b),bytes.NewReader(b));if e!=nil{t.Fatal(e)}
- seq,uploads:=f.seq,f.uploads
- dir:=t.TempDir();os.Chmod(dir,0700)
- fresh:=testClient(t,f,dir).RecoveryReader()
- meta,e:=fresh.Discover(ctx);if e!=nil||len(meta)!=0{t.Fatal(meta,e)}
- got,e:=fresh.DiscoverPlacementObjects(ctx)
- if e!=nil||len(got)!=1||got[0]!=(PlacementObject{"2026-11-13",k,o.ID}){t.Fatal(got,e)}
- entries,e:=os.ReadDir(dir);if e!=nil||len(entries)!=0||seq!=f.seq||uploads!=f.uploads{t.Fatal("placement read has side effects",entries,e)}
- f.duplicate=true
- if _,e=fresh.DiscoverPlacementObjects(ctx);e==nil{t.Fatal("duplicate archive placement accepted")}
- f.duplicate=false
- x:=f.files[o.ID]
- x.Props["md_key"]="historical/2026/10/2026-11-13.r1.sqlite.gz"
- f.files[o.ID]=x
- if _,e=fresh.DiscoverPlacementObjects(ctx);e==nil{t.Fatal("wrong archive parent date accepted")}
+func TestDiscoverPlacementIncludesOrphanData(t *testing.T) {
+	c, f, _ := setup(t)
+	ctx := context.Background()
+	b := []byte("opaque data")
+	k := "historical/2026/11/2026-11-13.r1.sqlite.gz"
+	o, e := c.PutImmutable(ctx, k, int64(len(b)), hash(b), bytes.NewReader(b))
+	if e != nil {
+		t.Fatal(e)
+	}
+	seq, uploads := f.seq, f.uploads
+	dir := t.TempDir()
+	os.Chmod(dir, 0700)
+	fresh := testClient(t, f, dir).RecoveryReader()
+	meta, e := fresh.Discover(ctx)
+	if e != nil || len(meta) != 0 {
+		t.Fatal(meta, e)
+	}
+	got, e := fresh.DiscoverPlacementObjects(ctx)
+	if e != nil || len(got) != 1 || got[0] != (PlacementObject{"2026-11-13", k, o.ID}) {
+		t.Fatal(got, e)
+	}
+	entries, e := os.ReadDir(dir)
+	if e != nil || len(entries) != 0 || seq != f.seq || uploads != f.uploads {
+		t.Fatal("placement read has side effects", entries, e)
+	}
+	f.duplicate = true
+	if _, e = fresh.DiscoverPlacementObjects(ctx); e == nil {
+		t.Fatal("duplicate archive placement accepted")
+	}
+	f.duplicate = false
+	x := f.files[o.ID]
+	x.Props["md_key"] = "historical/2026/10/2026-11-13.r1.sqlite.gz"
+	f.files[o.ID] = x
+	if _, e = fresh.DiscoverPlacementObjects(ctx); e == nil {
+		t.Fatal("wrong archive parent date accepted")
+	}
 }
 
-func TestRestrictedScopeRootRetryAndReadOnlyRecovery(t *testing.T){
- c,f,dir:=setup(t);ctx:=context.Background()
- key:="historical/2026/11/2026-11-13.r1.manifest.json";b:=[]byte("manifest")
- f.failRootAfterCommit=true
- if _,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("expected ambiguous root creation")}
- if f.rootGETs!=0||f.folderCreates!=1||f.uploads!=0{t.Fatal(f.rootGETs,f.folderCreates,f.uploads)}
- original,ok,e:=c.load("root");if e!=nil||!ok||original.Parent!="root"{t.Fatal(original,ok,e)}
- c=testClient(t,f,dir)
- o,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));if e!=nil{t.Fatal(e)}
- if f.rootGETs!=0||f.folderCreates!=4||f.uploads!=1{t.Fatal(f.rootGETs,f.folderCreates,f.uploads)}
- freshDir:=t.TempDir();os.Chmod(freshDir,0700)
- rr:=testClient(t,f,freshDir).RecoveryReader()
- _,body,e:=rr.OpenObject(ctx,o.ID);if e!=nil{t.Fatal(e)};body.Close()
- if f.rootGETs!=0||f.folderCreates!=4||f.uploads!=1{t.Fatal("read-only side effect")}
- root:=f.files[original.ID];root.Parents=[]string{"moved"};f.files[original.ID]=root
- if _,e=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("accepted moved namespace root")}
- if _,body,e=rr.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("recovery accepted moved namespace root")}
- if f.folderCreates!=4||f.uploads!=1{t.Fatal("created replacement root")}
+func TestRestrictedScopeRootRetryAndReadOnlyRecovery(t *testing.T) {
+	c, f, dir := setup(t)
+	ctx := context.Background()
+	key := "historical/2026/11/2026-11-13.r1.manifest.json"
+	b := []byte("manifest")
+	f.failRootAfterCommit = true
+	if _, e := c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b)); e == nil {
+		t.Fatal("expected ambiguous root creation")
+	}
+	if f.rootGETs != 0 || f.folderCreates != 1 || f.uploads != 0 {
+		t.Fatal(f.rootGETs, f.folderCreates, f.uploads)
+	}
+	original, ok, e := c.load("root")
+	if e != nil || !ok || original.Parent != "root" {
+		t.Fatal(original, ok, e)
+	}
+	c = testClient(t, f, dir)
+	o, e := c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if f.rootGETs != 0 || f.folderCreates != 4 || f.uploads != 1 {
+		t.Fatal(f.rootGETs, f.folderCreates, f.uploads)
+	}
+	freshDir := t.TempDir()
+	os.Chmod(freshDir, 0700)
+	rr := testClient(t, f, freshDir).RecoveryReader()
+	_, body, e := rr.OpenObject(ctx, o.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	body.Close()
+	if f.rootGETs != 0 || f.folderCreates != 4 || f.uploads != 1 {
+		t.Fatal("read-only side effect")
+	}
+	root := f.files[original.ID]
+	root.Parents = []string{"moved"}
+	f.files[original.ID] = root
+	if _, e = c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b)); e == nil {
+		t.Fatal("accepted moved namespace root")
+	}
+	if _, body, e = rr.OpenObject(ctx, o.ID); e == nil {
+		body.Close()
+		t.Fatal("recovery accepted moved namespace root")
+	}
+	if f.folderCreates != 4 || f.uploads != 1 {
+		t.Fatal("created replacement root")
+	}
 }
-func TestDuplicateNamespaceRootFailsClosed(t *testing.T){
- c,f,_:=setup(t);ctx:=context.Background()
- b:=[]byte("data");key:="staging/a.json"
- if _,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e!=nil{t.Fatal(e)}
- r,_,e:=c.load("root");if e!=nil{t.Fatal(e)}
- duplicate:=f.files[r.ID];duplicate.ID="foreign_duplicate";duplicate.Parents=[]string{"another_parent"};f.files[duplicate.ID]=duplicate
- seq,uploads:=f.seq,f.uploads
- if _,e=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("accepted duplicate namespace key")}
- if f.seq!=seq||f.uploads!=uploads{t.Fatal("collision caused writes")}
-}
-
-func TestDriveGzipMIMEInferenceAcrossRetryAndRecovery(t *testing.T){
- for _,mime:=range []string{"application/x-gzip","application/gzip"}{t.Run(mime,func(t *testing.T){
-  c,f,dir:=setup(t);ctx:=context.Background()
-  f.gzipMIME=mime
-  key:="active/2026-11-13."+archive.HourGeneration(time.Date(2026,11,13,1,0,0,0,time.FixedZone("UTC+8",8*3600)))+".sqlite.gz"
-  b:=[]byte("opaque sqlite gzip fixture")
-  f.failAfterCommit=true
-  if _,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("expected lost upload response")}
-  r,ok,e:=c.load(key);if e!=nil||!ok||r.MIME!="application/octet-stream"||f.files[r.ID].MIME!=mime{t.Fatal(r,ok,e)}
-  seq,uploads:=f.seq,f.uploads
-  c=testClient(t,f,dir)
-  o,e:=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b))
-  if e!=nil||o.ID!=r.ID||f.seq!=seq||f.uploads!=uploads{t.Fatal(o,e,"duplicate upload")}
-  checkRead:=func(remote archive.RemoteObjects){
-   got,body,e:=remote.OpenObject(ctx,o.ID);if e!=nil{t.Fatal(e)}
-   raw,e:=io.ReadAll(body);body.Close()
-   if e!=nil||got!=o||!bytes.Equal(raw,b){t.Fatal(got,e)}
-  }
-  checkRead(c)
-  freshDir:=t.TempDir();os.Chmod(freshDir,0700)
-  rr:=testClient(t,f,freshDir).RecoveryReader()
-  checkRead(rr)
-  placement,e:=rr.DiscoverPlacementObjects(ctx)
-  if e!=nil||len(placement)!=1||placement[0].ID!=o.ID{t.Fatal(placement,e)}
-  x:=f.files[o.ID];x.MIME="application/pdf";f.files[o.ID]=x
-  if _,e=c.PutImmutable(ctx,key,int64(len(b)),hash(b),bytes.NewReader(b));e==nil{t.Fatal("wrong MIME accepted")}
-  if _,body,e:=rr.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("wrong recovery MIME accepted")}
-  if _,e=rr.DiscoverPlacementObjects(ctx);e==nil{t.Fatal("wrong placement MIME accepted")}
-  if e=c.TrashActiveObject(ctx,o);e==nil{t.Fatal("wrong MIME retirement accepted")}
-  x.MIME=mime;goodSHA:=x.SHA;x.SHA=hash([]byte("different"));f.files[o.ID]=x
-  if _,body,e:=c.OpenObject(ctx,o.ID);e==nil{body.Close();t.Fatal("wrong hash accepted")}
-  x.SHA=goodSHA;f.files[o.ID]=x
-  if e=c.TrashActiveObject(ctx,o);e!=nil{t.Fatal(e)}
-  if !f.files[o.ID].Trashed{t.Fatal("retirement failed")}
- })}
-}
-func TestDriveMIMEAliasesAreNarrow(t *testing.T){
- for _,x:=range []struct{key,expected,actual string;want bool}{
-  {"active/a.sqlite.gz","application/octet-stream","application/x-gzip",true},
-  {"historical/a.sqlite.gz","application/octet-stream","application/gzip",true},
-  {"active/a.manifest.json","application/json","application/x-gzip",false},
-  {"dir/active",folderType,"application/x-gzip",false},
-  {"staging/a.gz","application/octet-stream","application/x-gzip",false},
-  {"active/a.sqlite.gz","application/octet-stream","application/pdf",false},
- }{if compatibleMIME(x.key,x.expected,x.actual)!=x.want{t.Fatal(x)}}
+func TestDuplicateNamespaceRootFailsClosed(t *testing.T) {
+	c, f, _ := setup(t)
+	ctx := context.Background()
+	b := []byte("data")
+	key := "staging/a.json"
+	if _, e := c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b)); e != nil {
+		t.Fatal(e)
+	}
+	r, _, e := c.load("root")
+	if e != nil {
+		t.Fatal(e)
+	}
+	duplicate := f.files[r.ID]
+	duplicate.ID = "foreign_duplicate"
+	duplicate.Parents = []string{"another_parent"}
+	f.files[duplicate.ID] = duplicate
+	seq, uploads := f.seq, f.uploads
+	if _, e = c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b)); e == nil {
+		t.Fatal("accepted duplicate namespace key")
+	}
+	if f.seq != seq || f.uploads != uploads {
+		t.Fatal("collision caused writes")
+	}
 }
 
-func TestDriveSafeDiagnostic(t *testing.T){
- req,e:=http.NewRequest("PUT","https://www.googleapis.com/upload/drive/v3/files?upload_id=PRIVATE_SESSION",nil);if e!=nil{t.Fatal(e)}
- res:=&http.Response{StatusCode:403,Request:req,Header:http.Header{}}
- s:=SafeDiagnostic(fmt.Errorf("PRIVATE_SECRET: %w",responseStatus(res)))
- if s!="drive_http=403 method=PUT endpoint=upload"{t.Fatal(s)}
- if s=SafeDiagnostic(identityError{"mime"});s!="drive_identity_field=mime"{t.Fatal(s)}
- if s=SafeDiagnostic(fmt.Errorf("PRIVATE_SECRET"));s!="detail=withheld"{t.Fatal(s)}
+func TestDriveGzipMIMEInferenceAcrossRetryAndRecovery(t *testing.T) {
+	for _, mime := range []string{"application/x-gzip", "application/gzip"} {
+		t.Run(mime, func(t *testing.T) {
+			c, f, dir := setup(t)
+			ctx := context.Background()
+			f.gzipMIME = mime
+			key := "active/2026-11-13." + archive.HourGeneration(time.Date(2026, 11, 13, 1, 0, 0, 0, time.FixedZone("UTC+8", 8*3600))) + ".sqlite.gz"
+			b := []byte("opaque sqlite gzip fixture")
+			f.failAfterCommit = true
+			if _, e := c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b)); e == nil {
+				t.Fatal("expected lost upload response")
+			}
+			r, ok, e := c.load(key)
+			if e != nil || !ok || r.MIME != "application/octet-stream" || f.files[r.ID].MIME != mime {
+				t.Fatal(r, ok, e)
+			}
+			seq, uploads := f.seq, f.uploads
+			c = testClient(t, f, dir)
+			o, e := c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b))
+			if e != nil || o.ID != r.ID || f.seq != seq || f.uploads != uploads {
+				t.Fatal(o, e, "duplicate upload")
+			}
+			checkRead := func(remote archive.RemoteObjects) {
+				got, body, e := remote.OpenObject(ctx, o.ID)
+				if e != nil {
+					t.Fatal(e)
+				}
+				raw, e := io.ReadAll(body)
+				body.Close()
+				if e != nil || got != o || !bytes.Equal(raw, b) {
+					t.Fatal(got, e)
+				}
+			}
+			checkRead(c)
+			freshDir := t.TempDir()
+			os.Chmod(freshDir, 0700)
+			rr := testClient(t, f, freshDir).RecoveryReader()
+			checkRead(rr)
+			placement, e := rr.DiscoverPlacementObjects(ctx)
+			if e != nil || len(placement) != 1 || placement[0].ID != o.ID {
+				t.Fatal(placement, e)
+			}
+			x := f.files[o.ID]
+			x.MIME = "application/pdf"
+			f.files[o.ID] = x
+			if _, e = c.PutImmutable(ctx, key, int64(len(b)), hash(b), bytes.NewReader(b)); e == nil {
+				t.Fatal("wrong MIME accepted")
+			}
+			if _, body, e := rr.OpenObject(ctx, o.ID); e == nil {
+				body.Close()
+				t.Fatal("wrong recovery MIME accepted")
+			}
+			if _, e = rr.DiscoverPlacementObjects(ctx); e == nil {
+				t.Fatal("wrong placement MIME accepted")
+			}
+			if e = c.TrashActiveObject(ctx, o); e == nil {
+				t.Fatal("wrong MIME retirement accepted")
+			}
+			x.MIME = mime
+			goodSHA := x.SHA
+			x.SHA = hash([]byte("different"))
+			f.files[o.ID] = x
+			if _, body, e := c.OpenObject(ctx, o.ID); e == nil {
+				body.Close()
+				t.Fatal("wrong hash accepted")
+			}
+			x.SHA = goodSHA
+			f.files[o.ID] = x
+			if e = c.TrashActiveObject(ctx, o); e != nil {
+				t.Fatal(e)
+			}
+			if !f.files[o.ID].Trashed {
+				t.Fatal("retirement failed")
+			}
+		})
+	}
+}
+func TestDriveMIMEAliasesAreNarrow(t *testing.T) {
+	for _, x := range []struct {
+		key, expected, actual string
+		want                  bool
+	}{
+		{"active/a.sqlite.gz", "application/octet-stream", "application/x-gzip", true},
+		{"historical/a.sqlite.gz", "application/octet-stream", "application/gzip", true},
+		{"active/a.manifest.json", "application/json", "application/x-gzip", false},
+		{"dir/active", folderType, "application/x-gzip", false},
+		{"staging/a.gz", "application/octet-stream", "application/x-gzip", false},
+		{"active/a.sqlite.gz", "application/octet-stream", "application/pdf", false},
+	} {
+		if compatibleMIME(x.key, x.expected, x.actual) != x.want {
+			t.Fatal(x)
+		}
+	}
+}
+
+func TestDriveSafeDiagnostic(t *testing.T) {
+	req, e := http.NewRequest("PUT", "https://www.googleapis.com/upload/drive/v3/files?upload_id=PRIVATE_SESSION", nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	res := &http.Response{StatusCode: 403, Request: req, Header: http.Header{}}
+	s := SafeDiagnostic(fmt.Errorf("PRIVATE_SECRET: %w", responseStatus(res)))
+	if s != "drive_http=403 method=PUT endpoint=upload" {
+		t.Fatal(s)
+	}
+	if s = SafeDiagnostic(identityError{"mime"}); s != "drive_identity_field=mime" {
+		t.Fatal(s)
+	}
+	if s = SafeDiagnostic(fmt.Errorf("PRIVATE_SECRET")); s != "detail=withheld" {
+		t.Fatal(s)
+	}
 }
