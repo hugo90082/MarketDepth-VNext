@@ -65,7 +65,8 @@ export function useMarketEngine(asset:Asset,hours:number,interval:Interval=60000
   const channel=marketRuntime.researchChannel();
   const peers=new Map<string,{hours:number;at:number}>();
   let recentFallbackTarget=0,recentFallbackRunning=false,recentFallbackTimer:ReturnType<typeof setTimeout>|undefined;
-  const signal=()=>AbortSignal.any([controller.signal,AbortSignal.timeout(20000)]);
+  const signal=()=>AbortSignal.any([controller.signal,AbortSignal.timeout(45000)]);
+  const manualSignal=()=>AbortSignal.any([controller.signal,AbortSignal.timeout(90000)]);
 
   async function fillLiveGap(row:StoredRow,attempt=0){
    const missing=current.current.assets.some(a=>{const ai=ASSETS.indexOf(a);return !(row.quality?.books[0]?.[ai]&&row.captured?.[0]?.[ai])&&row.d[0][ai].some(zone=>zone.some(value=>value===null));});
@@ -179,7 +180,7 @@ export function useMarketEngine(asset:Asset,hours:number,interval:Interval=60000
    if(Date.now()<nextRepair){setManualAction({phase:'waiting',message:'歷史服務要求等待，時間到後可重試',until:nextRepair});return;}
    starting=true;historyStopped=false;authPaused=false;setHistoryError('');setManualAction({phase:'starting',message:'正在檢查 VNext 封存狀態並準備比對…',until:0});
    try{
-    const status=await buildComparisonStatus(hours,signal());
+    const status=await buildComparisonStatus(hours,manualSignal());
     setComparison(status);
     const chosen=selection??{asset:current.current.asset,venue:current.current.view.venue,zones:current.current.view.zones[0]};
     const startFrom=Math.max(status.from,status.oldestAvailableTsMs??status.from);
@@ -190,10 +191,8 @@ export function useMarketEngine(asset:Asset,hours:number,interval:Interval=60000
      if(stopped)return;
      const slice=slices[i];
      setManualAction({phase:'starting',message:`正在從 VNext 同步 ${chosen.asset} 歷史資料 · 區段 ${i+1}/${slices.length}`,until:0});
-     const [spotRows,f1mRows]=await Promise.all([
-      fetchVNextHistoryKind<VNextSpotRow>('spot_depth',slice.from,slice.to,signal()),
-      fetchVNextHistoryKind<VNextFutures1mRow>('futures_1m',slice.from,slice.to,signal()),
-     ]);
+     const spotRows=await fetchVNextHistoryKind<VNextSpotRow>('spot_depth',slice.from,slice.to,{signal:manualSignal(),priority:'high'});
+     const f1mRows=await fetchVNextHistoryKind<VNextFutures1mRow>('futures_1m',slice.from,slice.to,{signal:manualSignal(),priority:'high'});
      const grouped=groupSpotRowsToStoredRows(spotRows);
      const canonical=validateRows(grouped).map(r=>({...r,source:'railway' as const,format:CONTRACT.datasetFormat,...(status.indexVersion!==null?{finalVersion:status.indexVersion}:{})}));
      const candles=mapFutures1mToStoredCandles(f1mRows);

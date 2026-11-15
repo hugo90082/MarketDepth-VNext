@@ -54,16 +54,37 @@ export type VNextDay = {
   counts?: Record<string, number>;
 };
 
-let apiLock: Promise<void> = Promise.resolve();
+export type FetchPriority = 'high' | 'medium' | 'low';
+const PRIORITY_RANK: Record<FetchPriority, number> = { high: 0, medium: 1, low: 2 };
+const waitQueues: (() => void)[][] = [[], [], []];
+let apiBusy = false;
 
-async function serializedV2Fetch(path: string, signal?: AbortSignal): Promise<Response> {
-  const prev = apiLock;
-  let release!: () => void;
-  apiLock = new Promise<void>(r => { release = r; });
-  await prev.catch(() => {});
+async function acquireApiLock(priority: FetchPriority): Promise<() => void> {
+  if (!apiBusy) {
+    apiBusy = true;
+  } else {
+    await new Promise<void>(resolve => {
+      waitQueues[PRIORITY_RANK[priority]].push(resolve);
+    });
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const next = waitQueues[0].shift() ?? waitQueues[1].shift() ?? waitQueues[2].shift();
+    if (next) next();
+    else apiBusy = false;
+  };
+}
+
+async function serializedV2Fetch(path: string, signal?: AbortSignal, priority: FetchPriority = 'high'): Promise<Response> {
+  if (signal?.aborted) throw signal.reason ?? new Error('ABORTED');
+  const release = await acquireApiLock(priority);
   try {
+    if (signal?.aborted) throw signal.reason ?? new Error('ABORTED');
     for (let attempt = 0; attempt < 5; attempt++) {
-      const r = await siteFetch(base + path, { signal: signal ?? AbortSignal.timeout(30000) });
+      const reqSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000);
+      const r = await siteFetch(base + path, { signal: reqSignal });
       if ((r.status === 429 || r.status === 503) && attempt < 4) {
         const waitSec = Math.max(1, Number(r.headers.get('retry-after')) || (attempt + 1) * 2);
         await new Promise<void>((res, rej) => {
@@ -73,7 +94,7 @@ async function serializedV2Fetch(path: string, signal?: AbortSignal): Promise<Re
           }, waitSec * 1000);
           const onAbort = () => {
             clearTimeout(timer);
-            rej(new Error('ABORTED'));
+            rej(signal?.reason ?? new Error('ABORTED'));
           };
           if (signal) signal.addEventListener('abort', onAbort, { once: true });
         });
@@ -109,14 +130,18 @@ export async function fetchVNextDays(
   return [...byDay.values()].sort((a, b) => a.from - b.from);
 }
 
-export async function fetchVNextFirstSpotTs(days: VNextDay[], signal?: AbortSignal): Promise<number | null> {
+export async function fetchVNextFirstSpotTs(
+  days: VNextDay[],
+  signal?: AbortSignal,
+  priority: FetchPriority = 'high',
+): Promise<number | null> {
   const ordered = [...days]
     .filter(d => d.state !== 'missing' && (d.counts?.spot_depth ?? 1) > 0)
     .sort((a, b) => a.from - b.from);
   for (const d of ordered) {
     if (signal?.aborted) throw new Error('ABORTED');
     const q = `/api/v2/history?kind=spot_depth&venue=binance&from=${d.from}&to=${d.to}&limit=1`;
-    const r = await serializedV2Fetch(q, signal);
+    const r = await serializedV2Fetch(q, signal, priority);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const body = await r.json() as { ok: boolean; data?: VNextSpotRow[] };
     const first = body.data?.[0];
@@ -130,6 +155,7 @@ export type HistoryQueryOpts = AbortSignal | {
   venue?: Exclude<Venue, 'all4'>;
   asset?: Asset;
   limit?: number;
+  priority?: FetchPriority;
 };
 
 export async function fetchVNextHistoryKind<T>(
@@ -143,6 +169,7 @@ export async function fetchVNextHistoryKind<T>(
   const venue = opts instanceof AbortSignal ? undefined : opts?.venue;
   const asset = opts instanceof AbortSignal ? undefined : opts?.asset;
   const limit = opts instanceof AbortSignal ? 2000 : (opts?.limit ?? 2000);
+  const priority: FetchPriority = opts instanceof AbortSignal ? 'high' : (opts?.priority ?? 'high');
   const out: T[] = [];
   // Backend enforces t - f <= 31 days; split long ranges transparently when needed.
   const MAX_SPAN = 25 * 86_400_000;
@@ -154,7 +181,7 @@ export async function fetchVNextHistoryKind<T>(
         + (venue && kind === 'spot_depth' ? `&venue=${venue}` : '')
         + (asset ? `&asset=${asset}` : '')
         + (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
-      const r = await serializedV2Fetch(q, signal);
+      const r = await serializedV2Fetch(q, signal, priority);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const body = await r.json() as { ok: boolean; data: T[]; meta?: { next_cursor?: string | null } };
       if (Array.isArray(body.data)) out.push(...body.data);
@@ -247,12 +274,17 @@ export function mapFutures1mToStoredCandles(f1Rows: VNextFutures1mRow[]): Stored
   return out;
 }
 
-export async function buildVNextMarketBlocks(from: number, to: number, signal?: AbortSignal): Promise<MarketBlock[]> {
+export async function buildVNextMarketBlocks(
+  from: number,
+  to: number,
+  signal?: AbortSignal,
+  priority: FetchPriority = 'medium',
+): Promise<MarketBlock[]> {
   const alignedFrom = Math.floor(from / MARKET_BLOCK_MS) * MARKET_BLOCK_MS;
   const alignedTo = Math.ceil(to / MARKET_BLOCK_MS) * MARKET_BLOCK_MS;
   const [spotRaw, f1Raw] = await Promise.all([
-    fetchVNextHistoryKind<VNextSpotRow>('spot_depth', alignedFrom, alignedTo, signal),
-    fetchVNextHistoryKind<VNextFutures1mRow>('futures_1m', alignedFrom, alignedTo, signal),
+    fetchVNextHistoryKind<VNextSpotRow>('spot_depth', alignedFrom, alignedTo, { signal, priority }),
+    fetchVNextHistoryKind<VNextFutures1mRow>('futures_1m', alignedFrom, alignedTo, { signal, priority }),
   ]);
   const rows = groupSpotRowsToStoredRows(spotRaw);
   const candles = mapFutures1mToStoredCandles(f1Raw);

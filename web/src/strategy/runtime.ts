@@ -84,7 +84,7 @@ async function discoverArchive(force = false, needFirstSpot = true): Promise<Arc
   }
   let earliestSpotTs = force ? null : archiveCache.earliestSpotTs;
   if (needFirstSpot && earliestSpotTs === null && days.length) {
-   earliestSpotTs = await fetchVNextFirstSpotTs(days);
+   earliestSpotTs = await fetchVNextFirstSpotTs(days, undefined, 'low');
   }
   archiveCache = {fetchedAt: Date.now(), days, sealedBefore, earliestSpotTs, earliestF1Ts};
   return archiveCache;
@@ -140,9 +140,10 @@ async function ensureRemoteSpan(wStart: number, target: number, needSpot: boolea
   const wEnd = Math.min(target + MINUTE, wStart + REMOTE_SPAN);
   if (wEnd <= wStart) return;
   const needF1 = !remoteFetchedF1Spans.has(wStart);
+  const priority = wStart < target - 6 * HOUR ? 'low' : 'high';
   const [spotRaw, f1Raw] = await Promise.all([
-   needSpot ? fetchVNextHistoryKind<VNextSpotRow>('spot_depth', wStart, wEnd, {venue: 'binance'}) : Promise.resolve([] as VNextSpotRow[]),
-   needF1 ? fetchVNextHistoryKind<VNextFutures1mRow>('futures_1m', wStart, wEnd) : Promise.resolve([] as VNextFutures1mRow[]),
+   needSpot ? fetchVNextHistoryKind<VNextSpotRow>('spot_depth', wStart, wEnd, {venue: 'binance', priority}) : Promise.resolve([] as VNextSpotRow[]),
+   needF1 ? fetchVNextHistoryKind<VNextFutures1mRow>('futures_1m', wStart, wEnd, {priority}) : Promise.resolve([] as VNextFutures1mRow[]),
   ]);
   const storedRows = groupSpotRowsToStoredRows(spotRaw);
   const candles = mapFutures1mToStoredCandles(f1Raw);

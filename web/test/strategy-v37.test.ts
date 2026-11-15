@@ -7,7 +7,7 @@ import {advanceLedger, createLedger, LANES, portfolioNets, summarizeAsset, type 
 import {CONTRACT, emptyRow} from '../shared/contract';
 import {claimSound, commitLedger, MAX_NOTICES, readHistory, readLedger, recentNotices, resetLedger} from '../src/strategy/store';
 import {splitTaipeiSpans, taipeiDayIndex, taipeiSpanStart, updateMarksFromPrices} from '../src/strategy/replay-helpers';
-import {fetchVNextFirstSpotTs} from '../src/vnext-adapter';
+import {fetchVNextFirstSpotTs, fetchVNextHistoryKind} from '../src/vnext-adapter';
 
 const T = 20 * HOUR;
 const long = STRATEGIES.find(s => s.asset === 'BTC' && s.side === 1 && s.add === 'A3')!;
@@ -367,5 +367,31 @@ test('splitTaipeiSpans splits multi-day ranges at 00:00 Asia/Taipei without cros
   assert.ok(spans[i].to - spans[i].from <= 6 * HOUR);
   assert.equal(taipeiDayIndex(spans[i].from), taipeiDayIndex(spans[i].to - MINUTE));
   if (i > 0) assert.equal(spans[i].from, spans[i - 1].to);
+ }
+});
+
+test('fetchVNextHistoryKind runs high-priority manual requests ahead of low-priority background replay', async () => {
+ const realFetch = globalThis.fetch;
+ const order: string[] = [];
+ let releaseFirst!: () => void;
+ const firstGate = new Promise<void>(resolve => { releaseFirst = resolve; });
+ let callIdx = 0;
+ globalThis.fetch = (async (input: RequestInfo | URL) => {
+  const url = String(input);
+  const tag = new URL(url, 'https://example.invalid').searchParams.get('asset') ?? '';
+  order.push(tag);
+  if (callIdx++ === 0) await firstGate;
+  return new Response(JSON.stringify({ok: true, data: []}), {status: 200});
+ }) as typeof fetch;
+ try {
+  const p0 = fetchVNextHistoryKind('futures_1m', T, T + MINUTE, {asset: 'SOL', priority: 'low'});
+  await new Promise(r => setTimeout(r, 10));
+  const pLow = fetchVNextHistoryKind('futures_1m', T, T + MINUTE, {asset: 'ETH', priority: 'low'});
+  const pHigh = fetchVNextHistoryKind('futures_1m', T, T + MINUTE, {asset: 'BTC', priority: 'high'});
+  releaseFirst();
+  await Promise.all([p0, pLow, pHigh]);
+  assert.deepEqual(order, ['SOL', 'BTC', 'ETH']);
+ } finally {
+  globalThis.fetch = realFetch;
  }
 });
