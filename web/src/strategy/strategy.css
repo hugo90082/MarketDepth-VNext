@@ -90,6 +90,7 @@
 .v37-stat-box { display: flex; flex-direction: column; gap: 2px; }
 .v37-stat-box span { font-size: 11px; color: var(--strategy-muted); }
 .v37-stat-box strong { font: 700 14px/1.2 var(--mono, monospace); font-variant-numeric: tabular-nums; }
+.v37-stat-box small { font-size: 10px; color: var(--strategy-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .v37-summaries { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 6px 8px; }
 .v37-sidebar .v37-summaries { grid-template-columns: minmax(0, 1fr); padding: 6px; }
@@ -268,7 +269,7 @@
 .v37-strat-id code { font: 700 12px var(--mono, monospace); }
 .v37-strat-metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
   font: 11px var(--mono, monospace);
   font-variant-numeric: tabular-nums;

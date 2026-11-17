@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import 'fake-indexeddb/auto';
 import {advanceStrategy, emptyStrategy, HOUR, MINUTE, priceFeatures, remaining, STRATEGIES, strategyDepth,
  type DepthPoint, type PriceBar, type Strategy, type StrategyState} from '../shared/strategy-v37';
-import {advanceLedger, createLedger, LANES, portfolioNets, summarizeAsset, type LaneInput, type Notice} from '../shared/strategy-v37-ledger';
+import {advanceLedger, createLedger, LANES, portfolioDrawdowns, portfolioNets, summarizeAsset, type LaneInput, type Notice} from '../shared/strategy-v37-ledger';
 import {CONTRACT, emptyRow} from '../shared/contract';
 import {claimSound, commitLedger, MAX_NOTICES, readHistory, readLedger, recentNotices, resetLedger} from '../src/strategy/store';
 import {splitTaipeiSpans, taipeiDayIndex, taipeiSpanStart, updateMarksFromPrices} from '../src/strategy/replay-helpers';
@@ -394,4 +394,44 @@ test('fetchVNextHistoryKind runs high-priority manual requests ahead of low-prio
  } finally {
   globalThis.fetch = realFetch;
  }
+});
+
+test('per-strategy and portfolio max drawdown follow minute-close equity, rank two episodes, and match summarizeAsset', () => {
+ const {ledger, lane, index} = setup();
+ lane.states[index] = started(long);
+ const closes = [100, 104, 97, 99, 106];
+ const path = new Map<string, LaneInput>(LANES.map(definition => [definition.key, {
+  bar: t => {const i = (t - T) / MINUTE; return Number.isInteger(i) && i >= 0 && i < closes.length ? bar(t, closes[i]) : undefined;},
+  point: t => point(t, .40),
+  features: () => null,
+ }]));
+ const end = T + 4 * MINUTE;
+ const result = advanceLedger(ledger, path, end);
+ assert.equal(result.more, false);
+ const eq = (price: number) => -0.4 + 1000 * (price / 100 - 1 - 0.0004);
+ const track = lane.dd![index];
+ near(track.eq, eq(106));
+ near(track.peak, eq(106));
+ near(track.max, eq(104) - eq(97));
+ assert.equal(track.maxAt, T + 2 * MINUTE);
+ assert.equal(track.maxPeakAt, T + MINUTE);
+ const portfolio = ledger.portfolio!;
+ assert.equal(portfolio.through, end);
+ near(portfolio.eq, eq(106));
+ assert.equal(portfolio.cur, null);
+ const [first, second] = portfolioDrawdowns(ledger);
+ near(first.depth, eq(104) - eq(97));
+ assert.equal(first.peakAt, T + MINUTE);
+ assert.equal(first.troughAt, T + 2 * MINUTE);
+ assert.equal(first.endAt, end);
+ near(second.depth, -eq(100));
+ assert.equal(portfolioDrawdowns(ledger).length, 2);
+ ledger.marks.BTC = {at: end, price: 106, fresh: true};
+ const summary = summarizeAsset('BTC', ledger);
+ near(summary.total!, portfolio.eq);
+ // Re-running the same target must not double count any minute.
+ advanceLedger(ledger, path, end);
+ near(ledger.portfolio!.eq, eq(106));
+ assert.equal(ledger.portfolio!.through, end);
+ assert.equal(ledger.lanes[laneKey].dd![index].max, track.max);
 });

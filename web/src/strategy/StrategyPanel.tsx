@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useRef, useState, useSyncExternalStore} from 'react';
 import {ASSETS, type Asset} from '../../shared/model';
 import {floating, HOUR, NOTIONAL, remaining, type ClosedEpisode, type Fill, type Strategy} from '../../shared/strategy-v37';
-import {LANES, shownStates, summarizeAsset, type AssetPnlSummary, type Lane, type LaneDefinition, type Ledger, type Notice} from '../../shared/strategy-v37-ledger';
+import {LANES, portfolioDrawdowns, shownStates, summarizeAsset, type AssetPnlSummary, type DrawdownEpisode, type Lane, type LaneDefinition, type Ledger, type Notice} from '../../shared/strategy-v37-ledger';
 import {marketRuntime} from '../runtime/client';
 import {dateTime} from '../format';
 import {strategyRuntime, type ResetHorizon} from './runtime';
@@ -99,7 +99,7 @@ function TimelineBar({ledger, summaries, catchingUp}: {ledger: Ledger | null; su
  </div>;
 }
 
-function PortfolioStrip({summaries, scale}: {summaries: AssetPnlSummary[]; scale: number}) {
+function PortfolioStrip({summaries, scale, ledger}: {summaries: AssetPnlSummary[]; scale: number; ledger: Ledger | null}) {
  const started = summaries.some(s => s.startedLanes > 0);
  const longTotal = summaries.reduce((s, x) => s + x.longNotional, 0);
  const shortTotal = summaries.reduce((s, x) => s + x.shortNotional, 0);
@@ -108,6 +108,17 @@ function PortfolioStrip({summaries, scale}: {summaries: AssetPnlSummary[]; scale
  const hasUnrealized = summaries.some(s => s.unrealized !== null);
  const unrealized = hasUnrealized ? summaries.reduce((s, x) => s + (x.unrealized ?? 0), 0) : null;
  const total = started ? realized + (unrealized ?? 0) : null;
+ const drawdowns = portfolioDrawdowns(ledger);
+ const curve = ledger?.portfolio;
+ const currentDrawdown = curve && curve.through !== null ? Math.max(0, curve.peak - curve.eq) : null;
+ const drawdownBox = (label: string, episode: DrawdownEpisode | undefined) => <div className="v37-stat-box"
+  title={episode
+   ? `高點 ${timestamp(episode.peakAt)} → 谷底 ${timestamp(episode.troughAt)}${episode.endAt === null ? '，尚未回到前高' : `，於 ${timestamp(episode.endAt)} 回到前高`}。以每分鐘收盤標記計算（含預估平倉費）；目前距前高 ${currentDrawdown === null ? '—' : money.format(currentDrawdown * scale)} USD`
+   : curve && curve.through !== null ? '尚無回撤紀錄' : '等待全部區間就緒後計算'}>
+  <span>{label}</span>
+  <strong className={episode ? 'v37-negative' : ''}>{episode ? '-' + money.format(episode.depth * scale) + ' USD' : '—'}</strong>
+  {episode && <small>{dateTime(episode.peakAt)} → {dateTime(episode.troughAt)}{episode.endAt === null ? ' · 未回復' : ''}</small>}
+ </div>;
  return <div className="v37-portfolio-strip" aria-label="全商品策略組合彙總">
   <div className="v37-stat-box"><span>虛擬多方總名目</span><strong className="v37-long-text">{money.format(longTotal * scale)} USD</strong></div>
   <div className="v37-stat-box"><span>虛擬空方總名目</span><strong className="v37-short-text">{money.format(shortTotal * scale)} USD</strong></div>
@@ -115,6 +126,8 @@ function PortfolioStrip({summaries, scale}: {summaries: AssetPnlSummary[]; scale
   <div className="v37-stat-box"><span>總已實現盈虧</span><strong className={tone(started ? realized : null)}>{signed(started ? realized : null, scale)} USD</strong></div>
   <div className="v37-stat-box" title="未平倉持倉依最新合約標記價估算，已扣除預估平倉 4 bps 費用"><span>總未實現盈虧</span><strong className={tone(unrealized)}>{signed(unrealized, scale)} USD</strong></div>
   <div className="v37-stat-box"><span>組合總盈虧</span><strong className={tone(total)}>{signed(total, scale)} USD</strong></div>
+  {drawdownBox('組合最大回撤', drawdowns[0])}
+  {drawdownBox('組合第二大回撤', drawdowns[1])}
  </div>;
 }
 
@@ -235,6 +248,7 @@ function StrategyCard({strategy, lane, index, markPrice, historyVersion, scale}:
  const realized = closedPnl + (current?.cash ?? 0);
  const unrealized = current && markPrice !== null ? floating(current, strategy.side, markPrice) : (isOpen ? null : (lane?.through != null ? 0 : null));
  const total = lane?.through != null ? (unrealized !== null ? realized + unrealized : realized) : null;
+ const drawdown = lane?.dd?.[index];
  const pendingAct = state?.pending[0];
  const statusPill = isOpen
   ? <span className={strategy.side === 1 ? 'v37-pill v37-pill-long' : 'v37-pill v37-pill-short'}>
@@ -260,6 +274,9 @@ function StrategyCard({strategy, lane, index, markPrice, historyVersion, scale}:
     <div><span>未實現 USD</span><b className={tone(unrealized)}>{signed(unrealized, scale)}</b></div>
     <div><span>總計 USD</span><b className={tone(total)}>{signed(total, scale)}</b></div>
     <div><span>結束回合</span><b>{lane?.through != null ? closedCount : '—'}</b></div>
+    <div title={drawdown && drawdown.maxAt !== null ? `高點 ${timestamp(drawdown.maxPeakAt ?? drawdown.maxAt)} → 谷底 ${timestamp(drawdown.maxAt)}；以每分鐘收盤標記計算` : '尚無回撤'}>
+     <span>最大回撤 USD</span><b className={drawdown && drawdown.max > 0 ? 'v37-negative' : ''}>{drawdown ? (drawdown.max > 0 ? '-' : '') + money.format(drawdown.max * scale) : '—'}</b>
+    </div>
    </div>
   </summary>
   {expanded && <div className="v37-strat-body">
@@ -494,7 +511,7 @@ export function StrategyPanel({asset}: {asset?: Asset}) {
   {error && <p role="status" className="v37-message">{error}</p>}
   {capable === false && <p role="status" className="v37-message">請重新整理目前負責收集行情的分頁，以啟用策略。</p>}
   <TimelineBar ledger={ledger} summaries={summaries} catchingUp={catchingUp}/>
-  {!asset && <PortfolioStrip summaries={summaries} scale={scale}/>}
+  {!asset && <PortfolioStrip summaries={summaries} scale={scale} ledger={ledger}/>}
   <div className="v37-summaries">
    {(asset ? [currentSummary!] : summaries).map(s => <SummaryCard key={s.asset} summary={s} scale={scale} replaying={!!ledger?.replay}/>)}
   </div>
@@ -511,7 +528,7 @@ export function StrategyPanel({asset}: {asset?: Asset}) {
     </header>
     {open && <>
      <TimelineBar ledger={ledger} summaries={summaries} catchingUp={catchingUp}/>
-     <PortfolioStrip summaries={summaries} scale={scale}/>
+     <PortfolioStrip summaries={summaries} scale={scale} ledger={ledger}/>
      <div className="v37-tabs" role="group" aria-label="策略商品" style={{padding:'6px 8px 0'}}>
       {ASSETS.map(item => <button className="v37-button" key={item} type="button"
        aria-pressed={selectedAsset === item} onClick={() => select(item)}>{item}</button>)}

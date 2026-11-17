@@ -12,9 +12,17 @@ export const LANES = ASSETS.flatMap(asset => DEPTH_LIMITS.map((limit, zone) => (
 })));
 export type LaneDefinition = typeof LANES[number];
 type Gap = {at: number; reason: 'price' | 'depth'; through: number; states: StrategyState[]; records: ClosedEpisode[]};
+/** Per-strategy equity tracker measured at each confirmed minute close (realized + open cash + floating). */
+export type StrategyDrawdown = {eq: number; peak: number; peakAt: number | null; max: number; maxAt: number | null; maxPeakAt: number | null};
+export type DrawdownEpisode = {depth: number; peakAt: number; troughAt: number; endAt: number | null};
+export type PortfolioCurve = {
+ through: number | null; eq: number; peak: number; peakAt: number | null;
+ cur: DrawdownEpisode | null; top: DrawdownEpisode[];
+};
 export type Lane = {
  through: number | null; firstAt?: number | null; states: StrategyState[]; window: (DepthPoint | null)[];
  gap: Gap | null; review: ClosedEpisode[]; quality: DepthPoint['quality'] | null;
+ dd?: StrategyDrawdown[]; eqBuf?: [number, number][];
 };
 export type Mark = {at: number; price: number; fresh: boolean};
 type Nets = Record<Asset, number>;
@@ -47,7 +55,7 @@ type Replay = {from: number; through: number; before: Nets; closed: number; corr
 export type Ledger = {
  version: typeof STRATEGY_VERSION; revision: number; from: number; firstReadyAt?: number | null;
  lanes: Record<string, Lane>; marks: Partial<Record<Asset, Mark>>; replay: Replay | null;
- historyVersions: Record<string, number>;
+ historyVersions: Record<string, number>; portfolio?: PortfolioCurve;
 };
 export type LaneInput = {
  bar(t: number): PriceBar | undefined;
@@ -57,12 +65,93 @@ export type LaneInput = {
 
 type FillDraft = Omit<Notice, 'id' | 'kind' | 'netBefore' | 'netAfter' | 'historical'> & {delta: number; seq: number};
 
+const emptyDrawdown = (): StrategyDrawdown => ({eq: 0, peak: 0, peakAt: null, max: 0, maxAt: null, maxPeakAt: null});
+const emptyPortfolio = (): PortfolioCurve => ({through: null, eq: 0, peak: 0, peakAt: null, cur: null, top: []});
+
 export function createLedger(target: number, from = target - 8 * HOUR): Ledger {
  const alignedFrom = Math.floor(from / MINUTE) * MINUTE;
  return {version: STRATEGY_VERSION, revision: 0, from: alignedFrom, firstReadyAt: null,
   lanes: Object.fromEntries(LANES.map(lane => [lane.key, {
    through: null, firstAt: null, states: lane.strategies.map(emptyStrategy), window: [], gap: null, review:[], quality: null,
-  }])), marks: {}, replay: null, historyVersions: {}};
+   dd: lane.strategies.map(emptyDrawdown), eqBuf: [],
+  }])), marks: {}, replay: null, historyVersions: {}, portfolio: emptyPortfolio()};
+}
+
+/** Record one confirmed minute close. Without a bar (sealed price gap) equity is carried unchanged. */
+function trackEquity(lane: Lane, strategies: readonly Strategy[], t: number, bar?: PriceBar) {
+ const dd = lane.dd ??= strategies.map(emptyDrawdown);
+ const buf = lane.eqBuf ??= [];
+ let sum = 0;
+ for (let i = 0; i < strategies.length; i++) {
+  const state = lane.states[i], track = dd[i];
+  const eq = bar === undefined ? track.eq
+   : state.closedPnl + (state.episode ? state.episode.cash + floating(state.episode, strategies[i].side, bar.c) : 0);
+  track.eq = eq;
+  if (eq >= track.peak) {
+   track.peak = eq;
+   track.peakAt = t;
+  } else if (track.peak - eq > track.max) {
+   track.max = track.peak - eq;
+   track.maxAt = t;
+   track.maxPeakAt = track.peakAt;
+  }
+  sum += eq;
+ }
+ buf.push([t, sum]);
+}
+
+function rankEpisodes(portfolio: PortfolioCurve): DrawdownEpisode[] {
+ return [...portfolio.top, ...(portfolio.cur ? [portfolio.cur] : [])].sort((a, b) => b.depth - a.depth).slice(0, 2);
+}
+/** Largest and second-largest distinct portfolio drawdown episodes (an unrecovered one counts). */
+export const portfolioDrawdowns = (ledger: Ledger | null) => ledger?.portfolio ? rankEpisodes(ledger.portfolio) : [];
+
+/** Fold per-lane confirmed minutes into one portfolio curve, only through the minute all lanes have confirmed. */
+function updatePortfolio(ledger: Ledger) {
+ const portfolio = ledger.portfolio ??= emptyPortfolio();
+ let common = Infinity, first = Infinity;
+ for (const definition of LANES) {
+  const lane = ledger.lanes[definition.key];
+  if (lane.through === null) return;
+  common = Math.min(common, lane.through);
+  const head = lane.eqBuf?.[0]?.[0];
+  if (head !== undefined) first = Math.min(first, head);
+ }
+ const startAt = portfolio.through === null ? first : portfolio.through + MINUTE;
+ if (!Number.isFinite(startAt) || startAt > common) return;
+ const cursors = LANES.map(definition => ({buf: ledger.lanes[definition.key].eqBuf ?? [], at: 0}));
+ for (let t = startAt; t <= common; t += MINUTE) {
+  let sum = 0;
+  for (const cursor of cursors) {
+   while (cursor.at + 1 < cursor.buf.length && cursor.buf[cursor.at + 1][0] <= t) cursor.at++;
+   const entry = cursor.buf[cursor.at];
+   if (entry && entry[0] <= t) sum += entry[1];
+  }
+  if (portfolio.through === null) {
+   portfolio.peak = Math.max(0, sum);
+   portfolio.peakAt = t;
+  }
+  portfolio.eq = sum;
+  portfolio.through = t;
+  if (sum >= portfolio.peak) {
+   if (portfolio.cur) {
+    portfolio.cur.endAt = t;
+    portfolio.top = rankEpisodes({...portfolio, top: [...portfolio.top, portfolio.cur], cur: null});
+    portfolio.cur = null;
+   }
+   portfolio.peak = sum;
+   portfolio.peakAt = t;
+  } else if (!portfolio.cur) {
+   portfolio.cur = {depth: portfolio.peak - sum, peakAt: portfolio.peakAt ?? t, troughAt: t, endAt: null};
+  } else if (portfolio.peak - sum > portfolio.cur.depth) {
+   portfolio.cur.depth = portfolio.peak - sum;
+   portfolio.cur.troughAt = t;
+  }
+ }
+ for (const definition of LANES) {
+  const lane = ledger.lanes[definition.key];
+  if (lane.eqBuf) lane.eqBuf = lane.eqBuf.filter(entry => entry[0] >= common);
+ }
 }
 
 export const shownStates = (lane: Lane) => lane.gap?.states ?? lane.states;
@@ -282,6 +371,7 @@ function advanceLane(lane: Lane, definition: LaneDefinition, input: LaneInput, f
      });
     }
     lane.through = next;
+    trackEquity(lane, strategies, next, bar);
     continue;
    }
    break;
@@ -296,6 +386,7 @@ function advanceLane(lane: Lane, definition: LaneDefinition, input: LaneInput, f
    drafts.push(...res.drafts);
   });
   lane.through = next;
+  trackEquity(lane, strategies, next, bar);
   lane.firstAt ??= next;
   lane.quality = point.quality;
  }
@@ -352,6 +443,7 @@ export function advanceLedger(ledger: Ledger, inputs: ReadonlyMap<string, LaneIn
  const remove = results.flatMap(result => result.remove);
  const allDrafts = results.flatMap(result => result.drafts).sort((a, b) => a.fillAt - b.fillAt || a.seq - b.seq);
  const more = results.some(result => result.more);
+ updatePortfolio(ledger);
 
  for (const definition of LANES) {
   const f = ledger.lanes[definition.key].firstAt ?? null;
