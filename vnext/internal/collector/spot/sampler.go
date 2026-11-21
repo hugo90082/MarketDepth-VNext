@@ -31,10 +31,16 @@ type Sampler struct {
 }
 
 func NewSampler(rest *RESTSource, kraken func(context.Context) (map[string]CapturedBook, error), feeds map[string]*BinanceFeed) (*Sampler, error) {
-	if rest == nil || kraken == nil || feeds["BTC"] == nil || feeds["ETH"] == nil {
-		return nil, errors.New("all required sources must be configured")
+	if rest == nil {
+		return nil, errors.New("rest source must be configured")
 	}
-	return &Sampler{rest: rest, kraken: kraken, binance: map[string]spotCut{"BTC": feeds["BTC"], "ETH": feeds["ETH"]}}, nil
+	b := map[string]spotCut{}
+	for _, a := range []string{"BTC", "ETH"} {
+		if feeds != nil && feeds[a] != nil {
+			b[a] = feeds[a]
+		}
+	}
+	return &Sampler{rest: rest, kraken: kraken, binance: b}, nil
 }
 
 type sampleInputs struct {
@@ -55,10 +61,10 @@ func (in sampleInputs) buildRows(t, available int64) ([]model.Row, error) {
 			var e error
 			switch v {
 			case "binance":
-				if a == "SOL" {
-					r, e = ExactCapturedRow(t, available, v, a, in.books[partKey(v, a, "exact")])
-				} else {
+				if _, hasCut := in.cuts[a]; hasCut {
 					r, e = BinanceCutRow(t, available, a, in.cuts[a])
+				} else {
+					r, e = ExactCapturedRow(t, available, v, a, in.books[partKey(v, a, "exact")])
 				}
 			case "coinbase":
 				r, e = ExactCapturedRow(t, available, v, a, in.books[partKey(v, a, "exact")])
@@ -161,7 +167,7 @@ func (s *Sampler) SampleAt(ctx context.Context, t int64) ([]model.Row, error) {
 	}
 	for _, v := range []string{"binance", "coinbase"} {
 		for _, a := range spotAssets {
-			if v == "binance" && a != "SOL" {
+			if v == "binance" && s.binance[a] != nil {
 				continue
 			}
 			v, a := v, a
@@ -178,15 +184,19 @@ func (s *Sampler) SampleAt(ctx context.Context, t int64) ([]model.Row, error) {
 		a := a
 		launch(partKey("kraken", a, "group"), func() (CapturedBook, error) { return s.rest.KrakenGrouped(batch, a) })
 	}
-	// Leave a short return/dispatch margin for partial WS results at deadline.
 	wsKey := "kraken:all:ws"
-	pending[wsKey] = true
-	go func() {
-		wctx, wcancel := context.WithDeadline(batch, deadline.Add(-100*time.Millisecond))
-		defer wcancel()
-		m, e := s.kraken(wctx)
-		results <- sampleResult{key: wsKey, ws: m, err: e}
-	}()
+	if s.kraken != nil {
+		// Leave a short return/dispatch margin for partial WS results at deadline.
+		pending[wsKey] = true
+		go func() {
+			wctx, wcancel := context.WithDeadline(batch, deadline.Add(-100*time.Millisecond))
+			defer wcancel()
+			m, e := s.kraken(wctx)
+			results <- sampleResult{key: wsKey, ws: m, err: e}
+		}()
+	} else {
+		launch(partKey("kraken", "SOL", "fallback"), func() (CapturedBook, error) { return s.rest.KrakenFallback(batch, "SOL") })
+	}
 	// A bounded processing grace does not widen capture acceptance.
 	timer := time.NewTimer(time.Until(deadline.Add(150 * time.Millisecond)))
 	defer timer.Stop()
@@ -265,6 +275,9 @@ collecting:
 		return nil, e
 	}
 	for _, a := range []string{"BTC", "ETH"} {
+		if s.binance[a] == nil {
+			continue
+		}
 		c, e := s.binance[a].Cut(t)
 		if e != nil {
 			in.failures[partKey("binance", a, "cut")] = e.Error()

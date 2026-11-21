@@ -396,23 +396,11 @@ func runWithWeb(ctx context.Context, profile runtimeprofile.Profile, root, addr,
 	if e = j.CanCollectDay(ctx, model.Day(first)); e != nil {
 		return e
 	}
-	feeds := map[string]*spot.BinanceFeed{}
-	for _, a := range []string{"BTC", "ETH"} {
-		f, e := spot.NewBinanceFeed(a, first)
-		if e != nil {
-			return e
-		}
-		feeds[a] = f
-	}
-	sampler, e := spot.NewSampler(spot.NewRESTSource(), spot.KrakenWS, feeds)
+	sampler, e := spot.NewSampler(spot.NewRESTSource(), nil, nil)
 	if e != nil {
 		return e
 	}
 	fc, e := futures.NewCollector(first)
-	if e != nil {
-		return e
-	}
-	repair, e := futures.NewRepairWorker(j, q, futures.NewRESTClient())
 	if e != nil {
 		return e
 	}
@@ -485,27 +473,6 @@ func runWithWeb(ctx context.Context, profile runtimeprofile.Profile, root, addr,
 				h.update(false, t)
 			}
 		},
-		func(ctx context.Context) error {
-			for {
-				if e := service.WaitUntil(ctx, time.Now().Add(time.Minute)); e != nil {
-					return e
-				}
-				s, e := repair.Cycle(ctx)
-				if e != nil {
-					return e
-				}
-				if s.Attempted > 0 {
-					log.Printf("repair attempted=%d recovered=%d failed=%d", s.Attempted, s.Recovered, s.Failed)
-				}
-			}
-		},
-	}
-	for a, f := range feeds {
-		a, f := a, f
-		workers = append(workers, func(ctx context.Context) error {
-			f.Run(ctx, func(s string) { log.Printf("binance %s: %s", a, s) })
-			return ctx.Err()
-		})
 	}
 	if backup != nil {
 		workers = append(workers, func(ctx context.Context) error { return archiveLoop(ctx, backup, archiveReader, h) }, func(ctx context.Context) error { return capacityLoop(ctx, backup, archiveReader, gate, h, allowLoss) })

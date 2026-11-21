@@ -3,7 +3,6 @@ package futures
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -11,7 +10,7 @@ import (
 	"github.com/hugo90082/MarketDepth-VNext/vnext/internal/model"
 )
 
-const MarketStreamURL = "wss://fstream.binance.com/market/stream?streams=btcusdt@aggTrade/ethusdt@aggTrade/solusdt@aggTrade/btcusdt@kline_1m/ethusdt@kline_1m/solusdt@kline_1m"
+const MarketStreamURL = "wss://fstream.binance.com/market/stream?streams=btcusdt@kline_1m/ethusdt@kline_1m/solusdt@kline_1m"
 const FinalizeDelay = 2 * time.Second
 
 var assets = []string{"BTC", "ETH", "SOL"}
@@ -22,15 +21,17 @@ type minuteKey struct {
 }
 
 // Collector admits messages and finalizes all assets under a common lock.
-// Only admission before finalization may affect a stored row. For the live
-// path now is time.Now; tests inject a clock. Bounded memory, no raw history.
+// Lightweight mode: subscribes only to 1m kline streams and records a single
+// close price every 10s (no high-frequency aggTrade tick processing).
 type Collector struct {
-	mu        sync.Mutex
-	now       func() time.Time
-	next      int64
-	windows   map[string]*Window
-	minutes   map[minuteKey]model.Futures1Row
-	conflicts map[minuteKey]bool
+	mu          sync.Mutex
+	now         func() time.Time
+	next        int64
+	windows     map[string]*Window
+	minutes     map[minuteKey]model.Futures1Row
+	conflicts   map[minuteKey]bool
+	lastPrice   map[string]float64
+	lastPriceAt map[string]int64
 }
 
 func NewCollector(first int64) (*Collector, error) { return newCollector(first, time.Now) }
@@ -38,7 +39,15 @@ func newCollector(first int64, now func() time.Time) (*Collector, error) {
 	if now == nil {
 		return nil, errors.New("clock required")
 	}
-	c := &Collector{now: now, next: first, windows: map[string]*Window{}, minutes: map[minuteKey]model.Futures1Row{}, conflicts: map[minuteKey]bool{}}
+	c := &Collector{
+		now:         now,
+		next:        first,
+		windows:     map[string]*Window{},
+		minutes:     map[minuteKey]model.Futures1Row{},
+		conflicts:   map[minuteKey]bool{},
+		lastPrice:   map[string]float64{},
+		lastPriceAt: map[string]int64{},
+	}
 	for _, a := range assets {
 		w, e := NewWindow(a, first, MaxWindowTrades-1)
 		if e != nil {
@@ -81,7 +90,11 @@ func (c *Collector) Accept(raw []byte) error {
 		}
 		return c.windows[x.Asset].Add(x)
 	case strings.HasSuffix(msg.Stream, "@kline_1m"):
-		r, e := ParseWSKline(msg.Data, at)
+		r, asset, closePx, e := ParseWSKlineWithPrice(msg.Data, at)
+		if asset != "" && closePx > 0 {
+			c.lastPrice[asset] = closePx
+			c.lastPriceAt[asset] = at
+		}
 		if errors.Is(e, ErrOpenKline) {
 			return nil
 		}
@@ -135,21 +148,25 @@ func (c *Collector) Finalize(t int64) ([]model.Row, error) {
 		return nil, errors.New("unexpected bucket or grace not elapsed")
 	}
 	rows := make([]model.Row, 0, 6)
-	for _, a := range assets {
-		r, e := c.windows[a].Finalize(t, cut)
-		if e != nil {
-			return nil, fmt.Errorf("%s finalize: %w", a, e)
-		}
-		rows = append(rows, r)
-	}
 	at := c.now().UnixMilli()
 	if at < cut {
 		return nil, errors.New("clock moved backwards")
 	}
-	for i, r := range rows {
-		x := r.(model.Futures10Row)
-		x.AvailableAt = model.Ptr(at)
-		rows[i] = x
+	for _, a := range assets {
+		px, ok := c.lastPrice[a]
+		pxAt := c.lastPriceAt[a]
+		if ok && px > 0 && at-pxAt <= 60000 {
+			q, _ := json.Marshal(map[string]any{"method": "kline_1m_close_10s"})
+			rows = append(rows, model.Futures10Row{
+				Common: model.Common{T: t, AvailableAt: model.Ptr(at), Asset: a, Status: "ok", Source: model.Ptr(model.LiveSource), Quality: model.Ptr(string(q)), Revision: 1},
+				OHLC:   model.OHLC{Close: model.Ptr(px)},
+			})
+		} else {
+			q, _ := json.Marshal(map[string]any{"method": "kline_1m_close_10s", "reason": "no_recent_price"})
+			rows = append(rows, model.Futures10Row{
+				Common: model.Common{T: t, AvailableAt: model.Ptr(at), Asset: a, Status: "missing", Source: model.Ptr(model.LiveSource), Quality: model.Ptr(string(q)), Revision: 1},
+			})
+		}
 	}
 	end := t + 10000
 	if end%60000 == 0 {

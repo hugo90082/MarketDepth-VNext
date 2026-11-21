@@ -161,7 +161,7 @@ func OpenDaily(ctx context.Context, db *sql.DB, day string) (*Daily, error) {
 	if !strings.EqualFold(mode, "wal") {
 		return nil, errors.New("WAL not enabled")
 	}
-	for _, q := range []string{"PRAGMA synchronous=FULL", "PRAGMA foreign_keys=ON", "PRAGMA wal_autocheckpoint=1000"} {
+	for _, q := range []string{"PRAGMA synchronous=NORMAL", "PRAGMA foreign_keys=ON", "PRAGMA wal_autocheckpoint=1000"} {
 		if _, e := db.ExecContext(ctx, q); e != nil {
 			return nil, e
 		}

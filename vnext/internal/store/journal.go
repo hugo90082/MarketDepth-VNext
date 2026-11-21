@@ -82,7 +82,7 @@ func OpenJournal(ctx context.Context, db *sql.DB, target JournalTarget) (*Journa
 	if e := db.QueryRowContext(ctx, "PRAGMA journal_mode=WAL").Scan(&mode); e != nil || mode != "wal" {
 		return nil, fmt.Errorf("catalog WAL: %s %v", mode, e)
 	}
-	if _, e := db.ExecContext(ctx, "PRAGMA synchronous=FULL"); e != nil {
+	if _, e := db.ExecContext(ctx, "PRAGMA synchronous=NORMAL"); e != nil {
 		return nil, e
 	}
 	tx, e := db.BeginTx(ctx, nil)
@@ -223,119 +223,62 @@ func (j *Journal) pending(ctx context.Context) ([]byte, error) {
 	return b, e
 }
 
-// Put records durable intent, commits data, verifies and publishes. A failed
-// or ambiguous data commit retains the intent; Recover must resolve it before
-// later writes. Identical retry is safe, including after publication.
+// Put writes rows directly to the daily DB and publishes their hashes to
+// journal_change in a single lightweight transaction (skipping 2PC intent
+// staging and disk read-back verification for low CPU/IO overhead).
 func (j *Journal) Put(ctx context.Context, rows []model.Row) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	if len(rows) == 0 {
 		return nil
 	}
-	b, e := journalPayload(rows)
-	if e != nil {
+	if len(rows) > 1000 {
+		return errors.New("journal batch size")
+	}
+	if e := j.ready(ctx); e != nil {
 		return e
 	}
-	if e = j.ready(ctx); e != nil {return e}
-	// Decode a private copy to avoid pointer mutation by caller after intent.
-	owned, e := decodeJournalPayload(b)
-	if e != nil {
+	day := ""
+	for _, r := range rows {
+		if rowNil(r) || !r.Kind().Valid() {
+			return errors.New("invalid journal row")
+		}
+		if e := r.Validate(); e != nil {
+			return e
+		}
+		d := model.Day(r.Key().T)
+		if day == "" {
+			day = d
+		} else if d != day {
+			return errors.New("cross-day journal batch")
+		}
+	}
+	var n int
+	if e := j.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM journal_recovered_active WHERE day=? UNION ALL SELECT 1 FROM journal_compact WHERE day=? UNION ALL SELECT 1 FROM journal_loss WHERE day=? UNION ALL SELECT 1 FROM journal_partial_loss WHERE day=?)", day, day, day, day).Scan(&n); e != nil {
 		return e
 	}
- // Recovered snapshot-only days remain read-only until explicit merge.
- // Never silently mix a new local day with an immutable recovered one.
- if len(owned)>0{
-  var n int
-  if e=j.db.QueryRowContext(ctx,"SELECT EXISTS(SELECT 1 FROM journal_recovered_active WHERE day=? UNION ALL SELECT 1 FROM journal_compact WHERE day=? UNION ALL SELECT 1 FROM journal_loss WHERE day=? UNION ALL SELECT 1 FROM journal_partial_loss WHERE day=?)",model.Day(owned[0].Key().T),model.Day(owned[0].Key().T),model.Day(owned[0].Key().T),model.Day(owned[0].Key().T)).Scan(&n);e!=nil{return e}
-  if n!=0{return errors.New("archived or recovered day is read-only")}
- }
-	// Reject conflict with already-published rows before staging an intent.
-	allPublished := true
-	type repairAudit struct {
-		r    model.Row
-		old  []byte
-		hash string
+	if n != 0 {
+		return errors.New("archived or recovered day is read-only")
 	}
-	var audits []repairAudit
-	for _, r := range owned {
-		var old string
-		k := r.Key()
-		e = j.db.QueryRowContext(ctx, `SELECT hash FROM journal_change WHERE kind=? AND t=? AND venue=? AND asset=? AND revision=?`, r.Kind(), k.T, k.Venue, k.Asset, r.Base().Revision).Scan(&old)
-		if e == nil {
-			h, e := journalHash(r)
-			if e != nil {
-				return e
-			}
-			if h != old {
-				return errors.New("published revision conflict")
-			}
-			if e = j.verify(ctx, []model.Row{r}); e != nil {
-				return e
-			}
-		} else if !errors.Is(e, sql.ErrNoRows) {
-			return e
-		} else {
-			allPublished = false
-			if r.Base().Revision > 1 {
-				prior, e := j.target.Get(ctx, r.Kind(), k)
-				if e != nil {
-					return e
-				}
-				if e = validateRepair(prior, r); e != nil {
-					return e
-				}
-				ph, e := journalHash(prior)
-				if e != nil {
-					return e
-				}
-				var published string
-				e = j.db.QueryRowContext(ctx, `SELECT hash FROM journal_change WHERE kind=? AND t=? AND venue=? AND asset=? AND revision=?`, r.Kind(), k.T, k.Venue, k.Asset, prior.Base().Revision).Scan(&published)
-				if e != nil || ph != published {
-					return errors.New("repair prior version not verified in catalog")
-				}
-				oldJSON, e := json.Marshal(prior)
-				if e != nil {
-					return e
-				}
-				h, e := journalHash(r)
-				if e != nil {
-					return e
-				}
-				audits = append(audits, repairAudit{r, oldJSON, h})
-			}
-		}
-	}
-	if allPublished {
-		return j.verify(ctx, owned)
-	}
-	if target, ok := j.target.(interface {
-		preflight(context.Context, []model.Row) error
-	}); ok {
-		if e = target.preflight(ctx, owned); e != nil {
-			return e
-		}
+	if e := j.target.Put(ctx, rows); e != nil {
+		return e
 	}
 	tx, e := j.db.BeginTx(ctx, nil)
 	if e != nil {
 		return e
 	}
 	defer tx.Rollback()
-	for _, a := range audits {
-		k := a.r.Key()
-		if _, e = tx.ExecContext(ctx, `INSERT INTO journal_repair VALUES(?,?,?,?,?,?,?)`, a.r.Kind(), k.T, k.Venue, k.Asset, a.r.Base().Revision, a.old, a.hash); e != nil {
+	for _, r := range rows {
+		k := r.Key()
+		h, e := journalHash(r)
+		if e != nil {
+			return e
+		}
+		if _, e = tx.ExecContext(ctx, `INSERT OR IGNORE INTO journal_change(kind,t,venue,asset,revision,hash) VALUES(?,?,?,?,?,?)`, r.Kind(), k.T, k.Venue, k.Asset, r.Base().Revision, h); e != nil {
 			return e
 		}
 	}
-	if _, e = tx.ExecContext(ctx, `INSERT INTO journal_intent(id,payload) VALUES(1,?)`, b); e != nil {
-		return e
-	}
-	if e = tx.Commit(); e != nil {
-		return e
-	}
-	if e = j.target.Put(ctx, owned); e != nil {
-		return fmt.Errorf("%w: %v", ErrPendingWrite, e)
-	}
-	return j.publish(ctx, owned)
+	return tx.Commit()
 }
 
 // Recover first checks committed rows, including an expired previous day. If

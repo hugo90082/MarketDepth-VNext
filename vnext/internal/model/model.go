@@ -254,7 +254,7 @@ func (r Futures10Row) Validate() error {
 		}
 	}
 	if r.Source != nil && *r.Source == LiveSource && r.Status == "ok" {
-		if !all(r.Open, r.High, r.Low, r.Close, r.BuyQty, r.SellQty, r.BuyUSDT, r.SellUSDT) || r.AggCount == nil || *r.AggCount <= 0 {
+		if r.Close == nil {
 			return errors.New("incomplete ok bar")
 		}
 	}

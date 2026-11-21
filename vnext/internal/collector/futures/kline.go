@@ -55,22 +55,36 @@ func makeKline(asset string, start, end, received, count int64, values []string,
 	return r, r.Validate()
 }
 func ParseWSKline(raw []byte, recv int64) (model.Futures1Row, error) {
+	r, _, _, e := ParseWSKlineWithPrice(raw, recv)
+	return r, e
+}
+
+// ParseWSKlineWithPrice parses a 1m kline WS payload and always returns the
+// latest asset and close price even while the 1m bar is still open.
+func ParseWSKlineWithPrice(raw []byte, recv int64) (model.Futures1Row, string, float64, error) {
 	var w klineWire
 	var nested json.RawMessage
- if e:=binancewire.Object(raw,map[string]any{"e":&w.Event,"s":&w.Symbol,"k":&nested},nil);e!=nil{return model.Futures1Row{},e}
- if e:=binancewire.Object(nested,map[string]any{"t":&w.K.Start,"T":&w.K.End,"s":&w.K.Symbol,"i":&w.K.Interval,"x":&w.K.Closed,"n":&w.K.Count},map[string]any{"o":&w.K.Open,"h":&w.K.High,"l":&w.K.Low,"c":&w.K.Close,"v":&w.K.Volume,"q":&w.K.Quote,"V":&w.K.BuyQty,"Q":&w.K.BuyQuote});e!=nil {
-		return model.Futures1Row{}, e
+	if e := binancewire.Object(raw, map[string]any{"e": &w.Event, "s": &w.Symbol, "k": &nested}, nil); e != nil {
+		return model.Futures1Row{}, "", 0, e
+	}
+	if e := binancewire.Object(nested, map[string]any{"t": &w.K.Start, "T": &w.K.End, "s": &w.K.Symbol, "i": &w.K.Interval, "x": &w.K.Closed, "n": &w.K.Count}, map[string]any{"o": &w.K.Open, "h": &w.K.High, "l": &w.K.Low, "c": &w.K.Close, "v": &w.K.Volume, "q": &w.K.Quote, "V": &w.K.BuyQty, "Q": &w.K.BuyQuote}); e != nil {
+		return model.Futures1Row{}, "", 0, e
 	}
 	k := w.K
 	if w.Event != "kline" || w.Symbol != k.Symbol || k.Interval != "1m" || k.Start == nil || k.End == nil || k.Closed == nil || k.Count == nil {
-		return model.Futures1Row{}, errors.New("wrong or incomplete 1m kline")
-	}
-	if !*k.Closed {
-		return model.Futures1Row{}, ErrOpenKline
+		return model.Futures1Row{}, "", 0, errors.New("wrong or incomplete 1m kline")
 	}
 	a, e := assetForSymbol(w.Symbol)
 	if e != nil {
-		return model.Futures1Row{}, e
+		return model.Futures1Row{}, "", 0, e
 	}
-	return makeKline(a, *k.Start, *k.End, recv, *k.Count, []string{k.Open, k.High, k.Low, k.Close, k.Volume, k.Quote, k.BuyQty, k.BuyQuote}, "official_ws_1m")
+	closePx, e := strconv.ParseFloat(k.Close, 64)
+	if e != nil || closePx <= 0 {
+		return model.Futures1Row{}, a, 0, errors.New("invalid kline close price")
+	}
+	if !*k.Closed {
+		return model.Futures1Row{}, a, closePx, ErrOpenKline
+	}
+	r, e := makeKline(a, *k.Start, *k.End, recv, *k.Count, []string{k.Open, k.High, k.Low, k.Close, k.Volume, k.Quote, k.BuyQty, k.BuyQuote}, "official_ws_1m")
+	return r, a, closePx, e
 }

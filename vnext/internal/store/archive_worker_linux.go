@@ -368,25 +368,8 @@ func (w *ArchiveWorker) Cycle(ctx context.Context) (string, error) {
 			return "", e
 		}
 	}
-	if len(days) == 0 || days[len(days)-1] != today {
-		return "idle", nil
-	}
-	s, e := w.j.ActiveState(ctx, today)
-	if e != nil && !errors.Is(e, sql.ErrNoRows) {
-		return "", e
-	}
-	if s.Previous != nil {
-		return w.retire(ctx, today, s.Current.Manifest, false)
-	}
-	slot := now.Truncate(time.Hour)
-	if now.Before(slot.Add(time.Minute)) {
-		return "idle", nil
-	}
-	gen := archive.HourGeneration(slot)
-	if s.Current.Manifest.Generation >= gen {
-		return "idle", nil
-	}
-	return w.stageOne(ctx, today, gen, true)
+	// Hourly active snapshots disabled: archive once per day after rollover.
+	return "idle", nil
 }
 
 // ClearDisposableScratch reclaims only recognized scratch directories not

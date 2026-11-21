@@ -1,0 +1,42 @@
+name: Build Lightweight MarketDepth Binary
+on:
+  push:
+    branches:
+      - lite-collector-*
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: vnext
+    env:
+      CGO_ENABLED: '1'
+      GOOS: linux
+      GOARCH: amd64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Build marketdepth binary
+        run: |
+          set -eu
+          go mod download
+          go build -trimpath -tags live_ws,sqlite_integration,secure_auth -o "$RUNNER_TEMP/marketdepth" ./cmd/marketdepth
+          chmod 755 "$RUNNER_TEMP/marketdepth"
+          sha256sum "$RUNNER_TEMP/marketdepth" > "$RUNNER_TEMP/marketdepth.sha256"
+          ls -lh "$RUNNER_TEMP/marketdepth"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marketdepth-lite-linux-amd64
+          path: |
+            ${{ runner.temp }}/marketdepth
+            ${{ runner.temp }}/marketdepth.sha256
+          retention-days: 7
