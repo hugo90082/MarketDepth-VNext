@@ -89,13 +89,27 @@ func prepare(profile runtimeprofile.Profile, root string, init bool) error {
 	return nil
 }
 func meter(root string) service.Meter {
+	var mu sync.Mutex
+	var cachedUsed int64
+	var cachedAt time.Time
 	return func() (int64, int64, error) {
-		used, e := archive.MeasureAllocated(root)
-		if e != nil {
-			return 0, 0, e
+		mu.Lock()
+		used := cachedUsed
+		fresh := !cachedAt.IsZero() && time.Since(cachedAt) < 5*time.Minute
+		mu.Unlock()
+		if !fresh {
+			u, e := archive.MeasureAllocated(root)
+			if e != nil {
+				return 0, 0, e
+			}
+			mu.Lock()
+			cachedUsed = u
+			cachedAt = time.Now()
+			used = u
+			mu.Unlock()
 		}
 		var s syscall.Statfs_t
-		if e = syscall.Statfs(root, &s); e != nil {
+		if e := syscall.Statfs(root, &s); e != nil {
 			return 0, 0, e
 		}
 		if s.Bsize <= 0 || s.Bavail > uint64((1<<62)/s.Bsize) {
@@ -181,7 +195,7 @@ func archiveLoop(ctx context.Context, w *store.ArchiveWorker, reader *store.Arch
 		if e == nil && state == "idle" && reader != nil {
 			state, e = w.IdleMaintenance(ctx, reader)
 		}
-		wait := 15 * time.Second
+		wait := 5 * time.Minute
 		if e != nil {
 			if errors.Is(e, store.ErrArchivePreservation) {
 				return e
@@ -260,7 +274,7 @@ func capacityLoop(ctx context.Context, w *store.ArchiveWorker, r *store.ArchiveR
 		if s.Used >= archive.HardLimit || s.Free < service.MinRootFree {
 			return service.ErrCapacity
 		}
-		if e = service.WaitUntil(ctx, time.Now().Add(2*time.Second)); e != nil {
+		if e = service.WaitUntil(ctx, time.Now().Add(5*time.Minute)); e != nil {
 			return e
 		}
 	}
