@@ -53,7 +53,7 @@ func later(a, b int64) int64 {
 	return b
 }
 func ExactCapturedRow(t, available int64, venue, asset string, b *CapturedBook) (model.SpotRow, error) {
-	if !((venue == "binance" && asset == "SOL") || venue == "coinbase") || Symbol(venue, asset) == "" {
+	if !(venue == "binance" || venue == "coinbase") || Symbol(venue, asset) == "" {
 		return model.SpotRow{}, errors.New("wrong exact adapter")
 	}
 	if !validCapture(t, available, b) {

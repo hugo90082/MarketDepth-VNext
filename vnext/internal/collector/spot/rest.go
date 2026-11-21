@@ -113,7 +113,7 @@ func (s *RESTSource) Exact(ctx context.Context, venue, asset string) (CapturedBo
 	}
 	var endpoint string
 	switch {
-	case venue == "binance" && asset == "SOL":
+	case venue == "binance":
 		endpoint = "https://api.binance.com/api/v3/depth?symbol=" + url.QueryEscape(symbol) + "&limit=5000"
 	case venue == "coinbase":
 		endpoint = "https://api.exchange.coinbase.com/products/" + url.PathEscape(symbol) + "/book?level=2"
